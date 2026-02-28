@@ -1,13 +1,16 @@
-name: Release React to npm
+name: Release
 
 on:
     push:
-        tags:
-            - "react-v[0-9]+.[0-9]+.[0-9]+"
+        branches:
+            - main
+        paths:
+            - apps/client/package.json
+            - apps/react/package.json
 
 permissions:
     id-token: write
-    contents: read
+    contents: write
 
 jobs:
     release:
@@ -25,8 +28,11 @@ jobs:
 
             - run: pnpm install --frozen-lockfile
 
-            - run: pnpm turbo run --filter @page-use/react build
+            - run: pnpm turbo run build --filter @page-use/client --filter @page-use/react
 
-            - run: pnpm --filter @page-use/react publish --access public --no-git-checks
+            - run: pnpm changeset publish
               env:
                   NPM_CONFIG_PROVENANCE: true
+
+            - name: Push Tags
+              run: git push --follow-tags
