@@ -1,6 +1,6 @@
 {
     "name": "@page-use/react",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "type": "module",
     "main": "dist/index.mjs",
     "types": "dist/index.d.mts",
@@ -29,7 +29,7 @@
         "build:no-check": "tsc --noCheck"
     },
     "peerDependencies": {
-        "@page-use/client": ">=0.1.0",
+        "@page-use/client": ">=0.2.1",
         "react": ">=18.0.0",
         "react-dom": ">=18.0.0"
     },
