@@ -16,6 +16,11 @@
     "files": [
         "dist"
     ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/page-use-people/page-use",
+        "directory": "apps/react"
+    },
     "publishConfig": {
         "access": "public"
     },
