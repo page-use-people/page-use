@@ -1,0 +1,32 @@
+name: Release Client to npm
+
+on:
+    push:
+        tags:
+            - "client-v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+    id-token: write
+    contents: read
+
+jobs:
+    release:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: pnpm/action-setup@v4
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+                  registry-url: https://registry.npmjs.org
+                  cache: pnpm
+
+            - run: pnpm install --frozen-lockfile
+
+            - run: pnpm turbo run --filter @page-use/client build
+
+            - run: pnpm --filter @page-use/client publish --access public --no-git-checks
+              env:
+                  NPM_CONFIG_PROVENANCE: true

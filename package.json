@@ -1,0 +1,19 @@
+{
+    "name": "@page-use/mono",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "dev": "turbo run dev",
+        "build": "turbo run build",
+        "publish-client": "node --experimental-strip-types scripts/publish-client.mts",
+        "publish-react": "node --experimental-strip-types scripts/publish-react.mts",
+        "shell": "docker compose exec -it mono bash -l || docker compose run --build --rm --service-ports -it mono bash -l"
+    },
+    "packageManager": "pnpm@10.28.2",
+    "devDependencies": {
+        "@types/node": "^24",
+        "prettier": "3.8.1",
+        "tsx": "4.19.4",
+        "turbo": "2.8.1"
+    }
+}

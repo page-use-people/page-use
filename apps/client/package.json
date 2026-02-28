@@ -1,0 +1,30 @@
+{
+    "name": "@page-use/client",
+    "version": "0.1.0",
+    "type": "module",
+    "main": "dist/index.mjs",
+    "types": "dist/index.d.mts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.mjs",
+            "types": "./dist/index.d.mts"
+        }
+    },
+    "imports": {
+        "#client/*": "./dist/*"
+    },
+    "files": [
+        "dist"
+    ],
+    "publishConfig": {
+        "access": "public"
+    },
+    "scripts": {
+        "build": "tsc",
+        "build:no-check": "tsc --noCheck"
+    },
+    "devDependencies": {
+        "prettier": "3.8.1",
+        "typescript": "5.9.3"
+    }
+}

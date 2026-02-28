@@ -1,0 +1,40 @@
+{
+    "name": "@page-use/react",
+    "version": "0.1.0",
+    "type": "module",
+    "main": "dist/index.mjs",
+    "types": "dist/index.d.mts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.mjs",
+            "types": "./dist/index.d.mts"
+        }
+    },
+    "imports": {
+        "#react/*": "./dist/*"
+    },
+    "files": [
+        "dist"
+    ],
+    "publishConfig": {
+        "access": "public"
+    },
+    "scripts": {
+        "build": "tsc",
+        "build:no-check": "tsc --noCheck"
+    },
+    "peerDependencies": {
+        "@page-use/client": ">=0.1.0",
+        "react": ">=18.0.0",
+        "react-dom": ">=18.0.0"
+    },
+    "devDependencies": {
+        "@page-use/client": "workspace:*",
+        "@types/react": "19.1.8",
+        "@types/react-dom": "19.1.6",
+        "prettier": "3.8.1",
+        "react": "19.1.0",
+        "react-dom": "19.1.0",
+        "typescript": "5.9.3"
+    }
+}

@@ -1,0 +1,5 @@
+FROM node:24.1.0-bookworm-slim
+RUN corepack enable && corepack prepare pnpm@10.28.2 --activate
+RUN apt-get update && apt-get install -y --no-install-recommends wget ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN wget -qO - https://github.com/omranjamal/mono-cd/releases/latest/download/docker-install.sh | sh -
+WORKDIR /app
