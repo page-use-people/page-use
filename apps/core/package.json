@@ -19,7 +19,7 @@
     "scripts": {
         "build": "tsc",
         "build:no-check": "tsc --noCheck",
-        "dev": "concurrently -n tsc,node -c blue,green \"tsc --watch --preserveWatchOutput\" \"nodemon --watch dist --ext mjs --delay 2 dist/index.mjs\"",
+        "dev": "concurrently -n tsc,node -c blue,green \"tsc --watch --preserveWatchOutput\" \"nodemon --watch dist --ext mjs --delay 2 --exec 'node --inspect=0.0.0.0:14001' dist/index.mjs\"",
         "test": "NODE_OPTIONS='--experimental-vm-modules' jest",
         "db:migrate:make": "kysely migrate:make",
         "db:migrate:latest": "kysely migrate:latest",

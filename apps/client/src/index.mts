@@ -9,3 +9,13 @@ export const greet = (name: string): TGreeting => ({
 });
 
 export type {TGreeting};
+
+// tRPC client
+export {
+    createClient,
+    type TClient,
+    type TClientOptions,
+} from '#client/trpc.mjs';
+
+// Demo
+export {main} from '#client/main.mjs';

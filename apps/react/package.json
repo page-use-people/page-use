@@ -25,6 +25,7 @@
         "access": "public"
     },
     "scripts": {
+        "dev": "tsc --watch --preserveWatchOutput",
         "build": "tsc",
         "build:no-check": "tsc --noCheck"
     },

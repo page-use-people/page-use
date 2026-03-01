@@ -28,7 +28,14 @@ importers:
         version: 2.8.1
 
   apps/client:
+    dependencies:
+      '@trpc/client':
+        specifier: 11.8.1
+        version: 11.8.1(@trpc/server@11.8.1(typescript@5.9.3))(typescript@5.9.3)
     devDependencies:
+      '@page-use/core':
+        specifier: workspace:*
+        version: link:../core
       prettier:
         specifier: 3.8.1
         version: 3.8.1
@@ -168,6 +175,9 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.4)
+      '@page-use/client':
+        specifier: workspace:*
+        version: link:../../apps/client
       '@tailwindcss/vite':
         specifier: 4.2.1
         version: 4.2.1(vite@7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.19.4))
@@ -1249,6 +1259,12 @@ packages:
     resolution: {integrity: sha512-TBf2sJjYeb28jD2U/OhwdW0bbOsxkWPwQ7SrqGf9sVcoYwZj7rkXljroBO9wKBut9XnmQLXanuDUeqQK0lGg/w==}
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7
+
+  '@trpc/client@11.8.1':
+    resolution: {integrity: sha512-L/SJFGanr9xGABmuDoeXR4xAdHJmsXsiF9OuH+apecJ+8sUITzVT1EPeqp0ebqA6lBhEl5pPfg3rngVhi/h60Q==}
+    peerDependencies:
+      '@trpc/server': 11.8.1
+      typescript: '>=5.7.2'
 
   '@trpc/server@11.8.1':
     resolution: {integrity: sha512-P4rzZRpEL7zDFgjxK65IdyH0e41FMFfTkQkuq0BA5tKcr7E6v9/v38DEklCpoDN6sPiB1Sigy/PUEzHENhswDA==}
@@ -4726,6 +4742,11 @@ snapshots:
       '@tailwindcss/oxide': 4.2.1
       tailwindcss: 4.2.1
       vite: 7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.19.4)
+
+  '@trpc/client@11.8.1(@trpc/server@11.8.1(typescript@5.9.3))(typescript@5.9.3)':
+    dependencies:
+      '@trpc/server': 11.8.1(typescript@5.9.3)
+      typescript: 5.9.3
 
   '@trpc/server@11.8.1(typescript@5.9.3)':
     dependencies:

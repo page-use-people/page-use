@@ -25,10 +25,15 @@
         "access": "public"
     },
     "scripts": {
+        "dev": "tsc --watch --preserveWatchOutput",
         "build": "tsc",
         "build:no-check": "tsc --noCheck"
     },
+    "dependencies": {
+        "@trpc/client": "11.8.1"
+    },
     "devDependencies": {
+        "@page-use/core": "workspace:*",
         "prettier": "3.8.1",
         "typescript": "5.9.3"
     }

@@ -37,14 +37,18 @@ services:
     ports:
       - target: 12001
         published: "${CORE_PORT:-12001}"
+      - target: 12002
+        published: "${TODO_DEMO_PORT:-12002}"
+      - target: 14001
+        published: "${CORE_DEBUG_PORT:-14001}"
     environment:
       DATABASE_URL: "${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/page_use}"
       REDIS_URL: "${REDIS_URL:-redis://valkey:6379}"
       CORE_PORT: "${CORE_PORT:-12001}"
       NODE_ENV: "${NODE_ENV:-development}"
-      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
-      JWT_SIGNING_KEY: "${JWT_SIGNING_KEY:-}"
-      POSTHOG_API_KEY: "${POSTHOG_API_KEY:-}"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-sk-ant-dummy-key-for-dev}"
+      JWT_SIGNING_KEY: "${JWT_SIGNING_KEY:-dev-jwt-signing-key-not-for-production}"
+      POSTHOG_API_KEY: "${POSTHOG_API_KEY:-phc_dummy_key_for_dev}"
     volumes:
       - type: bind
         source: .
