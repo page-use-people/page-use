@@ -6,6 +6,8 @@ import {createAnthropic} from '#core/services/anthropic.mjs';
 import {createRateLimiter} from '#core/services/rate-limiter.mjs';
 import {createCache, createLocalCache} from '#core/cache/index.mjs';
 import {createTelemetry} from '#core/services/telemetry.mjs';
+import {createTemplateService} from '#core/services/template.mjs';
+import {createCodeService} from '#core/services/code.mjs';
 import {env} from '#core/env.mjs';
 import type {TServices} from '#core/services/types.mjs';
 
@@ -28,6 +30,8 @@ const createServices = (): TServices => {
     });
     const localCache = createLocalCache(isDev);
     const telemetry = createTelemetry(env.POSTHOG_API_KEY);
+    const template = createTemplateService();
+    const code = createCodeService();
 
     return Object.freeze({
         db,
@@ -39,6 +43,8 @@ const createServices = (): TServices => {
         cache,
         localCache,
         telemetry,
+        template,
+        code,
     });
 };
 
