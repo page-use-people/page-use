@@ -3,6 +3,7 @@ import {
     renderFunctionType,
     renderVariableInterface,
 } from '#client/render-types.mjs';
+import {createClient} from '#client/trpc.mjs';
 
 const globals: {
     systemPrompt: string;
@@ -86,7 +87,13 @@ export function makeDelay(signal: AbortSignal) {
         });
 }
 
-export function stubConsole() {
+type TStubConsole = {
+    log: (...args: unknown[]) => void;
+    error: (...args: unknown[]) => void;
+    info: (...args: unknown[]) => void;
+};
+
+export function stubConsole(): [TStubConsole, string[]] {
     const logs: string[] = [];
 
     const logger = (...args: any[]) => {
@@ -114,25 +121,161 @@ export function stubConsole() {
     ];
 }
 
-export function run(userPrompt: string) {
+export function run(userPrompt: string): {abort: () => void} {
     const abortController = new AbortController();
+    const signal = abortController.signal;
+    const [stubCons, logs] = stubConsole();
+    const client = createClient();
+    const conversationId = crypto.randomUUID();
 
-    const delay = makeDelay(abortController.signal);
+    const funcObj: Record<string, (input: unknown) => Promise<unknown>> =
+        Object.fromEntries(
+            Object.entries(functions).map(([name, value]) => [
+                name,
+                async (input: unknown) => {
+                    const parsed = value.inputType.parse(input);
+                    return await value.func(parsed, signal);
+                },
+            ]),
+        );
 
-    const [console, logs] = stubConsole();
+    const loop = async () => {
+        const toolDefs = await Promise.all(
+            Object.entries(functions).map(async ([name, value]) => ({
+                definition: await renderFunctionType(
+                    name,
+                    value.inputType,
+                    value.outputType,
+                    name,
+                ),
+            })),
+        );
 
-    const _vars = Object.entries(variables).map(([key, value]) => [
-        key,
-        value.value,
-    ]);
+        const varSchema = z.object(
+            Object.fromEntries(
+                Object.entries(variables).map(([key, v]) => [key, v.type]),
+            ),
+        );
+        const variablesObjectDefinition =
+            await renderVariableInterface(varSchema);
 
-    const _func = Object.entries(functions).map(([name, value]) => [
-        name,
-        async (input: any, signal: AbortSignal) => {
-            const inputParameter = value.inputType.parse(input);
-            return await value.func(inputParameter, signal);
-        },
-    ]);
+        const context = Object.entries(globals.contextInformation).map(
+            ([_key, value]) => ({
+                title: value.title ?? undefined,
+                content: value.content,
+            }),
+        );
+
+        const funcNames = Object.keys(funcObj);
+        type TUserBlock =
+            | {type: 'text'; message: string}
+            | {
+                  type: 'execution_result';
+                  execution_identifier: string;
+                  result: string;
+                  error: string | null;
+              };
+
+        let currentBlocks: TUserBlock[] = [
+            {type: 'text' as const, message: userPrompt},
+        ];
+
+        while (!signal.aborted) {
+            const response = await client.converse.converse.mutate({
+                conversation_id: conversationId,
+                system_prompt: globals.systemPrompt,
+                context,
+                available_tools: toolDefs,
+                variables_object_definition: variablesObjectDefinition,
+                blocks: currentBlocks,
+            });
+
+            const resultBlocks: TUserBlock[] = [];
+
+            for (const block of response.blocks) {
+                if (block.type === 'text') {
+                    console.log(`AGENT: ${block.message}`);
+                } else if (block.type === 'execution') {
+                    const wrappedCode = [
+                        `(async function({${funcNames.join(', ')}}, {variables, delay, console, abortSignal}) {`,
+                        block.code,
+                        '})',
+                    ].join('\n');
+
+                    logs.length = 0;
+
+                    const varsObj = Object.fromEntries(
+                        Object.entries(variables).map(([key, v]) => [
+                            key,
+                            v.value,
+                        ]),
+                    );
+
+                    const execController = new AbortController();
+                    const execSignal = execController.signal;
+                    const timeout = setTimeout(
+                        () => execController.abort('execution timed out after 12s'),
+                        12_000,
+                    );
+                    const onParentAbort = () => execController.abort(signal.reason);
+                    signal.addEventListener('abort', onParentAbort, {once: true});
+
+                    try {
+                        const fn = (0, eval)(wrappedCode) as (
+                            funcs: typeof funcObj,
+                            ctx: {
+                                variables: Record<string, unknown>;
+                                delay: ReturnType<typeof makeDelay>;
+                                console: typeof stubCons;
+                                abortSignal: AbortSignal;
+                            },
+                        ) => Promise<void>;
+
+                        await fn(funcObj, {
+                            variables: varsObj,
+                            delay: makeDelay(execSignal),
+                            console: stubCons,
+                            abortSignal: execSignal,
+                        });
+
+                        resultBlocks.push({
+                            type: 'execution_result' as const,
+                            execution_identifier: block.execution_identifier,
+                            result: logs.join('\n'),
+                            error: null,
+                        });
+                    } catch (err) {
+                        const errorMessage =
+                            err instanceof Error
+                                ? `${err.name}: ${err.message}\n${err.stack}`
+                                : String(err);
+
+                        resultBlocks.push({
+                            type: 'execution_result' as const,
+                            execution_identifier: block.execution_identifier,
+                            result: logs.join('\n'),
+                            error: errorMessage,
+                        });
+                    } finally {
+                        clearTimeout(timeout);
+                        signal.removeEventListener('abort', onParentAbort);
+                    }
+                }
+            }
+
+            if (resultBlocks.length === 0) {
+                break;
+            }
+
+            currentBlocks = resultBlocks;
+        }
+    };
+
+    loop().catch((err) => {
+        console.error('run loop error:', err);
+    });
+
+    return {abort: () => abortController.abort()};
 }
 
 export const main = async (url?: string): Promise<void> => {
