@@ -17,5 +17,6 @@ export {
     type TClientOptions,
 } from '#client/trpc.mjs';
 
-// Demo
+// Codegen
 export {main} from '#client/main.mjs';
+export {renderFunctionType, renderVariableInterface} from '#client/render-types.mjs';

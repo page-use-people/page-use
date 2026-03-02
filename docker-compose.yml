@@ -39,6 +39,8 @@ services:
         published: "${CORE_PORT:-12001}"
       - target: 12002
         published: "${TODO_DEMO_PORT:-12002}"
+      - target: 12003
+        published: "${COLOR_PICKER_DEMO_PORT:-12003}"
       - target: 14001
         published: "${CORE_DEBUG_PORT:-14001}"
     environment:

@@ -30,11 +30,16 @@
         "build:no-check": "tsc --noCheck"
     },
     "dependencies": {
-        "@trpc/client": "11.8.1"
+        "@trpc/client": "11.8.1",
+        "prettier": "3.8.1",
+        "typescript": "5.9.3",
+        "zod-to-ts": "2.0.0"
+    },
+    "peerDependencies": {
+        "zod": ">=4.0.0"
     },
     "devDependencies": {
         "@page-use/core": "workspace:*",
-        "prettier": "3.8.1",
-        "typescript": "5.9.3"
+        "zod": "4.3.6"
     }
 }
