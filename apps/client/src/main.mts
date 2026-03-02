@@ -22,7 +22,7 @@ const functions: {
         name: string;
         inputType: z.ZodType;
         outputType: z.ZodType;
-        func: (input: any) => Promise<any>;
+        func: (input: any, signal?: AbortSignal) => Promise<any>;
     };
 } = {};
 
@@ -37,7 +37,7 @@ export function registerFunction(options: {
     name: string;
     input: z.ZodType;
     output: z.ZodType;
-    func: (input: any) => Promise<any>;
+    func: (input: any, signal?: AbortSignal) => Promise<any>;
 }): () => void {
     functions[options.name] = {
         name: options.name,
@@ -72,6 +72,67 @@ export function setContextInformation(
 
 export function unsetContextInformation(key: string) {
     delete globals.contextInformation[key];
+}
+
+export function makeDelay(signal: AbortSignal) {
+    return (ms: number) =>
+        new Promise((resolve, reject) => {
+            const timeout = setTimeout(resolve, ms);
+
+            signal.addEventListener('abort', () => {
+                clearTimeout(timeout);
+                reject(signal.reason);
+            });
+        });
+}
+
+export function stubConsole() {
+    const logs: string[] = [];
+
+    const logger = (...args: any[]) => {
+        const stringArgs = args.map((arg) => {
+            if (arg instanceof Error) {
+                return `${arg.name}: ${arg.message}\n${arg.stack}`;
+            } else if (typeof arg === 'string') {
+                return arg;
+            } else {
+                return JSON.stringify(arg);
+            }
+        });
+
+        logs.push(stringArgs.join(' '));
+        console.log('LLM', ...args);
+    };
+
+    return [
+        {
+            log: logger,
+            error: logger,
+            info: logger,
+        },
+        logs,
+    ];
+}
+
+export function run(userPrompt: string) {
+    const abortController = new AbortController();
+
+    const delay = makeDelay(abortController.signal);
+
+    const [console, logs] = stubConsole();
+
+    const _vars = Object.entries(variables).map(([key, value]) => [
+        key,
+        value.value,
+    ]);
+
+    const _func = Object.entries(functions).map(([name, value]) => [
+        name,
+        async (input: any, signal: AbortSignal) => {
+            const inputParameter = value.inputType.parse(input);
+            return await value.func(inputParameter, signal);
+        },
+    ]);
 }
 
 export const main = async (url?: string): Promise<void> => {

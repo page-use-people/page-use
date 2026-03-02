@@ -1,7 +1,7 @@
 import {z} from 'zod';
 import {router, publicProcedure} from '../trpc.mjs';
 
-const assistantBlockSchema = z.discriminatedUnion('type', [
+export const assistantBlockSchema = z.discriminatedUnion('type', [
     z.object({
         type: z.literal('execution'),
         execution_identifier: z.string(),
@@ -18,7 +18,7 @@ const assistantBlockSchema = z.discriminatedUnion('type', [
     }),
 ]);
 
-const userBlockSchema = z.discriminatedUnion('type', [
+export const userBlockSchema = z.discriminatedUnion('type', [
     z.object({
         type: z.literal('execution_result'),
         execution_identifier: z.string(),
