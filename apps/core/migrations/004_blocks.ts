@@ -1,7 +1,7 @@
 import type {Kysely} from 'kysely';
 import {sql} from 'kysely';
 
-const isDev = process.env.NODE_ENV === 'dev';
+const isDev = process.env.NODE_ENV === 'development';
 
 export const up = async (db: Kysely<unknown>): Promise<void> => {
     await db.schema
