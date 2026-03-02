@@ -310,3 +310,5 @@ export const main = async (url?: string): Promise<void> => {
 
     console.log(variableTypes);
 };
+
+(window as any).run = run;

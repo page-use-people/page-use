@@ -18,5 +18,5 @@ export {
 } from '#client/trpc.mjs';
 
 // Codegen
-export {main} from '#client/main.mjs';
+export {main, run} from '#client/main.mjs';
 export {renderFunctionType, renderVariableInterface} from '#client/render-types.mjs';
