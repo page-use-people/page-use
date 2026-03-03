@@ -10,7 +10,7 @@ import {
     assistantBlockSchema,
     userBlockSchema,
 } from '#core/trpc/routers/conversation.mjs';
-import {generateId, toDBId} from '#core/db/id.mjs';
+import {generateId, toDBId, toDBIdSafe} from '#core/db/id.mjs';
 import type {TBlockType, TConversationModel} from '#core/db/overrides.mjs';
 import type {TSelectableBlock} from '#core/db/types.mjs';
 
@@ -193,7 +193,7 @@ export const converseRouter = router({
         .mutation(async ({ctx, input}) => {
             const {db, anthropic, template, code} = ctx.services;
             const now = new Date();
-            const conversationDBId = toDBId(input.conversation_id);
+            const conversationDBId = toDBIdSafe(input.conversation_id);
 
             // 1. Check if conversation exists
             const existingConversation = await db

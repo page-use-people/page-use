@@ -1,5 +1,6 @@
 import {z} from 'zod';
 import {router, publicProcedure} from '../trpc.mjs';
+import {toDBIdSafe} from '#core/db/id.mjs';
 
 export const assistantBlockSchema = z.discriminatedUnion('type', [
     z.object({
@@ -131,7 +132,7 @@ export const conversationRouter = router({
             const turns = await db
                 .selectFrom('turns')
                 .selectAll()
-                .where('conversation_id', '=', input.conversation_id)
+                .where('conversation_id', '=', toDBIdSafe(input.conversation_id))
                 .orderBy('created_at', 'asc')
                 .execute();
 

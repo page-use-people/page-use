@@ -18,5 +18,19 @@ export {
 } from '#client/trpc.mjs';
 
 // Codegen
-export {main, run} from '#client/main.mjs';
-export {renderFunctionType, renderVariableInterface} from '#client/render-types.mjs';
+export {
+    main,
+    run,
+    registerFunction,
+    unregisterFunction,
+    setSystemPrompt,
+    setContextInformation,
+    unsetContextInformation,
+    setVariable,
+    unsetVariable,
+} from '#client/main.mjs';
+
+export {
+    renderFunctionType,
+    renderVariableInterface,
+} from '#client/render-types.mjs';

@@ -12,7 +12,10 @@ type TTemplateService = {
 
 const createTemplateService = (): TTemplateService => {
     const __dirname = dirname(fileURLToPath(import.meta.url));
-    const templatePath = join(__dirname, '../engine/system-prompt.liquid');
+    const templatePath = join(
+        __dirname,
+        '../../templates/system-prompt.liquid',
+    );
     const templateContent = readFileSync(templatePath, 'utf-8');
     const engine = new Liquid();
     const template = engine.parse(templateContent);

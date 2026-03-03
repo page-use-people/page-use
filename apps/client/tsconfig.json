@@ -6,7 +6,7 @@
         "moduleResolution": "nodenext",
         "rootDir": "./src",
         "outDir": "./dist",
-        "lib": ["ESNext"],
+        "lib": ["ESNext", "DOM"],
         "incremental": true,
         "composite": true,
         "declaration": true,

@@ -34,6 +34,25 @@ const variables: {
     };
 } = {};
 
+export function setVariable(options: {
+    name: string;
+    value: any;
+    type: z.ZodType;
+}) {
+    variables[options.name] = {
+        value: options.value,
+        type: options.type,
+    };
+
+    return () => {
+        delete variables[options.name];
+    };
+}
+
+export function unsetVariable(options: {name: string}) {
+    delete variables[options.name];
+}
+
 export function registerFunction(options: {
     name: string;
     input: z.ZodType;
@@ -108,7 +127,7 @@ export function stubConsole(): [TStubConsole, string[]] {
         });
 
         logs.push(stringArgs.join(' '));
-        console.log('LLM', ...args);
+        console.debug('LLM', ...args);
     };
 
     return [
@@ -121,12 +140,13 @@ export function stubConsole(): [TStubConsole, string[]] {
     ];
 }
 
+const conversationId = crypto.randomUUID();
+
 export function run(userPrompt: string): {abort: () => void} {
     const abortController = new AbortController();
     const signal = abortController.signal;
     const [stubCons, logs] = stubConsole();
     const client = createClient();
-    const conversationId = crypto.randomUUID();
 
     const funcObj: Record<string, (input: unknown) => Promise<unknown>> =
         Object.fromEntries(
@@ -214,11 +234,17 @@ export function run(userPrompt: string): {abort: () => void} {
                     const execController = new AbortController();
                     const execSignal = execController.signal;
                     const timeout = setTimeout(
-                        () => execController.abort('execution timed out after 12s'),
+                        () =>
+                            execController.abort(
+                                'execution timed out after 12s',
+                            ),
                         12_000,
                     );
-                    const onParentAbort = () => execController.abort(signal.reason);
-                    signal.addEventListener('abort', onParentAbort, {once: true});
+                    const onParentAbort = () =>
+                        execController.abort(signal.reason);
+                    signal.addEventListener('abort', onParentAbort, {
+                        once: true,
+                    });
 
                     try {
                         const fn = (0, eval)(wrappedCode) as (

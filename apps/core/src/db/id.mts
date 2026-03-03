@@ -13,6 +13,12 @@ export const toDBId = (id: string): string =>
 export const fromDBId = (uuid: string): string =>
     Uuid25.parseHyphenated(uuid).value;
 
+const UUID_RE =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export const toDBIdSafe = (id: string): string =>
+    UUID_RE.test(id) ? id : toDBId(id);
+
 // ── Seeded PRNG (pure-rand + node:crypto) ──────────────────
 
 const SEED = 'page_use_by_airstate_studio';
