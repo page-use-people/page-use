@@ -3,6 +3,7 @@ import {
     registerFunction,
     setSystemPrompt,
     setVariable,
+    unsetVariable,
 } from '@page-use/client';
 import {z} from 'zod';
 
@@ -36,14 +37,19 @@ export type TPageUseVariableOptions<TType extends z.ZodType = z.ZodType> = {
 export const usePageUseVariable = <TType extends z.ZodType>(
     options: TPageUseVariableOptions<TType>,
 ): void => {
+    useEffect(() => {
+        setVariable({
+            name: options.name,
+            value: options.value,
+            type: options.type,
+        });
+    }, [options.name, options.type, options.value]);
+
     useEffect(
-        () =>
-            setVariable({
-                name: options.name,
-                value: options.value,
-                type: options.type,
-            }),
-        [options.name, options.type, options.value],
+        () => () => {
+            unsetVariable({name: options.name});
+        },
+        [options.name],
     );
 };
 
@@ -61,6 +67,8 @@ export type TPageUseFunctionOptions<
     readonly name: string;
     readonly input: TInput;
     readonly output: TOutput;
+    readonly writes?: readonly string[];
+    readonly settleTimeoutMs?: number;
     readonly func: (
         input: z.infer<TInput>,
         signal?: AbortSignal,
@@ -85,10 +93,18 @@ export const usePageUseFunction = <
                 name: options.name,
                 input: options.input,
                 output: options.output,
+                writes: options.writes,
+                settleTimeoutMs: options.settleTimeoutMs,
                 func: async (input, signal) =>
                     await funcRef.current(input as z.infer<TInput>, signal),
             }),
-        [options.input, options.name, options.output],
+        [
+            options.input,
+            options.name,
+            options.output,
+            options.writes,
+            options.settleTimeoutMs,
+        ],
     );
 };
 

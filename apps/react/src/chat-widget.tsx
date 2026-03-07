@@ -99,6 +99,14 @@ const clampPosition = (
 
 const createId = () => crypto.randomUUID();
 
+const formatVariableList = (variables: readonly string[]) =>
+    variables.length === 1
+        ? variables[0]
+        : `${variables.slice(0, -1).join(', ')} and ${variables[variables.length - 1]}`;
+
+const formatVariableWaitLabel = (variables: readonly string[]) =>
+    variables.length === 0 ? 'state' : formatVariableList(variables);
+
 const defaultSubmitPrompt = (
     prompt: string,
     callbacks: TPageUseChatSubmitCallbacks,
@@ -414,14 +422,35 @@ export const PageUseChat = ({
             return;
         }
 
-        const detail =
-            update.type === 'text'
-                ? update.message
-                : update.type === 'execution_start'
-                  ? `running ${update.description}...`
-                  : update.error
+        let detail: string;
+        switch (update.type) {
+            case 'text':
+                detail = update.message;
+                break;
+            case 'execution_start':
+                detail = `running ${update.description}...`;
+                break;
+            case 'waiting_for_state':
+                detail =
+                    update.variables.length === 0
+                        ? 'waiting for state update...'
+                        : `waiting for ${formatVariableWaitLabel(update.variables)} update${update.variables.length === 1 ? '' : 's'}...`;
+                break;
+            case 'state_update_observed':
+                detail = `${update.variable} update observed`;
+                break;
+            case 'state_wait_timeout':
+                detail =
+                    update.variables.length === 0
+                        ? 'state update timed out, continuing'
+                        : `${formatVariableWaitLabel(update.variables)} update${update.variables.length === 1 ? '' : 's'} timed out, continuing`;
+                break;
+            case 'execution_result':
+                detail = update.error
                     ? `${update.description} failed`
                     : `${update.description} completed`;
+                break;
+        }
 
         setLoadingDetails((current) => [...current, detail]);
     };
