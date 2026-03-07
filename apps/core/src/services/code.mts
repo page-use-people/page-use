@@ -41,11 +41,15 @@ const createCodeService = (): TCodeService => {
     };
 
     const applyPatch = (originalCode: string, patch: string): string => {
-        const result = Diff.applyPatch(originalCode, patch);
-        if (result === false) {
+        try {
+            const result = Diff.applyPatch(originalCode, patch);
+            if (result === false) {
+                throw new Error('Failed to apply patch');
+            }
+            return result;
+        } catch {
             throw new Error('Failed to apply patch');
         }
-        return result;
     };
 
     return Object.freeze({formatWithLineNumbers, applyPatch});

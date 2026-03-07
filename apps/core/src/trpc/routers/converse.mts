@@ -5,6 +5,7 @@ import type {
     ToolResultBlockParam,
     ContentBlock,
 } from '@anthropic-ai/sdk/resources/messages';
+import {TRPCError} from '@trpc/server';
 import {router, publicProcedure} from '../trpc.mjs';
 import {
     assistantBlockSchema,
@@ -184,6 +185,34 @@ const buildContextSection = (
               )
               .join('\n\n')}\n</current_context>\n\n`;
 
+// ── Message Sanitization ────────────────────────────────
+
+const sanitizeMessages = (messages: MessageParam[]): MessageParam[] => {
+    const toolResultIds = new Set<string>();
+
+    messages.forEach((msg) => {
+        if (!Array.isArray(msg.content)) {
+            return;
+        }
+        (msg.content as ToolResultBlockParam[])
+            .filter((b) => b.type === 'tool_result')
+            .forEach((b) => toolResultIds.add(b.tool_use_id));
+    });
+
+    return messages.map((msg): MessageParam => {
+        if (msg.role !== 'assistant' || !Array.isArray(msg.content)) {
+            return msg;
+        }
+
+        return {
+            ...msg,
+            content: msg.content.filter(
+                (b) => b.type !== 'tool_use' || toolResultIds.has(b.id),
+            ),
+        };
+    });
+};
+
 // ── Router ──────────────────────────────────────────────────
 
 export const converseRouter = router({
@@ -194,6 +223,45 @@ export const converseRouter = router({
             const {db, anthropic, template, code} = ctx.services;
             const now = new Date();
             const conversationDBId = toDBIdSafe(input.conversation_id);
+
+            // 0. Guard: block user turns while agent is processing
+            const isTrueUserTurn = input.blocks.every(
+                (block) => block.type === 'text',
+            );
+
+            if (isTrueUserTurn) {
+                const lastTurn = await db
+                    .selectFrom('turns')
+                    .select(['id', 'actor'])
+                    .where('conversation_id', '=', conversationDBId)
+                    .orderBy('created_at', 'desc')
+                    .limit(1)
+                    .executeTakeFirst();
+
+                if (lastTurn) {
+                    const lastTurnBlocks = await db
+                        .selectFrom('blocks')
+                        .select('type')
+                        .where('turn_id', '=', lastTurn.id)
+                        .execute();
+
+                    const isAgentDone =
+                        lastTurn.actor === 'assistant' &&
+                        lastTurnBlocks.every(
+                            (block) =>
+                                block.type === 'text' ||
+                                block.type === 'thinking',
+                        );
+
+                    if (!isAgentDone) {
+                        throw new TRPCError({
+                            code: 'PRECONDITION_FAILED',
+                            message:
+                                'Cannot send a new message while the agent is still processing',
+                        });
+                    }
+                }
+            }
 
             // 1. Check if conversation exists
             const existingConversation = await db
@@ -372,11 +440,11 @@ export const converseRouter = router({
                   ]
                 : [];
 
-            const messages: MessageParam[] = [
+            const messages: MessageParam[] = sanitizeMessages([
                 ...operatorMessages,
                 ...historyMessages,
                 currentUserMessage,
-            ];
+            ]);
 
             // 9. Render system prompt
             const toolTypes = input.available_tools
@@ -431,10 +499,20 @@ export const converseRouter = router({
                             cleanCode = input.js_code ?? '';
                         } else if (toolName === 'patch_and_run_js') {
                             if (!lastCode) {
-                                throw new Error('No previous code to patch');
+                                cleanCode =
+                                    'throw new Error("No previous code to patch. Use write_and_run_js instead.");';
+                            } else {
+                                const patch = input.js_code_diff_patch ?? '';
+                                try {
+                                    cleanCode = code.applyPatch(
+                                        lastCode,
+                                        patch,
+                                    );
+                                } catch {
+                                    cleanCode =
+                                        'throw new Error("Failed to apply patch. The diff was malformed. Use write_and_run_js to write fresh code instead.");';
+                                }
                             }
-                            const patch = input.js_code_diff_patch ?? '';
-                            cleanCode = code.applyPatch(lastCode, patch);
                         } else {
                             throw new Error(`Unknown tool: ${toolName}`);
                         }

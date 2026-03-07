@@ -229,12 +229,19 @@ export function run(userPrompt: string): {abort: () => void} {
 
                     logs.length = 0;
 
-                    const varsObj = Object.fromEntries(
-                        Object.entries(variables).map(([key, v]) => [
-                            key,
-                            v.value,
-                        ]),
-                    );
+                    const varsObj = new Proxy({} as Record<string, unknown>, {
+                        get: (_target, prop: string) => variables[prop]?.value,
+                        has: (_target, prop: string) => prop in variables,
+                        ownKeys: () => Object.keys(variables),
+                        getOwnPropertyDescriptor: (_target, prop: string) =>
+                            prop in variables
+                                ? {
+                                      configurable: true,
+                                      enumerable: true,
+                                      value: variables[prop].value,
+                                  }
+                                : undefined,
+                    });
 
                     const execController = new AbortController();
                     const execSignal = execController.signal;
