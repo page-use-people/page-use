@@ -21,6 +21,7 @@ export {
 export {
     main,
     run,
+    resetConversation,
     registerFunction,
     unregisterFunction,
     setSystemPrompt,
@@ -28,6 +29,13 @@ export {
     unsetContextInformation,
     setVariable,
     unsetVariable,
+} from '#client/main.mjs';
+
+export type {
+    TRunHandle,
+    TRunOptions,
+    TRunStatus,
+    TRunUpdate,
 } from '#client/main.mjs';
 
 export {

@@ -140,13 +140,67 @@ export function stubConsole(): [TStubConsole, string[]] {
     ];
 }
 
-const conversationId = crypto.randomUUID();
+const createConversationId = () => crypto.randomUUID();
 
-export function run(userPrompt: string): {abort: () => void} {
+let conversationId = createConversationId();
+
+export function resetConversation() {
+    conversationId = createConversationId();
+}
+
+const isInvalidConversationHistoryError = (error: unknown): boolean =>
+    String(error).includes(
+        '`tool_use` ids were found without `tool_result` blocks immediately after',
+    );
+
+export type TRunStatus = 'running' | 'completed' | 'aborted' | 'error';
+
+export type TRunUpdate =
+    | {
+          readonly type: 'text';
+          readonly message: string;
+      }
+    | {
+          readonly type: 'execution_start';
+          readonly executionIdentifier: string;
+          readonly description: string;
+          readonly code: string;
+      }
+    | {
+          readonly type: 'execution_result';
+          readonly executionIdentifier: string;
+          readonly description: string;
+          readonly result: string;
+          readonly error: string | null;
+      };
+
+export type TRunOptions = {
+    readonly onMessage?: (message: string) => void;
+    readonly onUpdate?: (update: TRunUpdate) => void;
+    readonly onStatusChange?: (status: TRunStatus) => void;
+    readonly onError?: (error: unknown) => void;
+};
+
+export type TRunHandle = {
+    readonly abort: () => void;
+    readonly done: Promise<void>;
+};
+
+let activeRunController: AbortController | null = null;
+
+export function run(userPrompt: string, options?: TRunOptions): TRunHandle {
+    if (activeRunController !== null) {
+        throw new Error(
+            'A Page Use response is already in progress. Wait for it to finish before sending another prompt.',
+        );
+    }
+
     const abortController = new AbortController();
     const signal = abortController.signal;
     const [stubCons, logs] = stubConsole();
     const client = createClient();
+    activeRunController = abortController;
+    options?.onStatusChange?.('running');
 
     const funcObj: Record<string, (input: unknown) => Promise<unknown>> =
         Object.fromEntries(
@@ -199,28 +253,66 @@ export function run(userPrompt: string): {abort: () => void} {
         let currentBlocks: TUserBlock[] = [
             {type: 'text' as const, message: userPrompt},
         ];
+        let hasRetriedInvalidHistory = false;
 
         while (!signal.aborted) {
-            const response = await client.converse.converse.mutate({
+            const isInitialUserPrompt =
+                currentBlocks.length === 1 &&
+                currentBlocks[0]?.type === 'text' &&
+                currentBlocks[0].message === userPrompt;
+
+            let response;
+            const requestPayload = {
                 conversation_id: conversationId,
                 system_prompt: globals.systemPrompt,
                 context,
                 available_tools: toolDefs,
                 variables_object_definition: variablesObjectDefinition,
                 blocks: currentBlocks,
-            });
+            };
+
+            try {
+                console.log('PAGE_USE_REQUEST', requestPayload);
+                response = await client.converse.converse.mutate(requestPayload);
+            } catch (error) {
+                if (
+                    isInitialUserPrompt &&
+                    !hasRetriedInvalidHistory &&
+                    isInvalidConversationHistoryError(error)
+                ) {
+                    resetConversation();
+                    hasRetriedInvalidHistory = true;
+                    continue;
+                }
+
+                throw error;
+            }
 
             const resultBlocks: TUserBlock[] = [];
+            const textMessages: string[] = [];
 
             for (const block of response.blocks) {
+                console.log('PAGE_USE_RESPONSE_BLOCK', block);
+
                 if (block.type === 'text') {
-                    console.log(`AGENT: ${block.message}`);
+                    textMessages.push(block.message);
+                    options?.onUpdate?.({
+                        type: 'text',
+                        message: block.message,
+                    });
                 } else if (block.type === 'execution') {
                     const wrappedCode = [
                         `(async function({${funcNames.join(', ')}}, {variables, delay, console, abortSignal}) {`,
                         block.code,
                         '})',
                     ].join('\n');
+
+                    options?.onUpdate?.({
+                        type: 'execution_start',
+                        executionIdentifier: block.execution_identifier,
+                        description: block.description,
+                        code: block.code,
+                    });
 
                     logs.length = 0;
 
@@ -242,6 +334,7 @@ export function run(userPrompt: string): {abort: () => void} {
                     );
                     const onParentAbort = () =>
                         execController.abort(signal.reason);
+
                     signal.addEventListener('abort', onParentAbort, {
                         once: true,
                     });
@@ -264,11 +357,27 @@ export function run(userPrompt: string): {abort: () => void} {
                             abortSignal: execSignal,
                         });
 
-                        resultBlocks.push({
+                        const executionResult = {
                             type: 'execution_result' as const,
                             execution_identifier: block.execution_identifier,
                             result: logs.join('\n'),
                             error: null,
+                        };
+                        resultBlocks.push(executionResult);
+                        console.log('PAGE_USE_EXECUTION_RESULT', {
+                            execution_identifier:
+                                executionResult.execution_identifier,
+                            description: block.description,
+                            result: executionResult.result,
+                            error: executionResult.error,
+                        });
+                        options?.onUpdate?.({
+                            type: 'execution_result',
+                            executionIdentifier:
+                                executionResult.execution_identifier,
+                            description: block.description,
+                            result: executionResult.result,
+                            error: executionResult.error,
                         });
                     } catch (err) {
                         const errorMessage =
@@ -276,11 +385,27 @@ export function run(userPrompt: string): {abort: () => void} {
                                 ? `${err.name}: ${err.message}\n${err.stack}`
                                 : String(err);
 
-                        resultBlocks.push({
+                        const executionResult = {
                             type: 'execution_result' as const,
                             execution_identifier: block.execution_identifier,
                             result: logs.join('\n'),
                             error: errorMessage,
+                        };
+                        resultBlocks.push(executionResult);
+                        console.log('PAGE_USE_EXECUTION_RESULT', {
+                            execution_identifier:
+                                executionResult.execution_identifier,
+                            description: block.description,
+                            result: executionResult.result,
+                            error: executionResult.error,
+                        });
+                        options?.onUpdate?.({
+                            type: 'execution_result',
+                            executionIdentifier:
+                                executionResult.execution_identifier,
+                            description: block.description,
+                            result: executionResult.result,
+                            error: executionResult.error,
                         });
                     } finally {
                         clearTimeout(timeout);
@@ -290,18 +415,50 @@ export function run(userPrompt: string): {abort: () => void} {
             }
 
             if (resultBlocks.length === 0) {
+                for (const message of textMessages) {
+                    options?.onMessage?.(message);
+                }
+            }
+
+            if (resultBlocks.length === 0) {
                 break;
             }
 
+            hasRetriedInvalidHistory = false;
             currentBlocks = resultBlocks;
         }
     };
 
-    loop().catch((err) => {
-        console.error('run loop error:', err);
-    });
+    const done = loop()
+        .then(() => {
+            options?.onStatusChange?.(
+                signal.aborted ? 'aborted' : 'completed',
+            );
+        })
+        .catch((err) => {
+            if (signal.aborted) {
+                options?.onStatusChange?.('aborted');
+                return;
+            }
 
-    return {abort: () => abortController.abort()};
+            if (isInvalidConversationHistoryError(err)) {
+                resetConversation();
+            }
+
+            console.error('run loop error:', err);
+            options?.onError?.(err);
+            options?.onStatusChange?.('error');
+        })
+        .finally(() => {
+            if (activeRunController === abortController) {
+                activeRunController = null;
+            }
+        });
+
+    return {
+        abort: () => abortController.abort(),
+        done,
+    };
 }
 
 export const main = async (url?: string): Promise<void> => {
