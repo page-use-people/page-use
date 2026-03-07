@@ -39,8 +39,7 @@ If your code fails partway through, any `console.log` calls that ran before the 
 - Use `const` exclusively. Never use `let` or `var`. If you need to accumulate a result, use `.reduce()` or build new values through chained transformations rather than mutating a variable.
 - Use raw loops (`for`, `while`) sparingly, and only when a loop with side effects (like sequential awaits with delays) is genuinely clearer than a functional alternative.
 - You may introduce delays using the provided `await delay(ms)` function. It already respects `abortSignal` internally.
-- Aim for pacing that feels faster than a human but not instant. Add small delays between discrete steps so actions look fluid and magical rather than like a program executing at full speed. The goal is "impressive assistant," not "robotic script runner." Scale delays to the workload: use 80-200ms gaps for a handful of steps, but reduce to 20-40ms (or skip delays entirely) for large batches so you stay well within the 12-second deadline.
-- If the user's request resembles a drawing, animation, or visual sequencing task, use delays inside loops to produce step-by-step visual updates rather than applying all changes instantaneously.
+- Aim for pacing that feels faster than a human but not instant. For smooth continuous motion, use `runInAnimationFrames`. For discrete sequential steps (like adding list items one by one), add small delays with `await delay(ms)`: 80-200ms gaps for a handful of steps, 20-40ms (or skip delays entirely) for large batches. Stay well within the 12-second deadline.
 - When you need to wait on a callback-based API, wrap it in a `Promise` and resolve/reject from the callback. Always clean up the callback or listener after the promise settles (e.g. remove event listeners, clear timeouts). Guard against callbacks that never fire by racing the promise against the `abortSignal`:
 ```js
 const result = await new Promise((resolve, reject) => {
@@ -55,6 +54,52 @@ const result = await new Promise((resolve, reject) => {
 });
 ```
 </coding_style>
+
+<animations>
+For smooth visual animations, use `runInAnimationFrames` instead of delay-inside-a-loop patterns. It uses `requestAnimationFrame` for frame-perfect rendering and includes built-in easing.
+
+```js
+// Animate a single property
+await runInAnimationFrames({from: 0, to: 100, duration: 400}, (value) => {
+    setWidth(value);
+});
+
+// Animate multiple properties in parallel
+await Promise.all([
+    runInAnimationFrames({from: 0, to: 200, duration: 500}, (value) => {
+        setX(value);
+    }),
+    runInAnimationFrames({from: 1, to: 0, duration: 500, easing: 'easeOutCubic'}, (value) => {
+        setOpacity(value);
+    }),
+]);
+```
+
+Parameters:
+- `from` / `to` — start and end numeric values.
+- `duration` — animation length in milliseconds.
+- `easing` — optional. One of: `'linear'`, `'easeInQuad'`, `'easeOutQuad'`, `'easeInOutQuad'`, `'easeInCubic'`, `'easeOutCubic'`, `'easeInOutCubic'` (default), `'easeOutBack'`.
+
+The callback receives `(value, progress)` where `value` is the interpolated number and `progress` is the eased 0-to-1 fraction.
+
+Use `runInAnimationFrames` for:
+- Moving elements (position, size, rotation)
+- Fading (opacity transitions)
+- Color transitions (animate individual R/G/B channels)
+- Sequential drawing (animate path progress)
+- Any visual change that should feel smooth rather than instant
+
+Use `delay` for:
+- Pausing between discrete steps (e.g., adding items one by one with a gap)
+- Throttling API calls
+- Non-visual timing
+
+Keep total animation durations well under 12 seconds (the execution timeout). For sequential animations, chain with `await`:
+```js
+await runInAnimationFrames({from: 0, to: 100, duration: 300}, (v) => setX(v));
+await runInAnimationFrames({from: 100, to: 200, duration: 300}, (v) => setX(v));
+```
+</animations>
 
 <variable_immutability>
 Page-exposed variables are accessed through the `variables` object (e.g. `variables.count`, `variables.items`, `variables["myVar"]`). Always use this namespace. Variables are never available as bare names in scope.

@@ -34,3 +34,12 @@ export {
     renderFunctionType,
     renderVariableInterface,
 } from '#client/render-types.mjs';
+
+// Animation
+export {
+    makeRunInAnimationFrames,
+    type TEasingName,
+    type TAnimationOptions,
+    type TAnimationCallback,
+    type TRunInAnimationFrames,
+} from '#client/animation.mjs';

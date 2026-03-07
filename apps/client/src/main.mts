@@ -4,6 +4,10 @@ import {
     renderVariableInterface,
 } from '#client/render-types.mjs';
 import {createClient} from '#client/trpc.mjs';
+import {
+    makeRunInAnimationFrames,
+    type TRunInAnimationFrames,
+} from '#client/animation.mjs';
 
 const globals: {
     systemPrompt: string;
@@ -216,8 +220,9 @@ export function run(userPrompt: string): {abort: () => void} {
                 if (block.type === 'text') {
                     console.log(`AGENT: ${block.message}`);
                 } else if (block.type === 'execution') {
+                    //console.debug('CODE:\n', block.code);
                     const wrappedCode = [
-                        `(async function({${funcNames.join(', ')}}, {variables, delay, console, abortSignal}) {`,
+                        `(async function({${funcNames.join(', ')}}, {variables, delay, runInAnimationFrames, console, abortSignal}) {`,
                         block.code,
                         '})',
                     ].join('\n');
@@ -252,6 +257,7 @@ export function run(userPrompt: string): {abort: () => void} {
                             ctx: {
                                 variables: Record<string, unknown>;
                                 delay: ReturnType<typeof makeDelay>;
+                                runInAnimationFrames: TRunInAnimationFrames;
                                 console: typeof stubCons;
                                 abortSignal: AbortSignal;
                             },
@@ -260,6 +266,8 @@ export function run(userPrompt: string): {abort: () => void} {
                         await fn(funcObj, {
                             variables: varsObj,
                             delay: makeDelay(execSignal),
+                            runInAnimationFrames:
+                                makeRunInAnimationFrames(execSignal),
                             console: stubCons,
                             abortSignal: execSignal,
                         });
