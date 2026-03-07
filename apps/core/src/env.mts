@@ -5,6 +5,7 @@ export const env = createEnv({
     server: {
         DATABASE_URL: z.url(),
         REDIS_URL: z.url(),
+        CORE_HOST: z.string().default('0.0.0.0'),
         CORE_PORT: z
             .string()
             .default('12001')
