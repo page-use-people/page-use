@@ -45,8 +45,6 @@ const variableWaiters: {
     [name: string]: Set<(version: number) => void>;
 } = {};
 
-const STATE_WAIT_TIMEOUT_MS = 200;
-const STATE_WAIT_RETRY_TIMEOUT_MS = 1000;
 const STATE_SETTLE_QUIET_MS = 50;
 
 const getOrderedVariableEntries = () =>
@@ -61,6 +59,11 @@ const getVariableVersionSnapshot = (): Record<string, number> =>
     Object.fromEntries(
         getOrderedVariableEntries().map(([key, value]) => [key, value.version]),
     );
+
+const getVariableVersionSnapshotForNames = (
+    names: readonly string[],
+): Record<string, number> =>
+    Object.fromEntries(names.map((name) => [name, getVariableVersion(name)]));
 
 const getChangedVariables = (
     baselineVersions: Record<string, number>,
@@ -82,67 +85,10 @@ const notifyVariableWaiters = (name: string, version: number) => {
     waiters.clear();
 };
 
-const waitForVariableVersion = (
-    name: string,
-    baselineVersion: number,
-    timeoutMs: number,
-): Promise<'updated' | 'timeout'> => {
-    if (getVariableVersion(name) > baselineVersion) {
-        return Promise.resolve('updated');
-    }
-
-    return new Promise((resolve) => {
-        const waiters = variableWaiters[name] ?? new Set();
-        variableWaiters[name] = waiters;
-
-        const onVersion = (version: number) => {
-            if (version <= baselineVersion) {
-                return;
-            }
-
-            cleanup();
-            resolve('updated');
-        };
-
-        const cleanup = () => {
-            waiters.delete(onVersion);
-            clearTimeout(timeout);
-
-            if (waiters.size === 0) {
-                delete variableWaiters[name];
-            }
-        };
-
-        const timeout = setTimeout(() => {
-            cleanup();
-            resolve('timeout');
-        }, timeoutMs);
-
-        waiters.add(onVersion);
-    });
-};
-
-const waitForVariableVersionWithRetry = async (
-    name: string,
-    baselineVersion: number,
-    timeoutMs: number,
-    retryTimeoutMs: number,
-): Promise<'updated' | 'timeout'> => {
-    const firstAttempt = await waitForVariableVersion(
-        name,
-        baselineVersion,
-        timeoutMs,
-    );
-    if (firstAttempt === 'updated' || retryTimeoutMs <= 0) {
-        return firstAttempt;
-    }
-
-    return waitForVariableVersion(name, baselineVersion, retryTimeoutMs);
-};
-
 const waitForAnyVariableUpdate = (
     baselineVersions: Record<string, number>,
-    timeoutMs: number,
+    signal: AbortSignal,
+    timeoutMs?: number,
 ): Promise<{status: 'updated' | 'timeout'; variables: string[]}> => {
     const baselineNames = Object.keys(baselineVersions);
     if (baselineNames.length === 0) {
@@ -157,9 +103,15 @@ const waitForAnyVariableUpdate = (
         });
     }
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+        if (signal.aborted) {
+            reject(signal.reason);
+            return;
+        }
+
         const cleanupCallbacks: Array<() => void> = [];
         let settled = false;
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
         const finish = (status: 'updated' | 'timeout') => {
             if (settled) {
@@ -167,7 +119,10 @@ const waitForAnyVariableUpdate = (
             }
 
             settled = true;
-            clearTimeout(timeout);
+            if (timeoutId !== null) {
+                clearTimeout(timeoutId);
+            }
+            signal.removeEventListener('abort', onAbort);
 
             for (const cleanup of cleanupCallbacks) {
                 cleanup();
@@ -182,7 +137,29 @@ const waitForAnyVariableUpdate = (
             });
         };
 
-        const timeout = setTimeout(() => finish('timeout'), timeoutMs);
+        const onAbort = () => {
+            if (settled) {
+                return;
+            }
+
+            settled = true;
+            if (timeoutId !== null) {
+                clearTimeout(timeoutId);
+            }
+
+            for (const cleanup of cleanupCallbacks) {
+                cleanup();
+            }
+
+            signal.removeEventListener('abort', onAbort);
+            reject(signal.reason);
+        };
+
+        signal.addEventListener('abort', onAbort, {once: true});
+
+        if (typeof timeoutMs === 'number') {
+            timeoutId = setTimeout(() => finish('timeout'), timeoutMs);
+        }
 
         for (const name of baselineNames) {
             const waiters = variableWaiters[name] ?? new Set();
@@ -210,68 +187,117 @@ const waitForAnyVariableUpdate = (
 
 const waitForSettledVariableUpdates = async (
     baselineVersions: Record<string, number>,
-    timeoutMs: number,
+    signal: AbortSignal,
     quietMs: number,
-): Promise<{status: 'updated' | 'timeout'; variables: string[]}> => {
-    const observedVariables = new Set<string>(
-        getChangedVariables(baselineVersions),
-    );
-    const deadline = Date.now() + timeoutMs;
-    let currentBaseline = getVariableVersionSnapshot();
+): Promise<string[]> => {
+    const watchedNames = Object.keys(baselineVersions);
+    if (watchedNames.length === 0) {
+        return [];
+    }
 
-    while (Date.now() < deadline) {
-        const remaining = deadline - Date.now();
+    const observedVariables = new Set<string>();
+    let currentBaseline = baselineVersions;
+
+    while (true) {
         const nextResult = await waitForAnyVariableUpdate(
-            observedVariables.size > 0 ? currentBaseline : baselineVersions,
-            Math.min(remaining, observedVariables.size > 0 ? quietMs : remaining),
+            currentBaseline,
+            signal,
+            observedVariables.size === 0 ? undefined : quietMs,
         );
 
-        if (nextResult.status === 'timeout') {
-            return {
-                status: observedVariables.size > 0 ? 'updated' : 'timeout',
-                variables: [...observedVariables],
-            };
+        for (const variable of getChangedVariables(currentBaseline)) {
+            observedVariables.add(variable);
         }
 
         for (const variable of nextResult.variables) {
             observedVariables.add(variable);
         }
 
-        currentBaseline = getVariableVersionSnapshot();
+        if (nextResult.status === 'timeout') {
+            return watchedNames.filter((name) => observedVariables.has(name));
+        }
+
+        currentBaseline = getVariableVersionSnapshotForNames(watchedNames);
     }
-
-    return {
-        status: observedVariables.size > 0 ? 'updated' : 'timeout',
-        variables: [...observedVariables],
-    };
-};
-
-const waitForSettledVariableUpdatesWithRetry = async (
-    baselineVersions: Record<string, number>,
-    timeoutMs: number,
-    retryTimeoutMs: number,
-    quietMs: number,
-): Promise<{status: 'updated' | 'timeout'; variables: string[]}> => {
-    const firstAttempt = await waitForSettledVariableUpdates(
-        baselineVersions,
-        timeoutMs,
-        quietMs,
-    );
-    if (firstAttempt.status === 'updated' || retryTimeoutMs <= 0) {
-        return firstAttempt;
-    }
-
-    return waitForSettledVariableUpdates(
-        baselineVersions,
-        retryTimeoutMs,
-        quietMs,
-    );
 };
 
 const getVariableSnapshot = (): Record<string, unknown> =>
     Object.fromEntries(
         getOrderedVariableEntries().map(([key, value]) => [key, value.value]),
     );
+
+const createLiveVariablesObject = (): Record<string, unknown> => {
+    const liveVariables = Object.create(null) as Record<string, unknown>;
+
+    for (const [name] of getOrderedVariableEntries()) {
+        Object.defineProperty(liveVariables, name, {
+            enumerable: true,
+            configurable: false,
+            get: () => variables[name]?.value,
+            set: () => {
+                throw new Error(
+                    'The `variables` object is read-only. Use page functions to request state changes.',
+                );
+            },
+        });
+    }
+
+    return Object.freeze(liveVariables);
+};
+
+async function invokeFunctionOnNextTick<TValue>(
+    func: () => Promise<TValue>,
+    signal: AbortSignal,
+): Promise<TValue> {
+    return await new Promise<TValue>((resolve, reject) => {
+        if (signal.aborted) {
+            reject(signal.reason);
+            return;
+        }
+
+        let settled = false;
+        const finish = (
+            callback: (value: TValue) => void,
+            value: TValue,
+        ) => {
+            if (settled) {
+                return;
+            }
+
+            settled = true;
+            signal.removeEventListener('abort', onAbort);
+            callback(value);
+        };
+
+        const onAbort = () => {
+            if (settled) {
+                return;
+            }
+
+            settled = true;
+            clearTimeout(timeoutId);
+            signal.removeEventListener('abort', onAbort);
+            reject(signal.reason);
+        };
+
+        const timeoutId = setTimeout(() => {
+            void func().then(
+                (value) => finish(resolve, value),
+                (error) => {
+                    if (settled) {
+                        return;
+                    }
+
+                    settled = true;
+                    signal.removeEventListener('abort', onAbort);
+                    reject(error);
+                },
+            );
+        }, 0);
+
+        signal.addEventListener('abort', onAbort, {once: true});
+    });
+}
 
 const serializeVariableSnapshot = (snapshot: Record<string, unknown>) =>
     JSON.stringify(
@@ -297,36 +323,6 @@ const serializeVariableSnapshot = (snapshot: Record<string, unknown>) =>
         },
         2,
     );
-
-const normalizeIdentifier = (value: string) =>
-    value.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-const inferFunctionWrites = (functionName: string): readonly string[] => {
-    const normalizedFunctionName = normalizeIdentifier(functionName);
-    if (!normalizedFunctionName) {
-        return [];
-    }
-
-    const setterPrefixes = ['set', 'update', 'change', 'apply'];
-    const candidateNames = new Set<string>([normalizedFunctionName]);
-
-    for (const prefix of setterPrefixes) {
-        if (
-            normalizedFunctionName.startsWith(prefix) &&
-            normalizedFunctionName.length > prefix.length
-        ) {
-            candidateNames.add(normalizedFunctionName.slice(prefix.length));
-        }
-    }
-
-    const exactMatches = getOrderedVariableEntries()
-        .map(([name]) => name)
-        .filter((name) =>
-            candidateNames.has(normalizeIdentifier(name)),
-        );
-
-    return exactMatches;
-};
 
 export function setVariable(options: {
     name: string;
@@ -619,7 +615,7 @@ export function run(userPrompt: string, options?: TRunOptions): TRunHandle {
                 } else if (block.type === 'execution') {
                     //console.debug('CODE:\n', block.code);
                     const wrappedCode = [
-                        `(async function({${funcNames.join(', ')}}, {variables, delay, runInAnimationFrames, console, abortSignal}) {`,
+                        `(async function({${funcNames.join(', ')}}, {variables, delay, runInAnimationFrames, waitForMutation, console, abortSignal}) {`,
                         block.code,
                         '})',
                     ].join('\n');
@@ -632,44 +628,6 @@ export function run(userPrompt: string, options?: TRunOptions): TRunHandle {
                     });
 
                     logs.length = 0;
-                    const touchedVariables = new Map<string, number>();
-                    const fallbackBaselineVersions = getVariableVersionSnapshot();
-                    let requiresGenericStateWait = false;
-                    let settleTimeoutMs = STATE_WAIT_TIMEOUT_MS;
-                    const trackedFunctions: TTrackedFunctions =
-                        Object.fromEntries(
-                            Object.entries(functions).map(([name, value]) => [
-                                name,
-                                async (input: unknown) => {
-                                    settleTimeoutMs = Math.max(
-                                        settleTimeoutMs,
-                                        value.settleTimeoutMs ??
-                                            STATE_WAIT_TIMEOUT_MS,
-                                    );
-                                    const resolvedWrites =
-                                        value.writes ?? inferFunctionWrites(name);
-
-                                    if (value.writes === undefined) {
-                                        requiresGenericStateWait =
-                                            requiresGenericStateWait ||
-                                            resolvedWrites.length === 0;
-                                    }
-
-                                    for (const variableName of resolvedWrites) {
-                                        if (!touchedVariables.has(variableName)) {
-                                            touchedVariables.set(
-                                                variableName,
-                                                getVariableVersion(variableName),
-                                            );
-                                        }
-                                    }
-
-                                    const parsed = value.inputType.parse(input);
-                                    return await value.func(parsed, signal);
-                                },
-                            ]),
-                        );
-
                     const execController = new AbortController();
                     const execSignal = execController.signal;
                     const timeout = setTimeout(
@@ -686,6 +644,21 @@ export function run(userPrompt: string, options?: TRunOptions): TRunHandle {
                         once: true,
                     });
 
+                    const trackedFunctions: TTrackedFunctions =
+                        Object.fromEntries(
+                            Object.entries(functions).map(([name, value]) => [
+                                name,
+                                async (input: unknown) => {
+                                    const parsed = value.inputType.parse(input);
+                                    return await invokeFunctionOnNextTick(
+                                        async () =>
+                                            await value.func(parsed, execSignal),
+                                        execSignal,
+                                    );
+                                },
+                            ]),
+                        );
+
                     let executionError: string | null = null;
 
                     try {
@@ -695,16 +668,74 @@ export function run(userPrompt: string, options?: TRunOptions): TRunHandle {
                                 variables: Record<string, unknown>;
                                 delay: ReturnType<typeof makeDelay>;
                                 runInAnimationFrames: TRunInAnimationFrames;
+                                waitForMutation: (
+                                    variableNames: string[],
+                                ) => Promise<string[]>;
                                 console: typeof stubCons;
                                 abortSignal: AbortSignal;
                             },
                         ) => Promise<void>;
 
+                        const waitForMutationBaselines =
+                            getVariableVersionSnapshot();
+                        const waitForMutation = async (
+                            variableNames: string[],
+                        ): Promise<string[]> => {
+                            const uniqueNames = [...new Set(variableNames)];
+                            if (uniqueNames.length === 0) {
+                                return [];
+                            }
+
+                            const unknownVariables = uniqueNames.filter(
+                                (name) => variables[name] === undefined,
+                            );
+                            if (unknownVariables.length > 0) {
+                                throw new Error(
+                                    `Unknown variable name(s): ${unknownVariables.join(', ')}`,
+                                );
+                            }
+
+                            options?.onUpdate?.({
+                                type: 'waiting_for_state',
+                                variables: uniqueNames,
+                            });
+
+                            const changedVariables =
+                                await waitForSettledVariableUpdates(
+                                    Object.fromEntries(
+                                        uniqueNames.map((name) => [
+                                            name,
+                                            waitForMutationBaselines[name] ??
+                                                getVariableVersion(name),
+                                        ]),
+                                    ),
+                                    execSignal,
+                                    STATE_SETTLE_QUIET_MS,
+                                );
+
+                            const nextVersions =
+                                getVariableVersionSnapshotForNames(uniqueNames);
+                            for (const name of uniqueNames) {
+                                waitForMutationBaselines[name] =
+                                    nextVersions[name] ?? getVariableVersion(name);
+                            }
+
+                            for (const variable of changedVariables) {
+                                options?.onUpdate?.({
+                                    type: 'state_update_observed',
+                                    variable,
+                                });
+                            }
+
+                            return changedVariables;
+                        };
+
                         await fn(trackedFunctions, {
-                            variables: getVariableSnapshot(),
+                            variables: createLiveVariablesObject(),
                             delay: makeDelay(execSignal),
                             runInAnimationFrames:
                                 makeRunInAnimationFrames(execSignal),
+                            waitForMutation,
                             console: stubCons,
                             abortSignal: execSignal,
                         });
@@ -716,109 +747,6 @@ export function run(userPrompt: string, options?: TRunOptions): TRunHandle {
                     } finally {
                         clearTimeout(timeout);
                         signal.removeEventListener('abort', onParentAbort);
-                    }
-
-                    const observedVariables = new Set<string>();
-                    const waitVariables =
-                        touchedVariables.size > 0
-                            ? [...touchedVariables.keys()]
-                            : [];
-
-                    if (
-                        waitVariables.length > 0 ||
-                        requiresGenericStateWait
-                    ) {
-                        console.log('PAGE_USE_STATE_WAIT', {
-                            variables: waitVariables,
-                            fallback: requiresGenericStateWait,
-                        });
-                        options?.onUpdate?.({
-                            type: 'waiting_for_state',
-                            variables: waitVariables,
-                        });
-                    }
-
-                    const retryWaitTimeoutMs = Math.max(
-                        STATE_WAIT_RETRY_TIMEOUT_MS,
-                        settleTimeoutMs * 2,
-                    );
-
-                    if (waitVariables.length > 0) {
-                        const settleResults = await Promise.all(
-                            waitVariables.map(async (variableName) => {
-                                const status =
-                                    await waitForVariableVersionWithRetry(
-                                    variableName,
-                                    touchedVariables.get(variableName) ?? 0,
-                                    settleTimeoutMs,
-                                    retryWaitTimeoutMs,
-                                );
-
-                                if (status === 'updated') {
-                                    observedVariables.add(variableName);
-                                    options?.onUpdate?.({
-                                        type: 'state_update_observed',
-                                        variable: variableName,
-                                    });
-                                }
-
-                                return {
-                                    variable: variableName,
-                                    status,
-                                };
-                            }),
-                        );
-
-                        const timedOutVariables = settleResults
-                            .filter((result) => result.status === 'timeout')
-                            .map((result) => result.variable);
-
-                        console.log('PAGE_USE_STATE_WAIT_RESULT', {
-                            results: settleResults,
-                        });
-
-                        if (timedOutVariables.length > 0) {
-                            options?.onUpdate?.({
-                                type: 'state_wait_timeout',
-                                variables: timedOutVariables,
-                            });
-                        }
-                    }
-
-                    if (requiresGenericStateWait) {
-                        const genericWaitResult =
-                            await waitForSettledVariableUpdatesWithRetry(
-                                fallbackBaselineVersions,
-                                settleTimeoutMs,
-                                retryWaitTimeoutMs,
-                                STATE_SETTLE_QUIET_MS,
-                            );
-
-                        for (const variableName of genericWaitResult.variables) {
-                            if (observedVariables.has(variableName)) {
-                                continue;
-                            }
-
-                            observedVariables.add(variableName);
-                            options?.onUpdate?.({
-                                type: 'state_update_observed',
-                                variable: variableName,
-                            });
-                        }
-
-                        console.log('PAGE_USE_STATE_WAIT_RESULT', {
-                            fallback: genericWaitResult,
-                        });
-
-                        if (
-                            genericWaitResult.status === 'timeout' &&
-                            genericWaitResult.variables.length === 0
-                        ) {
-                            options?.onUpdate?.({
-                                type: 'state_wait_timeout',
-                                variables: [],
-                            });
-                        }
                     }
 
                     const executionResult = {
