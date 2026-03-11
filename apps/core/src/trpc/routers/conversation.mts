@@ -134,6 +134,7 @@ export const conversationRouter = router({
                 .selectAll()
                 .where('conversation_id', '=', toDBIdSafe(input.conversation_id))
                 .orderBy('created_at', 'asc')
+                .orderBy('id', 'asc')
                 .execute();
 
             if (turns.length === 0) {
@@ -147,6 +148,7 @@ export const conversationRouter = router({
                 .selectAll()
                 .where('turn_id', 'in', turnIds)
                 .orderBy('created_at', 'asc')
+                .orderBy('id', 'asc')
                 .execute();
 
             const blocksByTurnId = blocks.reduce<Record<string, typeof blocks>>(

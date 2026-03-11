@@ -123,7 +123,9 @@ const countConsecutivePatchFailures = (
 
     // Walk backwards through tool_result blocks
     const sortedResults = [...blocksByType.toolResult].sort(
-        (a, b) => b.created_at.getTime() - a.created_at.getTime(),
+        (a, b) =>
+            b.created_at.getTime() - a.created_at.getTime() ||
+            b.id.localeCompare(a.id),
     );
 
     for (const resultBlock of sortedResults) {
@@ -325,6 +327,7 @@ export const converseRouter = router({
                 .where('conversation_id', '=', conversationDBId)
                 .where('id', '!=', userTurnDBId)
                 .orderBy('created_at', 'asc')
+                .orderBy('id', 'asc')
                 .execute();
 
             const existingTurnIds = existingTurns.map((t) => t.id);
@@ -336,6 +339,7 @@ export const converseRouter = router({
                           .selectAll()
                           .where('turn_id', 'in', existingTurnIds)
                           .orderBy('created_at', 'asc')
+                          .orderBy('id', 'asc')
                           .execute()
                     : [];
 
@@ -343,7 +347,9 @@ export const converseRouter = router({
             const lastCodeBlock = [...existingBlocks]
                 .filter((b) => b.type === 'tool_use')
                 .sort(
-                    (a, b) => b.created_at.getTime() - a.created_at.getTime(),
+                    (a, b) =>
+                        b.created_at.getTime() - a.created_at.getTime() ||
+                        b.id.localeCompare(a.id),
                 )[0];
 
             const lastCode = lastCodeBlock

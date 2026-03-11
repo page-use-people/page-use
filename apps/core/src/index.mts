@@ -37,10 +37,10 @@ const startServer = async (services: TServices) => {
         }),
     );
 
-    app.listen(env.CORE_PORT, () => {
-        logger.info(`core listening on http://localhost:${env.CORE_PORT}`);
+    app.listen(env.CORE_PORT, env.CORE_HOST, () => {
+        logger.info(`core listening on http://${env.CORE_HOST}:${env.CORE_PORT}`);
         logger.info(
-            `trpc endpoint at http://localhost:${env.CORE_PORT}${TRPC_ENDPOINT}`,
+            `trpc endpoint at http://${env.CORE_HOST}:${env.CORE_PORT}${TRPC_ENDPOINT}`,
         );
     });
 };
