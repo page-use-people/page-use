@@ -17,9 +17,8 @@ export {
     type TClientOptions,
 } from '#client/trpc.mjs';
 
-// Codegen
+// Runtime
 export {
-    main,
     run,
     resetConversation,
     registerFunction,
