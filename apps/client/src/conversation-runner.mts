@@ -1,5 +1,8 @@
 import {z} from 'zod';
-import {renderFunctionType, renderVariableInterface} from '#client/render-types.mjs';
+import {
+    renderFunctionType,
+    renderVariableInterface,
+} from '#client/render-types.mjs';
 import {createClient} from '#client/trpc.mjs';
 import type {TRunUpdate} from '#client/run-types.mjs';
 import {
@@ -42,8 +45,8 @@ const buildFunctionDescription = (
             `Declared default waits: ${registeredFunction.writes?.join(', ')}.`,
         );
         descriptionSegments.push(
-            typeof registeredFunction.settleTimeoutMs === 'number'
-                ? `Automatic wait timeout: ${registeredFunction.settleTimeoutMs}ms.`
+            typeof registeredFunction.mutationTimeoutMs === 'number'
+                ? `Automatic wait timeout: ${registeredFunction.mutationTimeoutMs}ms.`
                 : `Automatic wait timeout: ${DEFAULT_VARIABLE_WAIT_TIMEOUT_MS}ms by default.`,
         );
     }
@@ -95,9 +98,7 @@ const buildConversationContext = (): Array<{
     },
 ];
 
-export const isInvalidConversationHistoryError = (
-    error: unknown,
-): boolean =>
+export const isInvalidConversationHistoryError = (error: unknown): boolean =>
     String(error).includes(
         '`tool_use` ids were found without `tool_result` blocks immediately after',
     );

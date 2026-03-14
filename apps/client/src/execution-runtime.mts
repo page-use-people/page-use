@@ -1,14 +1,17 @@
-import {makeRunInAnimationFrames, type TRunInAnimationFrames} from '#client/animation.mjs';
+import {
+    makeRunInAnimationFrames,
+    type TRunInAnimationFrames,
+} from '#client/animation.mjs';
 import type {TRunUpdate} from '#client/run-types.mjs';
 import type {TRegisteredFunction} from '#client/runtime-state.mjs';
 import {
-    VARIABLE_SETTLE_QUIET_PERIOD_MS,
+    VARIABLE_MUTATION_TIMEOUT_MS,
     createLiveVariablesObject,
     ensureRegisteredVariableNames,
     getVariableVersion,
     getVariableVersionSnapshot,
     getVariableVersionSnapshotForNames,
-    waitForSettledVariableUpdates,
+    waitForVariableMutations,
 } from '#client/variable-observer.mjs';
 
 type TStubConsole = {
@@ -145,7 +148,7 @@ const emitObservedVariableUpdates = (
     }
 };
 
-const waitForDeclaredWritesToSettle = async (options: {
+const waitForDeclaredMutations = async (options: {
     registeredFunction: TRegisteredFunction;
     declaredWriteBaselineVersions: Record<string, number>;
     executionSignal: AbortSignal;
@@ -163,18 +166,18 @@ const waitForDeclaredWritesToSettle = async (options: {
         variables: declaredWriteVariableNames,
     });
 
-    const settleResult = await waitForSettledVariableUpdates({
+    const mutationResult = await waitForVariableMutations({
         baselineVersions: options.declaredWriteBaselineVersions,
         signal: options.executionSignal,
-        quietMs: VARIABLE_SETTLE_QUIET_PERIOD_MS,
+        quietMs: VARIABLE_MUTATION_TIMEOUT_MS,
         timeoutMs:
-            options.registeredFunction.settleTimeoutMs ??
+            options.registeredFunction.mutationTimeoutMs ??
             DEFAULT_VARIABLE_WAIT_TIMEOUT_MS,
     });
 
-    emitObservedVariableUpdates(settleResult.variables, options.onUpdate);
+    emitObservedVariableUpdates(mutationResult.variables, options.onUpdate);
 
-    if (settleResult.status === 'timeout') {
+    if (mutationResult.status === 'timeout') {
         options.onUpdate?.({
             type: 'state_wait_timeout',
             variables: declaredWriteVariableNames,
@@ -201,7 +204,7 @@ const createWaitForMutation = (options: {
             variables: uniqueVariableNames,
         });
 
-        const settleResult = await waitForSettledVariableUpdates({
+        const mutationResult = await waitForVariableMutations({
             baselineVersions: Object.fromEntries(
                 uniqueVariableNames.map((variableName) => [
                     variableName,
@@ -210,7 +213,7 @@ const createWaitForMutation = (options: {
                 ]),
             ),
             signal: options.executionSignal,
-            quietMs: VARIABLE_SETTLE_QUIET_PERIOD_MS,
+            quietMs: VARIABLE_MUTATION_TIMEOUT_MS,
             timeoutMs: DEFAULT_VARIABLE_WAIT_TIMEOUT_MS,
         });
 
@@ -222,16 +225,16 @@ const createWaitForMutation = (options: {
                 getVariableVersion(variableName);
         }
 
-        emitObservedVariableUpdates(settleResult.variables, options.onUpdate);
+        emitObservedVariableUpdates(mutationResult.variables, options.onUpdate);
 
-        if (settleResult.status === 'timeout') {
+        if (mutationResult.status === 'timeout') {
             options.onUpdate?.({
                 type: 'state_wait_timeout',
                 variables: uniqueVariableNames,
             });
         }
 
-        return settleResult.variables;
+        return mutationResult.variables;
     };
 };
 
@@ -245,7 +248,8 @@ const createTrackedFunctions = (options: {
             ([functionName, registeredFunction]) => [
                 functionName,
                 async (input: unknown) => {
-                    const parsedInput = registeredFunction.inputType.parse(input);
+                    const parsedInput =
+                        registeredFunction.inputType.parse(input);
                     const declaredWriteVariableNames = [
                         ...new Set(registeredFunction.writes ?? []),
                     ];
@@ -263,7 +267,7 @@ const createTrackedFunctions = (options: {
                         options.executionSignal,
                     );
 
-                    await waitForDeclaredWritesToSettle({
+                    await waitForDeclaredMutations({
                         registeredFunction,
                         declaredWriteBaselineVersions,
                         executionSignal: options.executionSignal,

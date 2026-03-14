@@ -10,7 +10,7 @@ type TRegisteredFunction = {
     readonly inputType: z.ZodType;
     readonly outputType: z.ZodType;
     readonly writes?: readonly string[];
-    readonly settleTimeoutMs?: number;
+    readonly mutationTimeoutMs?: number;
     readonly func: (input: unknown, signal?: AbortSignal) => Promise<unknown>;
 };
 
@@ -41,7 +41,7 @@ export const registerFunction = (options: {
     input: z.ZodType;
     output: z.ZodType;
     writes?: readonly string[];
-    settleTimeoutMs?: number;
+    mutationTimeoutMs?: number;
     func: (input: unknown, signal?: AbortSignal) => Promise<unknown>;
 }): (() => void) => {
     registeredFunctionsByName[options.name] = {
@@ -49,7 +49,7 @@ export const registerFunction = (options: {
         inputType: options.input,
         outputType: options.output,
         writes: options.writes,
-        settleTimeoutMs: options.settleTimeoutMs,
+        mutationTimeoutMs: options.mutationTimeoutMs,
         func: options.func,
     };
 

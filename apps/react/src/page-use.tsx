@@ -21,9 +21,7 @@ export const usePageUseSystemPrompt = (prompt: string): void => {
     }, [prompt]);
 };
 
-export const PageUseSystemPrompt = ({
-    prompt,
-}: TPageUseSystemPromptProps) => {
+export const PageUseSystemPrompt = ({prompt}: TPageUseSystemPromptProps) => {
     usePageUseSystemPrompt(prompt);
     return null;
 };
@@ -68,7 +66,7 @@ export type TPageUseFunctionOptions<
     readonly input: TInput;
     readonly output: TOutput;
     readonly writes?: readonly string[];
-    readonly settleTimeoutMs?: number;
+    readonly mutationTimeoutMs?: number;
     readonly func: (
         input: z.infer<TInput>,
         signal?: AbortSignal,
@@ -94,7 +92,7 @@ export const usePageUseFunction = <
                 input: options.input,
                 output: options.output,
                 writes: options.writes,
-                settleTimeoutMs: options.settleTimeoutMs,
+                mutationTimeoutMs: options.mutationTimeoutMs,
                 func: async (input, signal) =>
                     await funcRef.current(input as z.infer<TInput>, signal),
             }),
@@ -103,7 +101,7 @@ export const usePageUseFunction = <
             options.name,
             options.output,
             options.writes,
-            options.settleTimeoutMs,
+            options.mutationTimeoutMs,
         ],
     );
 };

@@ -11,7 +11,12 @@ pnpm add @page-use/client zod
 ## Quick Start
 
 ```ts
-import {registerFunction, run, setSystemPrompt, setVariable} from '@page-use/client';
+import {
+    registerFunction,
+    run,
+    setSystemPrompt,
+    setVariable,
+} from '@page-use/client';
 import {z} from 'zod';
 
 setSystemPrompt(
@@ -39,7 +44,7 @@ registerFunction({
         ok: z.literal(true),
     }),
     writes: ['items'],
-    settleTimeoutMs: 750,
+    mutationTimeoutMs: 750,
     func: async ({text}) => {
         await addTodoInYourApp(text);
         return {ok: true};
@@ -89,17 +94,17 @@ The core service responds with either plain text or an execution block. Executio
 - a stubbed `console`
 - `abortSignal`
 
-## Variable Settling
+## Variable Mutations
 
 Variable updates are asynchronous from the model's point of view.
 
 - `writes` is optional metadata on `registerFunction(...)`.
 - When `writes` is present, the client automatically waits for those variables after the function handler resolves.
 - Automatic waits use a default timeout of `5s`.
-- When `settleTimeoutMs` is present, it overrides that automatic post-function timeout.
+- When `mutationTimeoutMs` is present, it overrides that automatic post-function timeout.
 - When `writes` is omitted, no automatic wait happens.
 - `waitForMutation([...])` is always available to the generated code for extra variables, narrower waits, or functions without declared writes.
-- Manual `waitForMutation([...])` calls also use a default timeout of `5s` and return the variable names that changed before settling or timing out.
+- Manual `waitForMutation([...])` calls also use a default timeout of `5s` and return the variable names that changed before timing out.
 
 This means `await addTodo(...)` can already include a wait for declared writes, while `await waitForMutation([...])` remains the explicit escape hatch.
 
@@ -109,7 +114,7 @@ This means `await addTodo(...)` can already include a wait for declared writes, 
 2. `run(userPrompt)` snapshots the current runtime and sends a converse request to core.
 3. Core returns either assistant text or an execution block.
 4. The client evaluates the execution block with the registered functions and helpers in scope.
-5. If a called function declared `writes`, the client waits for those variables to settle before letting that function resolve.
+5. If a called function declared `writes`, the client waits for those variables to mutate before letting that function resolve.
 6. Execution logs are sent back to core as an `execution_result` block.
 7. Core can respond with another execution block or final assistant text.
 
@@ -129,7 +134,7 @@ sequenceDiagram
     Code->>Func: await addTodo({ text: "buy milk" })
     Func-->>Code: handler resolved
     Code->>Vars: auto-wait declared writes
-    Vars-->>Code: settled variables / timeout
+    Vars-->>Code: mutated variables / timeout
     Code->>Client: console output
     Client->>Core: execution_result
     Core-->>Client: final text
@@ -142,7 +147,7 @@ sequenceDiagram
 flowchart TD
     Main["main.mts\npublic facade"] --> State["runtime-state.mts\nfunction registry, prompt, context, conversation id"]
     Main --> Runner["conversation-runner.mts\nrequest loop and response handling"]
-    Main --> Vars["variable-observer.mts\nvariable registry and settling"]
+    Main --> Vars["variable-observer.mts\nvariable registry and mutation tracking"]
     Runner --> Exec["execution-runtime.mts\ncode execution and helper environment"]
     Runner --> Vars
     Exec --> State
@@ -172,9 +177,9 @@ registerFunction({
 });
 ```
 
-### Function With `settleTimeoutMs`
+### Function With `mutationTimeoutMs`
 
-Use `settleTimeoutMs` when a function should not wait indefinitely for declared writes.
+Use `mutationTimeoutMs` when a function should not wait indefinitely for declared write mutations.
 
 ```ts
 registerFunction({
@@ -186,7 +191,7 @@ registerFunction({
         ok: z.literal(true),
     }),
     writes: ['draftStatus'],
-    settleTimeoutMs: 500,
+    mutationTimeoutMs: 500,
     func: async ({text}) => {
         await saveDraftInYourApp(text);
         return {ok: true};
@@ -242,16 +247,16 @@ Use `@page-use/client` directly when you want full control outside React or when
 - Registered variables are exposed as a read-only live `variables` object inside generated code.
 - Registered functions are validated with their Zod input schema before the handler runs.
 - Function registrations and tool definitions are refreshed at the start of each converse-loop turn.
-- `settleTimeoutMs` only applies to the automatic wait driven by `writes`.
-- If `writes` is present and `settleTimeoutMs` is omitted, the automatic wait uses the default `5s` timeout.
-- `waitForMutation([...])` also uses the default `5s` timeout and returns the variable names that changed before timeout or settling.
+- `mutationTimeoutMs` only applies to the automatic wait driven by `writes`.
+- If `writes` is present and `mutationTimeoutMs` is omitted, the automatic wait uses the default `5s` timeout.
+- `waitForMutation([...])` also uses the default `5s` timeout and returns the variable names that mutated before timeout.
 
 ## TODO: Tests
 
 Future automated coverage should include:
 
 - variable waiter lifecycle and cleanup
-- settled-update detection with and without a timeout
+- mutation detection with and without a timeout
 - automatic `writes`-based waiting after function handlers resolve
 - manual `waitForMutation([...])` behavior across multiple waits in one execution
 - run loop retry behavior for invalid conversation history

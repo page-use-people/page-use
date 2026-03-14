@@ -21,7 +21,7 @@ const variableUpdateWaitersByName = Object.create(null) as Record<
     Set<(nextVersion: number) => void>
 >;
 
-export const VARIABLE_SETTLE_QUIET_PERIOD_MS = 50;
+export const VARIABLE_MUTATION_TIMEOUT_MS = 100;
 
 export const getOrderedRegisteredVariableEntries = (): Array<
     [string, TRegisteredVariable]
@@ -193,7 +193,7 @@ const getRemainingTimeoutMs = (
     return Math.max(0, deadlineTimestampMs - Date.now());
 };
 
-export const waitForSettledVariableUpdates = async (options: {
+export const waitForVariableMutations = async (options: {
     baselineVersions: Record<string, number>;
     signal: AbortSignal;
     quietMs: number;
