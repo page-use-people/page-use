@@ -1,0 +1,292 @@
+import type {MessageParam, Tool} from '@anthropic-ai/sdk/resources/messages';
+import {router, publicProcedure} from '#core/trpc/trpc.mjs';
+import {generateId, toDBId, toDBIdSafe} from '#core/db/id.mjs';
+import {
+    converseInputSchema,
+    converseOutputSchema,
+    API_MODEL,
+    DB_MODEL,
+    MAX_TOKENS,
+    MAX_CONSECUTIVE_PATCH_FAILURES,
+    MAX_AGENT_TURNS,
+    WRITE_AND_RUN_JS_TOOL,
+    PATCH_AND_RUN_JS_TOOL,
+} from './schemas.mjs';
+import type {TAssistantBlock} from './schemas.mjs';
+import {
+    userBlockToDBType,
+    userBlockToPayload,
+    countConsecutivePatchFailures,
+    processResponseBlocks,
+} from './blocks.mjs';
+import {
+    buildUserContent,
+    buildContextSection,
+    sanitizeMessages,
+    buildHistoryMessages,
+    applyForceStop,
+} from './messages.mjs';
+import {
+    guardAgentProcessing,
+    countAgentTurnsSinceLastUserTurn,
+} from './guards.mjs';
+
+// ── Router ──────────────────────────────────────────────────
+
+export const converseRouter = router({
+    converse: publicProcedure
+        .input(converseInputSchema)
+        .output(converseOutputSchema)
+        .mutation(async ({ctx, input}) => {
+            const {db, anthropic, template, code} = ctx.services;
+            const now = new Date();
+            const conversationDBId = toDBIdSafe(input.conversation_id);
+
+            // 0. Guard: block user turns while agent is processing
+            const isTrueUserTurn = input.blocks.every(
+                (block) => block.type === 'text',
+            );
+
+            if (isTrueUserTurn) {
+                await guardAgentProcessing(db, conversationDBId);
+            }
+
+            // 1. Create or update conversation
+            const existingConversation = await db
+                .selectFrom('conversations')
+                .select('id')
+                .where('id', '=', conversationDBId)
+                .executeTakeFirst();
+
+            existingConversation
+                ? await db
+                      .updateTable('conversations')
+                      .set({
+                          last_turn_by: 'user',
+                          last_message_at: now,
+                      })
+                      .where('id', '=', conversationDBId)
+                      .execute()
+                : await db
+                      .insertInto('conversations')
+                      .values({
+                          id: conversationDBId,
+                          last_turn_by: 'user',
+                          last_message_at: now,
+                          model: DB_MODEL,
+                      })
+                      .execute();
+
+            // 2. Create user turn + blocks
+            const userTurnId = generateId();
+            const userTurnDBId = toDBId(userTurnId);
+
+            await db
+                .insertInto('turns')
+                .values({
+                    id: userTurnDBId,
+                    conversation_id: conversationDBId,
+                    actor: 'user',
+                })
+                .execute();
+
+            const userBlockInserts = input.blocks.map((block) => ({
+                id: toDBId(generateId()),
+                conversation_id: conversationDBId,
+                turn_id: userTurnDBId,
+                type: userBlockToDBType(block),
+                payload: JSON.stringify(userBlockToPayload(block)),
+            }));
+
+            userBlockInserts.length > 0 &&
+                (await db
+                    .insertInto('blocks')
+                    .values(userBlockInserts)
+                    .execute());
+
+            // 3. Fetch conversation history
+            const existingTurns = await db
+                .selectFrom('turns')
+                .selectAll()
+                .where('conversation_id', '=', conversationDBId)
+                .where('id', '!=', userTurnDBId)
+                .orderBy('created_at', 'asc')
+                .orderBy('id', 'asc')
+                .execute();
+
+            const existingTurnIds = existingTurns.map((t) => t.id);
+
+            const existingBlocks =
+                existingTurnIds.length > 0
+                    ? await db
+                          .selectFrom('blocks')
+                          .selectAll()
+                          .where('turn_id', 'in', existingTurnIds)
+                          .orderBy('created_at', 'asc')
+                          .orderBy('id', 'asc')
+                          .execute()
+                    : [];
+
+            // 4. Count agent turns
+            const {agentTurnCount, turnsRemaining, isForceStop} =
+                countAgentTurnsSinceLastUserTurn(
+                    isTrueUserTurn,
+                    existingTurns,
+                    existingBlocks,
+                );
+
+            // 5. Find last code block for patching
+            const lastCodeBlock = [...existingBlocks]
+                .filter((b) => b.type === 'tool_use')
+                .sort(
+                    (a, b) =>
+                        b.created_at.getTime() - a.created_at.getTime() ||
+                        b.id.localeCompare(a.id),
+                )[0];
+
+            const lastCode = lastCodeBlock
+                ? String((lastCodeBlock.payload as {code: string}).code ?? '')
+                : null;
+
+            // 6. Check consecutive patch failures
+            const patchFailures = countConsecutivePatchFailures(existingBlocks);
+            const shouldDisablePatch =
+                patchFailures >= MAX_CONSECUTIVE_PATCH_FAILURES;
+
+            // 7. Build messages
+            const blocksByTurnId = existingBlocks.reduce<
+                Record<string, typeof existingBlocks>
+            >((acc, block) => {
+                const existing = acc[block.turn_id] ?? [];
+                return {...acc, [block.turn_id]: [...existing, block]};
+            }, {});
+
+            const historyMessages = await buildHistoryMessages(
+                existingTurns,
+                blocksByTurnId,
+                code,
+            );
+
+            const currentUserContent = buildUserContent(input.blocks);
+            const currentUserMessage: MessageParam = {
+                role: 'user',
+                content:
+                    !isForceStop && agentTurnCount > 0
+                        ? [
+                              ...currentUserContent,
+                              {
+                                  type: 'text' as const,
+                                  text: `[System: You have ${turnsRemaining} execution turn(s) remaining.]`,
+                              },
+                          ]
+                        : currentUserContent,
+            };
+
+            const operatorMessages: MessageParam[] = input.system_prompt
+                ? [
+                      {role: 'user', content: input.system_prompt},
+                      {role: 'assistant', content: 'Understood.'},
+                  ]
+                : [];
+
+            const messages: MessageParam[] = sanitizeMessages([
+                ...operatorMessages,
+                ...historyMessages,
+                currentUserMessage,
+            ]);
+
+            // 8. Render system prompt
+            const toolTypes = input.available_tools
+                .map((t) => t.definition)
+                .join('\n\n');
+
+            const contextSection = buildContextSection(input.context);
+
+            const systemPromptBase = await template.renderSystemPrompt({
+                page_tool_types: toolTypes,
+                page_variable_types: input.variables_object_definition,
+            });
+
+            const systemPrompt =
+                contextSection +
+                systemPromptBase +
+                `\n\n<turn_budget>\nYou have a maximum of ${MAX_AGENT_TURNS} execution turns to fulfill the user's request. Budget your turns carefully: explore and plan early, execute decisively, and verify before your turns run out.\n</turn_budget>`;
+
+            // 9. Build tools + apply force-stop
+            const tools: Tool[] = isForceStop
+                ? []
+                : shouldDisablePatch
+                  ? [WRITE_AND_RUN_JS_TOOL]
+                  : [WRITE_AND_RUN_JS_TOOL, PATCH_AND_RUN_JS_TOOL];
+
+            if (isForceStop) {
+                applyForceStop(messages);
+            }
+
+            const finalSystemPrompt =
+                shouldDisablePatch && !isForceStop
+                    ? `${systemPrompt}\n\n<important_notice>\nPatching has failed ${patchFailures} times consecutively. The patch_and_run_js tool has been disabled. You MUST use write_and_run_js to write fresh code.\n</important_notice>`
+                    : systemPrompt;
+
+            // 10. Call Anthropic API
+            const response = await anthropic.createMessage({
+                model: API_MODEL,
+                system: finalSystemPrompt,
+                messages,
+                max_tokens: MAX_TOKENS,
+                tools,
+            });
+
+            // 11. Process response
+            const processedBlocks = await processResponseBlocks(
+                response.content,
+                lastCode,
+                code,
+            );
+
+            // 12. Persist assistant turn
+            await db
+                .updateTable('conversations')
+                .set({
+                    last_turn_by: 'assistant',
+                    last_message_at: new Date(),
+                })
+                .where('id', '=', conversationDBId)
+                .execute();
+
+            const assistantTurnId = generateId();
+            const assistantTurnDBId = toDBId(assistantTurnId);
+
+            await db
+                .insertInto('turns')
+                .values({
+                    id: assistantTurnDBId,
+                    conversation_id: conversationDBId,
+                    actor: 'assistant',
+                })
+                .execute();
+
+            const assistantBlockInserts = processedBlocks.map((processed) => ({
+                id: toDBId(generateId()),
+                conversation_id: conversationDBId,
+                turn_id: assistantTurnDBId,
+                type: processed.dbType,
+                payload: JSON.stringify(processed.dbPayload),
+            }));
+
+            assistantBlockInserts.length > 0 &&
+                (await db
+                    .insertInto('blocks')
+                    .values(assistantBlockInserts)
+                    .execute());
+
+            // 13. Return
+            const outputBlocks = processedBlocks
+                .map((p) => p.outputBlock)
+                .filter((b): b is TAssistantBlock => b !== null);
+
+            return {blocks: outputBlocks};
+        }),
+});
+
+export type TConverseRouter = typeof converseRouter;
