@@ -223,7 +223,10 @@ const waitForSettledVariableUpdates = async (
         const remaining = deadline - Date.now();
         const nextResult = await waitForAnyVariableUpdate(
             observedVariables.size > 0 ? currentBaseline : baselineVersions,
-            Math.min(remaining, observedVariables.size > 0 ? quietMs : remaining),
+            Math.min(
+                remaining,
+                observedVariables.size > 0 ? quietMs : remaining,
+            ),
         );
 
         if (nextResult.status === 'timeout') {
@@ -321,9 +324,7 @@ const inferFunctionWrites = (functionName: string): readonly string[] => {
 
     const exactMatches = getOrderedVariableEntries()
         .map(([name]) => name)
-        .filter((name) =>
-            candidateNames.has(normalizeIdentifier(name)),
-        );
+        .filter((name) => candidateNames.has(normalizeIdentifier(name)));
 
     return exactMatches;
 };
@@ -334,11 +335,13 @@ export function setVariable(options: {
     type: z.ZodType;
 }) {
     const nextVersion = getVariableVersion(options.name) + 1;
+
     variables[options.name] = {
         value: options.value,
         type: options.type,
         version: nextVersion,
     };
+
     notifyVariableWaiters(options.name, nextVersion);
 
     return () => {
@@ -589,7 +592,8 @@ export function run(userPrompt: string, options?: TRunOptions): TRunHandle {
 
             try {
                 console.log('PAGE_USE_REQUEST', requestPayload);
-                response = await client.converse.converse.mutate(requestPayload);
+                response =
+                    await client.converse.converse.mutate(requestPayload);
             } catch (error) {
                 if (
                     isInitialUserPrompt &&
@@ -633,7 +637,8 @@ export function run(userPrompt: string, options?: TRunOptions): TRunHandle {
 
                     logs.length = 0;
                     const touchedVariables = new Map<string, number>();
-                    const fallbackBaselineVersions = getVariableVersionSnapshot();
+                    const fallbackBaselineVersions =
+                        getVariableVersionSnapshot();
                     let requiresGenericStateWait = false;
                     let settleTimeoutMs = STATE_WAIT_TIMEOUT_MS;
                     const trackedFunctions: TTrackedFunctions =
@@ -647,7 +652,8 @@ export function run(userPrompt: string, options?: TRunOptions): TRunHandle {
                                             STATE_WAIT_TIMEOUT_MS,
                                     );
                                     const resolvedWrites =
-                                        value.writes ?? inferFunctionWrites(name);
+                                        value.writes ??
+                                        inferFunctionWrites(name);
 
                                     if (value.writes === undefined) {
                                         requiresGenericStateWait =
@@ -656,10 +662,14 @@ export function run(userPrompt: string, options?: TRunOptions): TRunHandle {
                                     }
 
                                     for (const variableName of resolvedWrites) {
-                                        if (!touchedVariables.has(variableName)) {
+                                        if (
+                                            !touchedVariables.has(variableName)
+                                        ) {
                                             touchedVariables.set(
                                                 variableName,
-                                                getVariableVersion(variableName),
+                                                getVariableVersion(
+                                                    variableName,
+                                                ),
                                             );
                                         }
                                     }
@@ -724,10 +734,7 @@ export function run(userPrompt: string, options?: TRunOptions): TRunHandle {
                             ? [...touchedVariables.keys()]
                             : [];
 
-                    if (
-                        waitVariables.length > 0 ||
-                        requiresGenericStateWait
-                    ) {
+                    if (waitVariables.length > 0 || requiresGenericStateWait) {
                         console.log('PAGE_USE_STATE_WAIT', {
                             variables: waitVariables,
                             fallback: requiresGenericStateWait,
@@ -748,11 +755,11 @@ export function run(userPrompt: string, options?: TRunOptions): TRunHandle {
                             waitVariables.map(async (variableName) => {
                                 const status =
                                     await waitForVariableVersionWithRetry(
-                                    variableName,
-                                    touchedVariables.get(variableName) ?? 0,
-                                    settleTimeoutMs,
-                                    retryWaitTimeoutMs,
-                                );
+                                        variableName,
+                                        touchedVariables.get(variableName) ?? 0,
+                                        settleTimeoutMs,
+                                        retryWaitTimeoutMs,
+                                    );
 
                                 if (status === 'updated') {
                                     observedVariables.add(variableName);
@@ -863,9 +870,7 @@ export function run(userPrompt: string, options?: TRunOptions): TRunHandle {
 
     const done = loop()
         .then(() => {
-            options?.onStatusChange?.(
-                signal.aborted ? 'aborted' : 'completed',
-            );
+            options?.onStatusChange?.(signal.aborted ? 'aborted' : 'completed');
         })
         .catch((err) => {
             if (signal.aborted) {
