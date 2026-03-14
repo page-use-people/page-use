@@ -31,6 +31,7 @@
     },
     "dependencies": {
         "@trpc/client": "11.8.1",
+        "dedent": "1.7.2",
         "prettier": "3.8.1",
         "typescript": "5.9.3",
         "zod-to-ts": "2.0.0"

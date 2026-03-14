@@ -26,6 +26,9 @@ export type {
     TRunUpdate,
 } from '#client/types.mjs';
 
+// Utilities
+export {default as dedent} from 'dedent';
+
 // Type rendering
 export {
     renderFunctionType,

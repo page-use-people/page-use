@@ -14,7 +14,6 @@ import {
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { PageUseChat, PageUseFunction, PageUseSystemPrompt, PageUseVariable } from '@page-use/react';
 import z from 'zod';
-import dedent from 'dedent';
 import TodoInput from './TodoInput.tsx';
 import TodoItem from './TodoItem.tsx';
 import ConfirmModal from './ConfirmModal.tsx';
@@ -45,7 +44,7 @@ const loadItems = (): TTodoItem[] => {
     }
 };
 
-const systemPrompt = dedent`
+const systemPrompt = `
     You are a helpful todo list assistant.
 
     For Context:

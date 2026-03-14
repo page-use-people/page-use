@@ -1,3 +1,4 @@
+import dedent from 'dedent';
 import {z} from 'zod';
 
 type TContextEntry = {
@@ -56,7 +57,7 @@ export const unregisterFunction = (options: {name: string}): void => {
 };
 
 export const setSystemPrompt = (prompt: string): void => {
-    config.systemPrompt = prompt;
+    config.systemPrompt = dedent(prompt);
 };
 
 export const getSystemPrompt = (): string => config.systemPrompt;
@@ -65,7 +66,7 @@ export const setContextInformation = (
     key: string,
     options: TContextEntry,
 ): (() => void) => {
-    config.contextByKey[key] = options;
+    config.contextByKey[key] = {...options, content: dedent(options.content)};
 
     return () => {
         delete config.contextByKey[key];

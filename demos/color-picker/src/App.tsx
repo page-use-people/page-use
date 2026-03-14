@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { PageUseChat, PageUseFunction, PageUseSystemPrompt, PageUseVariable } from '@page-use/react';
 import z from 'zod';
-import dedent from 'dedent';
-
 const randomHex = () =>
     `#${Array.from({ length: 6 }, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('')}`;
 
@@ -13,9 +11,9 @@ const luminance = (hex: string) => {
     return 0.299 * r + 0.587 * g + 0.114 * b;
 };
 
-const systemPrompt = dedent`
-    You are a color picker assistant named Picaso. 
-    
+const systemPrompt = `
+    You are a color picker assistant named Picaso.
+
     For Context:
     - You help me, the user with picking colors.
     - The page is basically

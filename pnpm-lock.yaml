@@ -32,6 +32,9 @@ importers:
       '@trpc/client':
         specifier: 11.8.1
         version: 11.8.1(@trpc/server@11.8.1(typescript@5.9.3))(typescript@5.9.3)
+      dedent:
+        specifier: 1.7.2
+        version: 1.7.2
       prettier:
         specifier: 3.8.1
         version: 3.8.1
@@ -193,9 +196,6 @@ importers:
       '@tailwindcss/vite':
         specifier: 4.2.1
         version: 4.2.1(vite@7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.19.4))
-      dedent:
-        specifier: 1.7.2
-        version: 1.7.2
       react:
         specifier: ^19.2.0
         version: 19.2.4
@@ -271,9 +271,6 @@ importers:
       '@tailwindcss/vite':
         specifier: 4.2.1
         version: 4.2.1(vite@7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.19.4))
-      dedent:
-        specifier: 1.7.2
-        version: 1.7.2
       react:
         specifier: ^19.2.0
         version: 19.2.4
