@@ -40,9 +40,9 @@ const buildFunctionDescription = (
 ): string => {
     const descriptionSegments = [registeredFunction.name];
 
-    if ((registeredFunction.writes?.length ?? 0) > 0) {
+    if ((registeredFunction.mutates?.length ?? 0) > 0) {
         descriptionSegments.push(
-            `Declared default waits: ${registeredFunction.writes?.join(', ')}.`,
+            `Declared default waits: ${registeredFunction.mutates?.join(', ')}.`,
         );
         descriptionSegments.push(
             typeof registeredFunction.mutationTimeoutMs === 'number'

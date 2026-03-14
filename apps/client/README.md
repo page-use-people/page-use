@@ -43,7 +43,7 @@ registerFunction({
     output: z.object({
         ok: z.literal(true),
     }),
-    writes: ['items'],
+    mutates: ['items'],
     mutationTimeoutMs: 750,
     func: async ({text}) => {
         await addTodoInYourApp(text);
@@ -98,15 +98,15 @@ The core service responds with either plain text or an execution block. Executio
 
 Variable updates are asynchronous from the model's point of view.
 
-- `writes` is optional metadata on `registerFunction(...)`.
-- When `writes` is present, the client automatically waits for those variables after the function handler resolves.
+- `mutates` is optional metadata on `registerFunction(...)`.
+- When `mutates` is present, the client automatically waits for those variables after the function handler resolves.
 - Automatic waits use a default timeout of `5s`.
 - When `mutationTimeoutMs` is present, it overrides that automatic post-function timeout.
-- When `writes` is omitted, no automatic wait happens.
-- `waitForMutation([...])` is always available to the generated code for extra variables, narrower waits, or functions without declared writes.
+- When `mutates` is omitted, no automatic wait happens.
+- `waitForMutation([...])` is always available to the generated code for extra variables, narrower waits, or functions without declared mutates.
 - Manual `waitForMutation([...])` calls also use a default timeout of `5s` and return the variable names that changed before timing out.
 
-This means `await addTodo(...)` can already include a wait for declared writes, while `await waitForMutation([...])` remains the explicit escape hatch.
+This means `await addTodo(...)` can already include a wait for declared mutates, while `await waitForMutation([...])` remains the explicit escape hatch.
 
 ## End-To-End Flow
 
@@ -114,7 +114,7 @@ This means `await addTodo(...)` can already include a wait for declared writes, 
 2. `run(userPrompt)` snapshots the current runtime and sends a converse request to core.
 3. Core returns either assistant text or an execution block.
 4. The client evaluates the execution block with the registered functions and helpers in scope.
-5. If a called function declared `writes`, the client waits for those variables to mutate before letting that function resolve.
+5. If a called function declared `mutates`, the client waits for those variables to mutate before letting that function resolve.
 6. Execution logs are sent back to core as an `execution_result` block.
 7. Core can respond with another execution block or final assistant text.
 
@@ -133,7 +133,7 @@ sequenceDiagram
     Client->>Code: eval(block)
     Code->>Func: await addTodo({ text: "buy milk" })
     Func-->>Code: handler resolved
-    Code->>Vars: auto-wait declared writes
+    Code->>Vars: auto-wait declared mutates
     Vars-->>Code: mutated variables / timeout
     Code->>Client: console output
     Client->>Core: execution_result
@@ -156,9 +156,9 @@ flowchart TD
 
 ## Examples
 
-### Function With Declared Writes
+### Function With Declared Mutations
 
-Use `writes` when your function is expected to change exposed variables and you want the runtime to wait automatically.
+Use `mutates` when your function is expected to change exposed variables and you want the runtime to wait automatically.
 
 ```ts
 registerFunction({
@@ -169,7 +169,7 @@ registerFunction({
     output: z.object({
         ok: z.literal(true),
     }),
-    writes: ['items', 'remainingCount'],
+    mutates: ['items', 'remainingCount'],
     func: async ({id}) => {
         await toggleTodoInYourApp(id);
         return {ok: true};
@@ -179,7 +179,7 @@ registerFunction({
 
 ### Function With `mutationTimeoutMs`
 
-Use `mutationTimeoutMs` when a function should not wait indefinitely for declared write mutations.
+Use `mutationTimeoutMs` when a function should not wait indefinitely for declared mutations.
 
 ```ts
 registerFunction({
@@ -190,7 +190,7 @@ registerFunction({
     output: z.object({
         ok: z.literal(true),
     }),
-    writes: ['draftStatus'],
+    mutates: ['draftStatus'],
     mutationTimeoutMs: 500,
     func: async ({text}) => {
         await saveDraftInYourApp(text);
@@ -201,9 +201,9 @@ registerFunction({
 
 If `draftStatus` does not update within `500ms`, the runtime emits a `state_wait_timeout` update and continues.
 
-### Function Without Declared Writes
+### Function Without Declared Mutations
 
-When `writes` is omitted, the model can still decide what to wait for through `waitForMutation([...])`.
+When `mutates` is omitted, the model can still decide what to wait for through `waitForMutation([...])`.
 
 Registered function:
 
@@ -247,8 +247,8 @@ Use `@page-use/client` directly when you want full control outside React or when
 - Registered variables are exposed as a read-only live `variables` object inside generated code.
 - Registered functions are validated with their Zod input schema before the handler runs.
 - Function registrations and tool definitions are refreshed at the start of each converse-loop turn.
-- `mutationTimeoutMs` only applies to the automatic wait driven by `writes`.
-- If `writes` is present and `mutationTimeoutMs` is omitted, the automatic wait uses the default `5s` timeout.
+- `mutationTimeoutMs` only applies to the automatic wait driven by `mutates`.
+- If `mutates` is present and `mutationTimeoutMs` is omitted, the automatic wait uses the default `5s` timeout.
 - `waitForMutation([...])` also uses the default `5s` timeout and returns the variable names that mutated before timeout.
 
 ## TODO: Tests
@@ -257,7 +257,7 @@ Future automated coverage should include:
 
 - variable waiter lifecycle and cleanup
 - mutation detection with and without a timeout
-- automatic `writes`-based waiting after function handlers resolve
+- automatic `mutates`-based waiting after function handlers resolve
 - manual `waitForMutation([...])` behavior across multiple waits in one execution
 - run loop retry behavior for invalid conversation history
 - React wrapper compatibility with emitted `TRunUpdate` variants

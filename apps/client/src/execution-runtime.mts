@@ -150,24 +150,24 @@ const emitObservedVariableUpdates = (
 
 const waitForDeclaredMutations = async (options: {
     registeredFunction: TRegisteredFunction;
-    declaredWriteBaselineVersions: Record<string, number>;
+    declaredMutationBaselineVersions: Record<string, number>;
     executionSignal: AbortSignal;
     onUpdate?: (update: TRunUpdate) => void;
 }): Promise<void> => {
-    const declaredWriteVariableNames = [
-        ...new Set(options.registeredFunction.writes ?? []),
+    const declaredMutationVariableNames = [
+        ...new Set(options.registeredFunction.mutates ?? []),
     ];
-    if (declaredWriteVariableNames.length === 0) {
+    if (declaredMutationVariableNames.length === 0) {
         return;
     }
 
     options.onUpdate?.({
         type: 'waiting_for_state',
-        variables: declaredWriteVariableNames,
+        variables: declaredMutationVariableNames,
     });
 
     const mutationResult = await waitForVariableMutations({
-        baselineVersions: options.declaredWriteBaselineVersions,
+        baselineVersions: options.declaredMutationBaselineVersions,
         signal: options.executionSignal,
         quietMs: VARIABLE_MUTATION_TIMEOUT_MS,
         timeoutMs:
@@ -180,7 +180,7 @@ const waitForDeclaredMutations = async (options: {
     if (mutationResult.status === 'timeout') {
         options.onUpdate?.({
             type: 'state_wait_timeout',
-            variables: declaredWriteVariableNames,
+            variables: declaredMutationVariableNames,
         });
     }
 };
@@ -193,6 +193,7 @@ const createWaitForMutation = (options: {
 
     return async (variableNames: string[]): Promise<string[]> => {
         const uniqueVariableNames = [...new Set(variableNames)];
+
         if (uniqueVariableNames.length === 0) {
             return [];
         }
@@ -219,6 +220,7 @@ const createWaitForMutation = (options: {
 
         const nextVariableVersions =
             getVariableVersionSnapshotForNames(uniqueVariableNames);
+        
         for (const variableName of uniqueVariableNames) {
             waitForMutationBaselineVersions[variableName] =
                 nextVariableVersions[variableName] ??
@@ -250,12 +252,12 @@ const createTrackedFunctions = (options: {
                 async (input: unknown) => {
                     const parsedInput =
                         registeredFunction.inputType.parse(input);
-                    const declaredWriteVariableNames = [
-                        ...new Set(registeredFunction.writes ?? []),
+                    const declaredMutationVariableNames = [
+                        ...new Set(registeredFunction.mutates ?? []),
                     ];
-                    const declaredWriteBaselineVersions =
+                    const declaredMutationBaselineVersions =
                         getVariableVersionSnapshotForNames(
-                            declaredWriteVariableNames,
+                            declaredMutationVariableNames,
                         );
 
                     const functionResult = await invokeFunctionOnNextTick(
@@ -269,7 +271,7 @@ const createTrackedFunctions = (options: {
 
                     await waitForDeclaredMutations({
                         registeredFunction,
-                        declaredWriteBaselineVersions,
+                        declaredMutationBaselineVersions,
                         executionSignal: options.executionSignal,
                         onUpdate: options.onUpdate,
                     });

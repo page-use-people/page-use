@@ -65,7 +65,7 @@ export type TPageUseFunctionOptions<
     readonly name: string;
     readonly input: TInput;
     readonly output: TOutput;
-    readonly writes?: readonly string[];
+    readonly mutates?: readonly string[];
     readonly mutationTimeoutMs?: number;
     readonly func: (
         input: z.infer<TInput>,
@@ -91,7 +91,7 @@ export const usePageUseFunction = <
                 name: options.name,
                 input: options.input,
                 output: options.output,
-                writes: options.writes,
+                mutates: options.mutates,
                 mutationTimeoutMs: options.mutationTimeoutMs,
                 func: async (input, signal) =>
                     await funcRef.current(input as z.infer<TInput>, signal),
@@ -100,7 +100,7 @@ export const usePageUseFunction = <
             options.input,
             options.name,
             options.output,
-            options.writes,
+            options.mutates,
             options.mutationTimeoutMs,
         ],
     );
