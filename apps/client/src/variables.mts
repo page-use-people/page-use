@@ -1,3 +1,9 @@
+// Reactive variable store with version-tracked change detection and debounced
+// mutation waiting. Each variable has a monotonic version number that increments
+// only on actual value changes (via Object.is). Mutation waiters use a debounce
+// algorithm: after observing a change, wait for a quiet period with no further
+// changes before resolving — this batches burst updates (e.g. rapid React re-renders).
+
 import {z} from 'zod';
 
 type TRegisteredVariable = {
@@ -11,18 +17,28 @@ type TVariableWaitResult = {
     readonly variables: string[];
 };
 
+// Object.create(null) produces prototype-free objects, avoiding key collisions
+// with Object.prototype (e.g. "toString", "constructor") when variable names
+// come from user-defined application state.
 const registeredVariables = Object.create(null) as Record<
     string,
     TRegisteredVariable
 >;
 
+// One-shot waiter sets: each callback fires once on the next version bump for
+// that variable, then the set is cleared. New waits must re-register.
 const updateWaiters = Object.create(null) as Record<
     string,
     Set<(nextVersion: number) => void>
 >;
 
+// After observing a change, wait this many ms of silence before resolving.
+// This debounces burst updates (e.g. multiple React state changes in one tick)
+// into a single "mutations settled" signal.
 export const MUTATION_QUIET_MS = 100;
 
+// Sorted alphabetically so the AI sees a stable ordering in its prompt,
+// regardless of registration order.
 export const getRegisteredEntries = (): Array<[string, TRegisteredVariable]> =>
     Object.entries(registeredVariables).sort(([left], [right]) =>
         left.localeCompare(right),
@@ -61,6 +77,10 @@ const notifyWaiters = (variableName: string, nextVersion: number): void => {
     waiters.clear();
 };
 
+// Low-level primitive: resolves as soon as any watched variable's version
+// exceeds its baseline, or on timeout/abort. The `hasSettled` guard prevents
+// double-resolve from racing timeout/abort/update, and cleanup callbacks
+// remove listeners to prevent memory leaks.
 const waitForAnyUpdate = (
     baselineVersions: Record<string, number>,
     signal: AbortSignal,
@@ -151,6 +171,12 @@ const getRemainingTimeoutMs = (
     return Math.max(0, deadlineTimestampMs - Date.now());
 };
 
+// Debounced mutation wait algorithm:
+// 1. First iteration waits indefinitely (or until the overall deadline).
+// 2. Once a change is observed, subsequent iterations use `quietMs` as a short
+//    window to catch more changes in the same burst.
+// 3. Resolves when a quiet window passes with no new changes, or on timeout.
+// This ensures burst updates (e.g. multiple setState calls) are captured together.
 export const waitForMutations = async (options: {
     baselineVersions: Record<string, number>;
     signal: AbortSignal;
@@ -219,6 +245,8 @@ export const getValueSnapshot = (): Record<string, unknown> =>
         getRegisteredEntries().map(([name, state]) => [name, state.value]),
     );
 
+// Custom JSON replacer handles values that don't serialize cleanly:
+// Errors → {name, message, stack}, undefined → "[undefined]", functions → "[function]".
 export const serializeSnapshot = (snapshot: Record<string, unknown>): string =>
     JSON.stringify(
         snapshot,
@@ -244,6 +272,9 @@ export const serializeSnapshot = (snapshot: Record<string, unknown>): string =>
         2,
     );
 
+// Read-only proxy over variable values. Getters return live values (not copies),
+// and setters throw — this guides the AI toward using registered functions
+// instead of directly mutating state.
 export const createLiveProxy = (): Record<string, unknown> => {
     const liveVariables = Object.create(null) as Record<string, unknown>;
 
@@ -279,6 +310,8 @@ export const setVariable = (options: {
     type: z.ZodType;
 }): (() => void) => {
     const previous = registeredVariables[options.name];
+    // Object.is comparison — version only advances on actual value changes,
+    // preventing false-positive waiter notifications on no-op updates.
     const shouldAdvanceVersion =
         previous === undefined || !Object.is(previous.value, options.value);
     const nextVersion = shouldAdvanceVersion

@@ -1,3 +1,8 @@
+// Global registry for functions, system prompt, and context that the AI can
+// access during conversations. Functions are registered with Zod schemas for
+// type-safe I/O and optional mutation declarations. Only one conversation run
+// is allowed at a time, enforced via the activeRunController mutex.
+
 import dedent from 'dedent';
 import {z} from 'zod';
 
@@ -17,6 +22,8 @@ type TRegisteredFunction = {
 
 const config = {
     systemPrompt: '',
+    // Object.create(null) avoids prototype key collisions when context/function
+    // names could match Object.prototype properties like "constructor".
     contextByKey: Object.create(null) as Record<string, TContextEntry>,
 };
 
@@ -30,6 +37,8 @@ let activeRunController: AbortController | null = null;
 export const getFunctionEntries = (): Array<[string, TRegisteredFunction]> =>
     Object.entries(functions);
 
+// Returns a cleanup function (disposer pattern) — useful in React useEffect
+// to auto-unregister when a component unmounts.
 export const registerFunction = (options: {
     name: string;
     input: z.ZodType;
@@ -80,6 +89,8 @@ export const unsetContextInformation = (key: string): void => {
 export const getContextEntries = (): TContextEntry[] =>
     Object.values(config.contextByKey);
 
+// Generates a new UUID so the server starts a fresh conversation history.
+// Called after stale conversation errors to recover from dangling tool_use blocks.
 export const resetConversation = (): void => {
     currentConversationId = createConversationId();
 };

@@ -1,3 +1,7 @@
+// Converts Zod schemas to pretty-printed TypeScript signatures for the AI's
+// function and variable reference. The AI sees these type definitions in its
+// prompt so it knows how to call each function and read each variable.
+
 import ts from 'typescript';
 import {z} from 'zod';
 import {
@@ -10,6 +14,8 @@ import prettier from 'prettier';
 import prettierPluginEstree from 'prettier/plugins/estree';
 import prettierPluginTypescript from 'prettier/plugins/typescript';
 
+// Both estree and typescript plugins are needed — Prettier's TypeScript parser
+// depends on the estree plugin for AST handling.
 const PRETTIER_OPTIONS = Object.freeze({
     parser: 'typescript' as const,
     plugins: [prettierPluginEstree, prettierPluginTypescript],
@@ -22,6 +28,8 @@ const PRETTIER_OPTIONS = Object.freeze({
 const prettify = async (tsCode: string): Promise<string> =>
     prettier.format(tsCode, PRETTIER_OPTIONS);
 
+// Produces the async function signature the AI sees in its prompt.
+// JSDoc comments come from Zod `.describe()` calls on input/output schemas.
 export const renderFunctionType = async (
     name: string,
     inputParameterType: z.ZodType,
@@ -49,6 +57,8 @@ export const renderFunctionType = async (
     `);
 };
 
+// Renders the TVariables type alias the AI uses to understand the shape of
+// the `variables` object available in sandbox code.
 export const renderVariableInterface = async (
     type: z.ZodType,
 ): Promise<string> => {

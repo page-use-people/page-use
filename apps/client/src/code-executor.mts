@@ -1,3 +1,7 @@
+// Sandbox for executing AI-generated code with abort support, mutation tracking,
+// and console capture. Code is wrapped as an async IIFE, eval'd in global scope,
+// and given access to registered functions, live variables, and timing utilities.
+
 import {
     makeRunInAnimationFrames,
     type TRunInAnimationFrames,
@@ -38,6 +42,8 @@ const EXECUTION_TIMEOUT_MS = 12_000;
 
 // --- Abort utilities ---
 
+// Promise-based setTimeout that rejects immediately if the signal is already
+// aborted, and cleans up the timer + listener whichever fires first.
 const createAbortableTimeout = (
     signal: AbortSignal,
     ms: number,
@@ -55,6 +61,8 @@ const createAbortableTimeout = (
         signal.addEventListener('abort', onAbort, {once: true});
     });
 
+// Pushes execution to the next macrotask (setTimeout 0) so that DOM updates
+// and state changes from prior microtasks have settled before the function runs.
 const deferExecution = async <TValue,>(
     func: () => Promise<TValue>,
     signal: AbortSignal,
@@ -66,6 +74,9 @@ const deferExecution = async <TValue,>(
 const createDelay = (signal: AbortSignal) => (ms: number) =>
     createAbortableTimeout(signal, ms);
 
+// Two-tier abort: the child controller aborts if the parent does (user cancels
+// the whole run) or if its own timeout fires (single execution took too long).
+// cleanup() removes both the timeout and parent listener to prevent leaks.
 const createChildAbortController = (
     parentSignal: AbortSignal,
     timeoutMs: number,
@@ -90,6 +101,7 @@ const createChildAbortController = (
 
 // --- Sandbox helpers ---
 
+// Errors get full stack traces; objects get JSON; everything else is stringified.
 const formatLoggedValue = (value: unknown): string => {
     if (value instanceof Error) {
         return `${value.name}: ${value.message}\n${value.stack}`;
@@ -103,6 +115,8 @@ const formatLoggedValue = (value: unknown): string => {
     return serializedValue ?? String(value);
 };
 
+// All console methods (log/error/info) funnel to one appender — the AI sees
+// captured output as a single stream, severity levels are not distinguished.
 const createSandboxConsole = (): [TSandboxConsole, string[]] => {
     const capturedLogLines: string[] = [];
 
@@ -121,6 +135,9 @@ const createSandboxConsole = (): [TSandboxConsole, string[]] => {
     ];
 };
 
+// Wraps the AI's code as an async IIFE with two destructured parameters:
+// 1st arg = registered functions by name, 2nd arg = context utilities
+// (variables, delay, animations, mutation waiter, console, abortSignal).
 const wrapCodeAsFunction = (
     availableFunctionNames: readonly string[],
     code: string,
@@ -138,6 +155,7 @@ const formatError = (error: unknown): string =>
 
 // --- Mutation tracking ---
 
+// Emits a 'state_update_observed' event for each variable that changed.
 const emitVariableUpdates = (
     observedNames: readonly string[],
     onUpdate?: (update: TRunUpdate) => void,
@@ -147,6 +165,9 @@ const emitVariableUpdates = (
     });
 };
 
+// Automatic post-call wait: if a function declares it mutates certain variables,
+// this pauses until those variables change (or the timeout expires). This lets
+// the system capture the effects of async side-effects before returning to the AI.
 const awaitDeclaredMutations = async (options: {
     registeredFunction: TRegisteredFunction;
     declaredMutationBaseline: Record<string, number>;
@@ -183,6 +204,10 @@ const awaitDeclaredMutations = async (options: {
     }
 };
 
+// Manual mutation waiter exposed to sandbox code as `waitForMutation()`.
+// Unlike awaitDeclaredMutations (automatic, per-function-call), this lets the
+// AI's code explicitly wait for specific variables. The baseline advances
+// across calls so repeated waits don't re-trigger on already-seen changes.
 const createMutationWaiter = (options: {
     executionSignal: AbortSignal;
     onUpdate?: (update: TRunUpdate) => void;
@@ -234,6 +259,9 @@ const createMutationWaiter = (options: {
     };
 };
 
+// Wraps each registered function so that: (1) input is validated via Zod,
+// (2) mutation baselines are snapshot *before* execution, (3) the call is
+// deferred to the next macrotask, and (4) declared mutations are awaited after.
 const createTrackedFunctions = (options: {
     registeredFunctionEntries: ReadonlyArray<[string, TRegisteredFunction]>;
     executionSignal: AbortSignal;
@@ -303,6 +331,9 @@ export const executeCodeBlock = async (options: {
     let executionError: string | null = null;
 
     try {
+        // (0, eval) is indirect eval — it runs in global scope rather than
+        // inheriting the local closure, preventing sandbox code from accessing
+        // the executor's internal variables.
         const executeCode = (0, eval)(wrappedSource) as (
             trackedFunctions: TTrackedFunctions,
             context: {

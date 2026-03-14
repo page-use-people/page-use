@@ -1,3 +1,8 @@
+// Conversation loop that sends prompts to the AI, executes returned code blocks,
+// and feeds results back until the AI responds with text only (no code). Each
+// iteration re-renders function types and variable state since they may change
+// between turns. Only one conversation can run at a time (single-run lock).
+
 import {z} from 'zod';
 import {
     renderFunctionType,
@@ -34,6 +39,8 @@ type TRequestBlock =
           readonly error: string | null;
       };
 
+// Produces the natural-language metadata the AI sees alongside each function's
+// type signature — includes mutation declarations and timeout info.
 const buildFunctionDescription = (
     registeredFunction: TRegisteredFunction,
 ): string => {
@@ -107,11 +114,17 @@ const buildRequestPayload = async (
     blocks: requestBlocks,
 });
 
+// If a prior run was aborted mid-execution, the server may have dangling
+// tool_use blocks without matching results. This detects that specific
+// Anthropic API error so the client can reset and start a fresh conversation.
 const isStaleConversationError = (error: unknown): boolean =>
     String(error).includes(
         '`tool_use` ids were found without `tool_result` blocks immediately after',
     );
 
+// Multi-turn conversation loop: sends the prompt + context to the AI, processes
+// response blocks (text → collect, code → execute), feeds execution results back
+// as the next request. The loop ends when the AI responds with text only.
 const runConversationLoop = async (options: {
     userPrompt: string;
     signal: AbortSignal;
@@ -123,6 +136,7 @@ const runConversationLoop = async (options: {
     let requestBlocks: TRequestBlock[] = [
         {type: 'text', message: options.userPrompt},
     ];
+    // One-retry limit prevents infinite loops on persistent stale state.
     let hasRetriedStaleConversation = false;
 
     while (!options.signal.aborted) {
@@ -218,6 +232,8 @@ const runConversationLoop = async (options: {
     }
 };
 
+// Entry point: starts a conversation run. Only one run is allowed at a time —
+// getActiveRunController() acts as a mutex. Returns a handle to abort or await.
 export function run(userPrompt: string, options?: TRunOptions): TRunHandle {
     if (getActiveRunController() !== null) {
         throw new Error(

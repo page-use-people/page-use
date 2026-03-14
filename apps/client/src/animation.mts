@@ -1,3 +1,7 @@
+// Animation frame loop with easing functions, exposed to sandbox code for smooth
+// UI transitions. The signal is captured in a closure so all animations from one
+// code execution share the same abort controller.
+
 type TEasingName =
     | 'linear'
     | 'easeInQuad'
@@ -35,6 +39,8 @@ const EASING_FUNCTIONS: Readonly<Record<TEasingName, TEasingFn>> =
         easeOutCubic: (t: number) => 1 - Math.pow(1 - t, 3),
         easeInOutCubic: (t: number) =>
             t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2,
+        // c1 (1.70158) is the standard overshoot constant from Penner's easing
+        // equations — it controls how far the animation overshoots before settling.
         easeOutBack: (t: number) => {
             const c1 = 1.70158;
             const c3 = c1 + 1;
@@ -42,6 +48,7 @@ const EASING_FUNCTIONS: Readonly<Record<TEasingName, TEasingFn>> =
         },
     });
 
+// Linear interpolation: blends between `from` and `to` by factor `t` (0..1).
 const lerp = (from: number, to: number, t: number): number =>
     from + (to - from) * t;
 
