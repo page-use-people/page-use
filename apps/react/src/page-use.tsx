@@ -7,9 +7,19 @@ import {
 } from '@page-use/client';
 import {z} from 'zod';
 
-export type TPageUseSystemPromptProps = {
+type TPageUseSystemPromptWithProp = {
     readonly prompt: string;
+    readonly children?: never;
 };
+
+type TPageUseSystemPromptWithChildren = {
+    readonly prompt?: never;
+    readonly children: string;
+};
+
+export type TPageUseSystemPromptProps =
+    | TPageUseSystemPromptWithProp
+    | TPageUseSystemPromptWithChildren;
 
 export const usePageUseSystemPrompt = (prompt: string): void => {
     useEffect(() => {
@@ -21,8 +31,8 @@ export const usePageUseSystemPrompt = (prompt: string): void => {
     }, [prompt]);
 };
 
-export const PageUseSystemPrompt = ({prompt}: TPageUseSystemPromptProps) => {
-    usePageUseSystemPrompt(prompt);
+export const PageUseSystemPrompt = (props: TPageUseSystemPromptProps) => {
+    usePageUseSystemPrompt((props.prompt ?? props.children) as string);
     return null;
 };
 
