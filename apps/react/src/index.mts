@@ -1,4 +1,3 @@
-export {Greeting, type TGreetingProps} from './greeting.js';
 export {
     PageUseFunction,
     PageUseSystemPrompt,
