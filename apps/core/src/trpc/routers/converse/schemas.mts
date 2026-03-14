@@ -53,8 +53,13 @@ export const WRITE_AND_RUN_JS_TOOL: Tool = {
                 type: 'string',
                 description: 'The JavaScript code to execute',
             },
+            description: {
+                type: 'string',
+                description:
+                    'A super short human-readable label for what this code does (e.g. "adding the todo item", "checking current colors")',
+            },
         },
-        required: ['js_code'],
+        required: ['js_code', 'description'],
     },
 };
 
@@ -70,7 +75,12 @@ export const PATCH_AND_RUN_JS_TOOL: Tool = {
                 description:
                     'A unified diff patch to apply to the previous code',
             },
+            description: {
+                type: 'string',
+                description:
+                    'A super short human-readable label for what this code does (e.g. "fixing the validation", "retrying with correct input")',
+            },
         },
-        required: ['js_code_diff_patch'],
+        required: ['js_code_diff_patch', 'description'],
     },
 };

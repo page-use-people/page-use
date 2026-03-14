@@ -65,8 +65,8 @@ export const countConsecutivePatchFailures = (
             break;
         }
 
-        const toolPayload = toolUseBlock.payload as {description: string};
-        if (toolPayload.description === 'patch_and_run_js') {
+        const toolPayload = toolUseBlock.payload as {tool_name: string};
+        if (toolPayload.tool_name === 'patch_and_run_js') {
             count++;
         } else {
             break; // Non-patch tool found, stop counting
@@ -101,7 +101,9 @@ export const processResponseBlocks = async (
                 const input = block.input as {
                     js_code?: string;
                     js_code_diff_patch?: string;
+                    description?: string;
                 };
+                const description = input.description ?? toolName;
 
                 let cleanCode: string;
 
@@ -121,20 +123,22 @@ export const processResponseBlocks = async (
                         }
                     }
                 } else {
-                    throw new Error(`Unknown tool: ${toolName}`);
+                    cleanCode =
+                        `throw new Error("${toolName} is not a tool. It is a page function available inside your write_and_run_js code. Use write_and_run_js to call: await ${toolName}(...)");`;
                 }
 
                 return {
                     dbPayload: {
                         execution_identifier: block.id,
-                        description: toolName,
+                        tool_name: toolName,
+                        description,
                         code: cleanCode,
                     },
                     dbType: 'tool_use' as TBlockType,
                     outputBlock: {
                         type: 'execution' as const,
                         execution_identifier: block.id,
-                        description: toolName,
+                        description,
                         code: cleanCode,
                     },
                 };
