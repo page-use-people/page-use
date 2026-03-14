@@ -12,6 +12,9 @@ import {
     type DragEndEvent,
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import { PageUseChat, PageUseFunction, PageUseSystemPrompt, PageUseVariable } from '@page-use/react';
+import z from 'zod';
+import dedent from 'dedent';
 import TodoInput from './TodoInput.tsx';
 import TodoItem from './TodoItem.tsx';
 import ConfirmModal from './ConfirmModal.tsx';
@@ -41,6 +44,64 @@ const loadItems = (): TTodoItem[] => {
         return [];
     }
 };
+
+const systemPrompt = dedent`
+    You are a helpful todo list assistant.
+
+    For Context:
+    - You help me manage my tasks in a todo list app.
+    - The app has two sections: "To Do" (incomplete) and "Completed"
+    - Each item has a text description, an optional due date, and a completion status.
+    - Items can be dragged between sections, but you manage them via functions.
+    - You can add new todos, delete existing ones, toggle their completion status, and clear all items.
+`;
+
+const todoItemType = z
+    .array(
+        z.object({
+            id: z.string().describe('unique identifier for the todo item'),
+            text: z.string().describe('the todo item description'),
+            dueDate: z.string().describe('due date in YYYY-MM-DD format, or empty string if none'),
+            completed: z.boolean().describe('whether the item is completed'),
+        }),
+    )
+    .describe('the current list of all todo items');
+
+const addTodoInput = z
+    .object({
+        text: z.string().describe('the todo item description'),
+        due_date: z.string().describe('due date in YYYY-MM-DD format, or empty string if none'),
+    })
+    .describe('the todo item to add');
+const addTodoOutput = z.void().describe('void');
+
+const deleteTodoInput = z
+    .object({
+        id: z.string().describe('the id of the todo item to delete'),
+    })
+    .describe('the todo item to delete');
+const deleteTodoOutput = z.void().describe('void');
+
+const toggleTodoInput = z
+    .object({
+        id: z.string().describe('the id of the todo item to toggle'),
+    })
+    .describe('the todo item to toggle completion');
+const toggleTodoOutput = z.void().describe('void');
+
+const clearAllInput = z.void().describe('no input needed');
+const clearAllOutput = z.void().describe('void');
+
+const promptChips = [
+    {
+        label: 'Add a task for today',
+        prompt: 'Add a todo item to buy groceries with today as the due date.',
+    },
+    {
+        label: 'What should I focus on?',
+        prompt: 'Look at my current todos and suggest which one I should focus on first based on due dates.',
+    },
+];
 
 const reducer = (state: TTodoItem[], action: TAction): TTodoItem[] => {
     switch (action.type) {
@@ -166,109 +227,124 @@ const App = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 px-4 py-8">
-            <div className="mx-auto max-w-lg">
-                <h1 className="mb-6 text-2xl font-bold">Todo List</h1>
-                <TodoInput onAdd={(text, dueDate) => dispatch({ type: 'ADD', text, dueDate })} />
-                <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCorners}
-                    onDragStart={handleDragStart}
-                    onDragOver={handleDragOver}
-                    onDragEnd={handleDragEnd}
-                >
-                    <DroppableSection id="incomplete" title="To Do" isEmpty={incomplete.length === 0}>
-                        <SortableContext items={incomplete.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-                            <div className="space-y-2">
-                                {incomplete.map((item) => (
-                                    <TodoItem
-                                        key={item.id}
-                                        item={item}
-                                        onToggle={() =>
-                                            dispatch({
-                                                type: 'TOGGLE',
-                                                id: item.id,
-                                            })
-                                        }
-                                        onDelete={() =>
-                                            dispatch({
-                                                type: 'DELETE',
-                                                id: item.id,
-                                            })
-                                        }
-                                        onUpdate={(text, dueDate) =>
-                                            dispatch({
-                                                type: 'UPDATE',
-                                                id: item.id,
-                                                text,
-                                                dueDate,
-                                            })
-                                        }
-                                    />
-                                ))}
-                            </div>
-                        </SortableContext>
-                    </DroppableSection>
-                    <DroppableSection id="completed" title="Completed" isEmpty={completed.length === 0}>
-                        <SortableContext items={completed.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-                            <div className="space-y-2">
-                                {completed.map((item) => (
-                                    <TodoItem
-                                        key={item.id}
-                                        item={item}
-                                        onToggle={() =>
-                                            dispatch({
-                                                type: 'TOGGLE',
-                                                id: item.id,
-                                            })
-                                        }
-                                        onDelete={() =>
-                                            dispatch({
-                                                type: 'DELETE',
-                                                id: item.id,
-                                            })
-                                        }
-                                        onUpdate={(text, dueDate) =>
-                                            dispatch({
-                                                type: 'UPDATE',
-                                                id: item.id,
-                                                text,
-                                                dueDate,
-                                            })
-                                        }
-                                    />
-                                ))}
-                            </div>
-                        </SortableContext>
-                    </DroppableSection>
-                    <DragOverlay>
-                        {activeId ? (
-                            <div className="flex items-center gap-2 rounded border border-gray-200 bg-white px-3 py-2 shadow-lg">
-                                <span className="text-black/20">⠿</span>
-                                <span className="text-sm">{items.find((i) => i.id === activeId)?.text}</span>
-                            </div>
-                        ) : null}
-                    </DragOverlay>
-                </DndContext>
-                {items.length > 0 && (
-                    <button
-                        className="mt-8 w-full rounded border border-gray-300 py-2 text-sm text-black/40 transition-colors hover:border-black hover:text-black"
-                        onClick={() => setShowClearModal(true)}
+        <>
+            <PageUseSystemPrompt prompt={systemPrompt} />
+            <PageUseVariable name="todo_items" value={items} type={todoItemType} />
+            <PageUseFunction
+                name="add_todo"
+                input={addTodoInput}
+                output={addTodoOutput}
+                func={async (input) => {
+                    dispatch({ type: 'ADD', text: input.text, dueDate: input.due_date });
+                }}
+            />
+            <PageUseFunction
+                name="delete_todo"
+                input={deleteTodoInput}
+                output={deleteTodoOutput}
+                func={async (input) => {
+                    dispatch({ type: 'DELETE', id: input.id });
+                }}
+            />
+            <PageUseFunction
+                name="toggle_todo"
+                input={toggleTodoInput}
+                output={toggleTodoOutput}
+                func={async (input) => {
+                    dispatch({ type: 'TOGGLE', id: input.id });
+                }}
+            />
+            <PageUseFunction
+                name="clear_all"
+                input={clearAllInput}
+                output={clearAllOutput}
+                func={async () => {
+                    dispatch({ type: 'CLEAR_ALL' });
+                }}
+            />
+
+            <div className="min-h-screen bg-gray-50 px-4 py-8">
+                <div className="mx-auto max-w-lg">
+                    <h1 className="mb-6 text-2xl font-bold">Todo List</h1>
+                    <TodoInput onAdd={(text, dueDate) => dispatch({ type: 'ADD', text, dueDate })} />
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCorners}
+                        onDragStart={handleDragStart}
+                        onDragOver={handleDragOver}
+                        onDragEnd={handleDragEnd}
                     >
-                        Clear All
-                    </button>
-                )}
-                <ConfirmModal
-                    open={showClearModal}
-                    message="Are you sure you want to clear all items?"
-                    onConfirm={() => {
-                        dispatch({ type: 'CLEAR_ALL' });
-                        setShowClearModal(false);
-                    }}
-                    onCancel={() => setShowClearModal(false)}
-                />
+                        <DroppableSection id="incomplete" title="To Do" isEmpty={incomplete.length === 0}>
+                            <SortableContext items={incomplete.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+                                <div className="space-y-2">
+                                    {incomplete.map((item) => (
+                                        <TodoItem
+                                            key={item.id}
+                                            item={item}
+                                            onToggle={() => dispatch({ type: 'TOGGLE', id: item.id })}
+                                            onDelete={() => dispatch({ type: 'DELETE', id: item.id })}
+                                            onUpdate={(text, dueDate) =>
+                                                dispatch({ type: 'UPDATE', id: item.id, text, dueDate })
+                                            }
+                                        />
+                                    ))}
+                                </div>
+                            </SortableContext>
+                        </DroppableSection>
+                        <DroppableSection id="completed" title="Completed" isEmpty={completed.length === 0}>
+                            <SortableContext items={completed.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+                                <div className="space-y-2">
+                                    {completed.map((item) => (
+                                        <TodoItem
+                                            key={item.id}
+                                            item={item}
+                                            onToggle={() => dispatch({ type: 'TOGGLE', id: item.id })}
+                                            onDelete={() => dispatch({ type: 'DELETE', id: item.id })}
+                                            onUpdate={(text, dueDate) =>
+                                                dispatch({ type: 'UPDATE', id: item.id, text, dueDate })
+                                            }
+                                        />
+                                    ))}
+                                </div>
+                            </SortableContext>
+                        </DroppableSection>
+                        <DragOverlay>
+                            {activeId ? (
+                                <div className="flex items-center gap-2 rounded border border-gray-200 bg-white px-3 py-2 shadow-lg">
+                                    <span className="text-black/20">⠿</span>
+                                    <span className="text-sm">{items.find((i) => i.id === activeId)?.text}</span>
+                                </div>
+                            ) : null}
+                        </DragOverlay>
+                    </DndContext>
+                    {items.length > 0 && (
+                        <button
+                            className="mt-8 w-full rounded border border-gray-300 py-2 text-sm text-black/40 transition-colors hover:border-black hover:text-black"
+                            onClick={() => setShowClearModal(true)}
+                        >
+                            Clear All
+                        </button>
+                    )}
+                    <ConfirmModal
+                        open={showClearModal}
+                        message="Are you sure you want to clear all items?"
+                        onConfirm={() => {
+                            dispatch({ type: 'CLEAR_ALL' });
+                            setShowClearModal(false);
+                        }}
+                        onCancel={() => setShowClearModal(false)}
+                    />
+                </div>
             </div>
-        </div>
+
+            <PageUseChat
+                title="TODO ASSISTANT"
+                placeholder="Add a task, ask what's due, or manage your list"
+                greeting="Hi! I can see your todo list and help you manage it — add tasks, mark them done, or clear everything."
+                promptChips={promptChips}
+                theme="light"
+            />
+        </>
     );
 };
 
