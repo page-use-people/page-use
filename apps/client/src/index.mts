@@ -1,4 +1,3 @@
-
 // tRPC client
 export {
     createClient,
@@ -7,29 +6,31 @@ export {
 } from '#client/trpc.mjs';
 
 // Runtime
+export {run} from '#client/runner.mjs';
+
 export {
-    run,
-    resetConversation,
     registerFunction,
     unregisterFunction,
+    resetConversation,
     setSystemPrompt,
     setContextInformation,
     unsetContextInformation,
-    setVariable,
-    unsetVariable,
-} from '#client/main.mjs';
+} from '#client/registry.mjs';
+
+export {setVariable, unsetVariable} from '#client/variables.mjs';
 
 export type {
     TRunHandle,
     TRunOptions,
     TRunStatus,
     TRunUpdate,
-} from '#client/main.mjs';
+} from '#client/types.mjs';
 
+// Type rendering
 export {
     renderFunctionType,
     renderVariableInterface,
-} from '#client/render-types.mjs';
+} from '#client/type-renderer.mjs';
 
 // Animation
 export {

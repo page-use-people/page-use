@@ -1,6 +1,6 @@
 import {z} from 'zod';
 
-type TContextInformationEntry = {
+type TContextEntry = {
     readonly title: string | null;
     readonly content: string;
 };
@@ -14,27 +14,20 @@ type TRegisteredFunction = {
     readonly func: (input: unknown, signal?: AbortSignal) => Promise<unknown>;
 };
 
-const runtimeConfiguration = {
+const config = {
     systemPrompt: '',
-    contextInformationByKey: Object.create(null) as Record<
-        string,
-        TContextInformationEntry
-    >,
+    contextByKey: Object.create(null) as Record<string, TContextEntry>,
 };
 
-const registeredFunctionsByName = Object.create(null) as Record<
-    string,
-    TRegisteredFunction
->;
+const functions = Object.create(null) as Record<string, TRegisteredFunction>;
 
 const createConversationId = () => crypto.randomUUID();
 
 let currentConversationId = createConversationId();
 let activeRunController: AbortController | null = null;
 
-export const getRegisteredFunctionEntries = (): Array<
-    [string, TRegisteredFunction]
-> => Object.entries(registeredFunctionsByName);
+export const getFunctionEntries = (): Array<[string, TRegisteredFunction]> =>
+    Object.entries(functions);
 
 export const registerFunction = (options: {
     name: string;
@@ -44,7 +37,7 @@ export const registerFunction = (options: {
     mutationTimeoutMs?: number;
     func: (input: unknown, signal?: AbortSignal) => Promise<unknown>;
 }): (() => void) => {
-    registeredFunctionsByName[options.name] = {
+    functions[options.name] = {
         name: options.name,
         inputType: options.input,
         outputType: options.output,
@@ -54,37 +47,37 @@ export const registerFunction = (options: {
     };
 
     return () => {
-        delete registeredFunctionsByName[options.name];
+        delete functions[options.name];
     };
 };
 
 export const unregisterFunction = (options: {name: string}): void => {
-    delete registeredFunctionsByName[options.name];
+    delete functions[options.name];
 };
 
 export const setSystemPrompt = (prompt: string): void => {
-    runtimeConfiguration.systemPrompt = prompt;
+    config.systemPrompt = prompt;
 };
 
-export const getSystemPrompt = (): string => runtimeConfiguration.systemPrompt;
+export const getSystemPrompt = (): string => config.systemPrompt;
 
 export const setContextInformation = (
     key: string,
-    options: TContextInformationEntry,
+    options: TContextEntry,
 ): (() => void) => {
-    runtimeConfiguration.contextInformationByKey[key] = options;
+    config.contextByKey[key] = options;
 
     return () => {
-        delete runtimeConfiguration.contextInformationByKey[key];
+        delete config.contextByKey[key];
     };
 };
 
 export const unsetContextInformation = (key: string): void => {
-    delete runtimeConfiguration.contextInformationByKey[key];
+    delete config.contextByKey[key];
 };
 
-export const getContextInformationEntries = (): TContextInformationEntry[] =>
-    Object.values(runtimeConfiguration.contextInformationByKey);
+export const getContextEntries = (): TContextEntry[] =>
+    Object.values(config.contextByKey);
 
 export const resetConversation = (): void => {
     currentConversationId = createConversationId();
@@ -95,10 +88,8 @@ export const getConversationId = (): string => currentConversationId;
 export const getActiveRunController = (): AbortController | null =>
     activeRunController;
 
-export const setActiveRunController = (
-    nextActiveRunController: AbortController | null,
-): void => {
-    activeRunController = nextActiveRunController;
+export const setActiveRunController = (next: AbortController | null): void => {
+    activeRunController = next;
 };
 
-export type {TContextInformationEntry, TRegisteredFunction};
+export type {TContextEntry, TRegisteredFunction};
