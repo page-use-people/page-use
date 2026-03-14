@@ -36,4 +36,5 @@ export type TPageUseChatProps = {
     readonly width?: number;
     readonly height?: number;
     readonly theme?: TPageUseChatTheme;
+    readonly devMode?: boolean;
 };

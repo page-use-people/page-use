@@ -28,6 +28,7 @@ type TChatPanelProps = {
     readonly dragHandleProps: TDragHandleProps;
     readonly width: number;
     readonly height: number;
+    readonly devMode?: boolean;
 };
 
 type TChatTranscriptProps = {
@@ -38,6 +39,7 @@ type TChatTranscriptProps = {
     readonly isRunning: boolean;
     readonly onSendPrompt: (prompt: string) => boolean;
     readonly palette: TPageUseChatPalette;
+    readonly devMode?: boolean;
 };
 
 type TChatComposerProps = {
@@ -52,6 +54,26 @@ type TChatHeaderProps = {
     readonly onClose: () => void;
     readonly palette: TPageUseChatPalette;
     readonly dragHandleProps: TDragHandleProps;
+};
+
+const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'] as const;
+
+const useSpinner = (running: boolean): string => {
+    const [frame, setFrame] = useState(0);
+
+    useEffect(() => {
+        if (!running) {
+            return;
+        }
+
+        const id = setInterval(
+            () => setFrame((f) => (f + 1) % SPINNER_FRAMES.length),
+            80,
+        );
+        return () => clearInterval(id);
+    }, [running]);
+
+    return SPINNER_FRAMES[frame] ?? '⠋';
 };
 
 const ChatMessageBubble = memo(
@@ -148,7 +170,9 @@ const ChatTranscript = ({
     isRunning,
     onSendPrompt,
     palette,
+    devMode,
 }: TChatTranscriptProps) => {
+    const spinner = useSpinner(isRunning);
     const viewportRef = useRef<HTMLDivElement | null>(null);
     const frameRef = useRef<number | null>(null);
     const shouldStickToBottomRef = useRef(true);
@@ -247,7 +271,7 @@ const ChatTranscript = ({
                 </div>
             ) : null}
 
-            {isRunning ? (
+            {isRunning || (devMode && loadingDetails.length > 0) ? (
                 <div
                     style={{
                         borderTop: `2px solid ${palette.divider}`,
@@ -260,8 +284,14 @@ const ChatTranscript = ({
                         flexDirection: 'column',
                         gap: 8,
                     }}>
-                    <div>* forming a response ...</div>
-                    {loadingDetails.length > 0 ? (
+                    <div>
+                        {spinner}{' '}
+                        {loadingDetails.length > 0
+                            ? loadingDetails[loadingDetails.length - 1]
+                            : 'forming a response'}{' '}
+                        ...
+                    </div>
+                    {devMode && loadingDetails.length > 0 ? (
                         <div
                             style={{
                                 display: 'flex',
@@ -401,6 +431,7 @@ export const ChatPanel = ({
     dragHandleProps,
     width,
     height,
+    devMode,
 }: TChatPanelProps) => (
     <div
         style={{
@@ -425,6 +456,7 @@ export const ChatPanel = ({
             isRunning={isRunning}
             onSendPrompt={onSendPrompt}
             palette={palette}
+            devMode={devMode}
         />
         <ChatComposer
             placeholder={placeholder}

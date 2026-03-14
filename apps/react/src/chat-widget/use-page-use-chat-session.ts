@@ -1,7 +1,7 @@
 import {useEffect, useRef, useState} from 'react';
 import type {TRunHandle, TRunStatus, TRunUpdate} from '@page-use/client';
 
-import {createId, formatVariableWaitLabel} from './shared.js';
+import {createId} from './shared.js';
 import type {
     TChatMessage,
     TPageUseChatSubmitCallbacks,
@@ -13,6 +13,7 @@ type TUsePageUseChatSessionOptions = {
         prompt: string,
         callbacks: TPageUseChatSubmitCallbacks,
     ) => TRunHandle | Promise<TRunHandle>;
+    readonly devMode?: boolean;
 };
 
 export type TPageUseChatSession = {
@@ -32,32 +33,11 @@ const replaceLastMessage = (
     return nextMessages;
 };
 
-const formatLoadingDetail = (update: TRunUpdate): string => {
-    switch (update.type) {
-        case 'text':
-            return update.message;
-        case 'execution_start':
-            return `running ${update.description}...`;
-        case 'waiting_for_state':
-            return update.variables.length === 0
-                ? 'waiting for state update...'
-                : `waiting for ${formatVariableWaitLabel(update.variables)} update${update.variables.length === 1 ? '' : 's'}...`;
-        case 'state_update_observed':
-            return `${update.variable} update observed`;
-        case 'state_wait_timeout':
-            return update.variables.length === 0
-                ? 'state update timed out, continuing'
-                : `${formatVariableWaitLabel(update.variables)} update${update.variables.length === 1 ? '' : 's'} timed out, continuing`;
-        case 'execution_result':
-            return update.error
-                ? `${update.description} failed`
-                : `${update.description} completed`;
-    }
-};
 
 export const usePageUseChatSession = ({
     greeting,
     submitPrompt,
+    devMode,
 }: TUsePageUseChatSessionOptions): TPageUseChatSession => {
     const [messages, setMessages] = useState<TChatMessage[]>(
         greeting
@@ -172,11 +152,11 @@ export const usePageUseChatSession = ({
     };
 
     const appendLoadingDetail = (update: TRunUpdate) => {
-        if (!isMountedRef.current) {
+        if (!isMountedRef.current || update.type !== 'execution_start') {
             return;
         }
 
-        setLoadingDetails((current) => [...current, formatLoadingDetail(update)]);
+        setLoadingDetails((current) => [...current, update.description]);
     };
 
     const handleStatusChange = (status: TRunStatus) => {
@@ -192,7 +172,9 @@ export const usePageUseChatSession = ({
 
         isRunningRef.current = false;
         setIsRunning(false);
-        setLoadingDetails([]);
+        if (!devMode) {
+            setLoadingDetails([]);
+        }
         activeHandleRef.current = null;
         finalizeAssistantMessage();
     };
@@ -240,7 +222,9 @@ export const usePageUseChatSession = ({
 
                 isRunningRef.current = false;
                 setIsRunning(false);
-                setLoadingDetails([]);
+                if (!devMode) {
+                    setLoadingDetails([]);
+                }
                 activeHandleRef.current = null;
                 finalizeAssistantMessage();
                 appendErrorMessage(error);

@@ -43,6 +43,7 @@ export const PageUseChat = ({
     width = DEFAULT_WIDTH,
     height = DEFAULT_HEIGHT,
     theme = 'dark',
+    devMode,
 }: TPageUseChatProps) => {
     const palette = THEME_PALETTES[theme];
     const [isOpen, setIsOpen] = useState(initialOpen);
@@ -50,6 +51,7 @@ export const PageUseChat = ({
         usePageUseChatSession({
             greeting,
             submitPrompt,
+            devMode,
         });
 
     const showPromptChips =
@@ -91,6 +93,7 @@ export const PageUseChat = ({
                         dragHandleProps={panelDragHandleProps}
                         width={width}
                         height={height}
+                        devMode={devMode}
                     />
                 ) : (
                     <ChatLauncher

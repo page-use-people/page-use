@@ -342,6 +342,7 @@ const App = () => {
                 greeting="Hi! I can see your todo list and help you manage it — add tasks, mark them done, or clear everything."
                 promptChips={promptChips}
                 theme="light"
+                devMode
             />
         </>
     );
