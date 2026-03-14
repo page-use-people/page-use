@@ -1,0 +1,8 @@
+{
+  "name": "@page-use-demo/noop",
+  "version": "0.0.0",
+  "description": "a no-op demo package so that no demos start if $DEMO is not set in environment",
+  "scripts": {
+    "dev": "exit 0"
+  }
+}

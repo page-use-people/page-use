@@ -33,16 +33,14 @@ services:
       context: .
       dockerfile: Dockerfile.mono
     restart: unless-stopped
-    command: pnpm dev
+    command: "pnpm dev --filter @page-use/* --filter=@page-use-demo/${DEMO:-noop}"
     ports:
       - target: 12001
         published: "${CORE_PORT:-12001}"
-      - target: 12002
-        published: "${TODO_DEMO_PORT:-12002}"
-      - target: 12003
-        published: "${COLOR_PICKER_DEMO_PORT:-12003}"
       - target: 14001
         published: "${CORE_DEBUG_PORT:-14001}"
+      - target: 12002
+        published: "12002"
     environment:
       DATABASE_URL: "${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/page_use}"
       REDIS_URL: "${REDIS_URL:-redis://valkey:6379}"
