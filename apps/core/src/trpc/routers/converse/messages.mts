@@ -69,77 +69,63 @@ export const sanitizeMessages = (messages: MessageParam[]): MessageParam[] => {
 
 // ── History Messages ────────────────────────────────────────
 
-type TCodeService = {
-    readonly formatWithLineNumbers: (code: string) => Promise<string>;
-};
-
-export const buildHistoryMessages = async (
+export const buildHistoryMessages = (
     turns: readonly TSelectableTurn[],
     blocksByTurnId: Readonly<Record<string, readonly TSelectableBlock[]>>,
-    codeService: TCodeService,
-): Promise<MessageParam[]> =>
-    Promise.all(
-        turns.map(async (turn): Promise<MessageParam> => {
-            const turnBlocks = blocksByTurnId[turn.id] ?? [];
+): MessageParam[] =>
+    turns.map((turn): MessageParam => {
+        const turnBlocks = blocksByTurnId[turn.id] ?? [];
 
-            if (turn.actor === 'user') {
-                return {
-                    role: 'user' as const,
-                    content: turnBlocks.map((b) => {
-                        const p = b.payload as Record<string, unknown>;
-                        return b.type === 'tool_result'
-                            ? ({
-                                  type: 'tool_result',
-                                  tool_use_id: String(
-                                      p.execution_identifier ?? '',
-                                  ),
-                                  content: p.error
-                                      ? `${p.result}\n--- ERROR ---\n${p.error}`
-                                      : String(p.result ?? ''),
-                                  is_error: p.error !== null,
-                              } as ToolResultBlockParam)
-                            : {
-                                  type: 'text' as const,
-                                  text: String(p.message ?? ''),
-                              };
-                    }),
-                };
-            }
-
-            // Assistant turn - format code with line numbers
-            // Filter out thinking blocks as they're model-generated, not sent to API
-            const validBlocks = turnBlocks.filter(
-                (b) => b.type === 'tool_use' || b.type === 'text',
-            );
-
-            const formattedContent = await Promise.all(
-                validBlocks.map(async (b) => {
-                    const p = b.payload as Record<string, unknown>;
-                    if (b.type === 'tool_use') {
-                        const codeWithLines =
-                            await codeService.formatWithLineNumbers(
-                                String(p.code ?? ''),
-                            );
-                        return {
-                            type: 'tool_use' as const,
-                            id: String(p.execution_identifier ?? ''),
-                            name: String(p.description ?? ''),
-                            input: {js_code: codeWithLines},
-                        };
-                    }
-                    return {
-                        type: 'text' as const,
-                        text: String(p.message ?? ''),
-                    };
-                }),
-            );
-
+        if (turn.actor === 'user') {
             return {
-                role: 'assistant' as const,
-                content: formattedContent,
+                role: 'user' as const,
+                content: turnBlocks.map((b) => {
+                    const p = b.payload as Record<string, unknown>;
+                    return b.type === 'tool_result'
+                        ? ({
+                              type: 'tool_result',
+                              tool_use_id: String(
+                                  p.execution_identifier ?? '',
+                              ),
+                              content: p.error
+                                  ? `${p.result}\n--- ERROR ---\n${p.error}`
+                                  : String(p.result ?? ''),
+                              is_error: p.error !== null,
+                          } as ToolResultBlockParam)
+                        : {
+                              type: 'text' as const,
+                              text: String(p.message ?? ''),
+                          };
+                }),
             };
-        }),
-    );
+        }
+
+        // Assistant turn
+        // Filter out thinking blocks as they're model-generated, not sent to API
+        const validBlocks = turnBlocks.filter(
+            (b) => b.type === 'tool_use' || b.type === 'text',
+        );
+
+        const content = validBlocks.map((b) => {
+            const p = b.payload as Record<string, unknown>;
+            return b.type === 'tool_use'
+                ? {
+                      type: 'tool_use' as const,
+                      id: String(p.execution_identifier ?? ''),
+                      name: String(p.description ?? ''),
+                      input: {js_code: String(p.code ?? '')},
+                  }
+                : {
+                      type: 'text' as const,
+                      text: String(p.message ?? ''),
+                  };
+        });
+
+        return {
+            role: 'assistant' as const,
+            content,
+        };
+    });
 
 // ── Force Stop ──────────────────────────────────────────────
 

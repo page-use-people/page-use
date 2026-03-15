@@ -19,7 +19,7 @@ export const userBlockToPayload = (block: TUserBlock): unknown =>
 
 // ── Patch Failure Tracking ──────────────────────────────────
 
-export const countConsecutivePatchFailures = (
+export const countConsecutiveEditFailures = (
     blocks: readonly TSelectableBlock[],
 ): number => {
     let count = 0;
@@ -66,7 +66,7 @@ export const countConsecutivePatchFailures = (
         }
 
         const toolPayload = toolUseBlock.payload as {tool_name: string};
-        if (toolPayload.tool_name === 'patch_and_run_js') {
+        if (toolPayload.tool_name === 'edit_and_run_js') {
             count++;
         } else {
             break; // Non-patch tool found, stop counting
@@ -79,8 +79,7 @@ export const countConsecutivePatchFailures = (
 // ── Response Processing ─────────────────────────────────────
 
 type TCodeService = {
-    readonly formatWithLineNumbers: (code: string) => Promise<string>;
-    readonly applyPatch: (original: string, patch: string) => string;
+    readonly applyEdits: (original: string, edits: string) => string;
 };
 
 type TProcessedBlock = {
@@ -100,7 +99,7 @@ export const processResponseBlocks = async (
                 const toolName = block.name;
                 const input = block.input as {
                     js_code?: string;
-                    js_code_diff_patch?: string;
+                    edits?: string;
                     description?: string;
                 };
                 const description = input.description ?? toolName;
@@ -109,17 +108,17 @@ export const processResponseBlocks = async (
 
                 if (toolName === 'write_and_run_js') {
                     cleanCode = input.js_code ?? '';
-                } else if (toolName === 'patch_and_run_js') {
+                } else if (toolName === 'edit_and_run_js') {
                     if (!lastCode) {
                         cleanCode =
-                            'throw new Error("No previous code to patch. Use write_and_run_js instead.");';
+                            'throw new Error("No previous code to edit. Use write_and_run_js instead.");';
                     } else {
-                        const patch = input.js_code_diff_patch ?? '';
+                        const edits = input.edits ?? '';
                         try {
-                            cleanCode = codeService.applyPatch(lastCode, patch);
-                        } catch {
-                            cleanCode =
-                                'throw new Error("Failed to apply patch. The diff was malformed. Use write_and_run_js to write fresh code instead.");';
+                            cleanCode = codeService.applyEdits(lastCode, edits);
+                        } catch (err) {
+                            const message = err instanceof Error ? err.message : 'Unknown edit error';
+                            cleanCode = `throw new Error(${JSON.stringify(message)});`;
                         }
                     }
                 } else {

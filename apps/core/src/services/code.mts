@@ -1,58 +1,92 @@
-import * as Diff from 'diff';
-import prettier from 'prettier';
+// ── Types ──────────────────────────────────────────────────
 
-type TCodeService = {
-    readonly formatWithLineNumbers: (code: string) => Promise<string>;
-    readonly applyPatch: (originalCode: string, patch: string) => string;
+type TSearchReplaceBlock = {
+    readonly search: string;
+    readonly replace: string;
 };
 
+type TCodeService = {
+    readonly applyEdits: (originalCode: string, edits: string) => string;
+};
+
+// ── SEARCH/REPLACE Parsing ─────────────────────────────────
+
+const SEARCH_REPLACE_PATTERN =
+    /<<<<<<< SEARCH\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> REPLACE/g;
+
+const parseSearchReplaceBlocks = (
+    edits: string,
+): readonly TSearchReplaceBlock[] => {
+    const blocks = Array.from(edits.matchAll(SEARCH_REPLACE_PATTERN)).map(
+        (match) => ({
+            search: match[1],
+            replace: match[2],
+        }),
+    );
+
+    if (blocks.length === 0) {
+        throw new Error(
+            'No valid SEARCH/REPLACE blocks found. Use the <<<<<<< SEARCH / ======= / >>>>>>> REPLACE format.',
+        );
+    }
+
+    const emptySearch = blocks.find((b) => b.search.trim() === '');
+    if (emptySearch) {
+        throw new Error(
+            'Empty SEARCH block found. The SEARCH section must contain the exact code to find.',
+        );
+    }
+
+    return blocks;
+};
+
+// ── Edit Application ───────────────────────────────────────
+
+const countOccurrences = (code: string, search: string): number => {
+    let count = 0;
+    let pos = 0;
+    while (true) {
+        const idx = code.indexOf(search, pos);
+        if (idx === -1) {
+            return count;
+        }
+        count++;
+        pos = idx + 1;
+    }
+};
+
+const applySingleEdit = (
+    code: string,
+    block: TSearchReplaceBlock,
+): string => {
+    const matches = countOccurrences(code, block.search);
+
+    if (matches === 0) {
+        throw new Error(
+            'SEARCH block not found in code. Make sure the SEARCH content exactly matches the existing code, including whitespace and indentation.',
+        );
+    }
+
+    if (matches > 1) {
+        throw new Error(
+            `SEARCH block matches ${matches} locations. Add more surrounding context lines to make the match unique.`,
+        );
+    }
+
+    const idx = code.indexOf(block.search);
+    return code.slice(0, idx) + block.replace + code.slice(idx + block.search.length);
+};
+
+// ── Service Factory ────────────────────────────────────────
+
 const createCodeService = (): TCodeService => {
-    const formatWithLineNumbers = async (code: string): Promise<string> => {
-        // 1. Run prettier (with error fallback)
-        let formatted: string;
-        try {
-            formatted = await prettier.format(code, {
-                parser: 'babel',
-                bracketSpacing: false,
-                singleQuote: true,
-                trailingComma: 'all',
-                tabWidth: 4,
-            });
-        } catch {
-            // If prettier fails (syntax error), use original code
-            formatted = code;
-        }
+    const applyEdits = (originalCode: string, edits: string): string =>
+        parseSearchReplaceBlocks(edits).reduce(
+            (code, block) => applySingleEdit(code, block),
+            originalCode,
+        );
 
-        // Remove trailing newline added by prettier
-        const trimmed = formatted.endsWith('\n')
-            ? formatted.slice(0, -1)
-            : formatted;
-
-        // 2. Add line numbers (matching the format: "     1→...")
-        const lines = trimmed.split('\n');
-        const maxLineNumWidth = Math.max(String(lines.length).length, 5);
-
-        return lines
-            .map((line, i) => {
-                const lineNum = String(i + 1).padStart(maxLineNumWidth, ' ');
-                return `${lineNum}\u2192${line}`;
-            })
-            .join('\n');
-    };
-
-    const applyPatch = (originalCode: string, patch: string): string => {
-        try {
-            const result = Diff.applyPatch(originalCode, patch);
-            if (result === false) {
-                throw new Error('Failed to apply patch');
-            }
-            return result;
-        } catch {
-            throw new Error('Failed to apply patch');
-        }
-    };
-
-    return Object.freeze({formatWithLineNumbers, applyPatch});
+    return Object.freeze({applyEdits});
 };
 
 export {createCodeService};
