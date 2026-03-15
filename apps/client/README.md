@@ -23,10 +23,9 @@ setSystemPrompt(
     'You are helping the user interact with a todo list application.',
 );
 
-setVariable({
-    name: 'items',
+setVariable('items', {
     value: [],
-    type: z.array(
+    schema: z.array(
         z.object({
             id: z.string(),
             text: z.string(),
@@ -35,12 +34,11 @@ setVariable({
     ),
 });
 
-registerFunction({
-    name: 'addTodo',
-    input: z.object({
+registerFunction('addTodo', {
+    inputSchema: z.object({
         text: z.string(),
     }),
-    output: z.object({
+    outputSchema: z.object({
         ok: z.literal(true),
     }),
     mutates: ['items'],
@@ -161,12 +159,11 @@ flowchart TD
 Use `mutates` when your function is expected to change exposed variables and you want the runtime to wait automatically.
 
 ```ts
-registerFunction({
-    name: 'toggleTodo',
-    input: z.object({
+registerFunction('toggleTodo', {
+    inputSchema: z.object({
         id: z.string(),
     }),
-    output: z.object({
+    outputSchema: z.object({
         ok: z.literal(true),
     }),
     mutates: ['items', 'remainingCount'],
@@ -182,12 +179,11 @@ registerFunction({
 Use `mutationTimeoutMs` when a function should not wait indefinitely for declared mutations.
 
 ```ts
-registerFunction({
-    name: 'saveDraft',
-    input: z.object({
+registerFunction('saveDraft', {
+    inputSchema: z.object({
         text: z.string(),
     }),
-    output: z.object({
+    outputSchema: z.object({
         ok: z.literal(true),
     }),
     mutates: ['draftStatus'],
@@ -208,10 +204,9 @@ When `mutates` is omitted, the model can still decide what to wait for through `
 Registered function:
 
 ```ts
-registerFunction({
-    name: 'recalculateTotals',
-    input: z.object({}),
-    output: z.object({
+registerFunction('recalculateTotals', {
+    inputSchema: z.object({}),
+    outputSchema: z.object({
         ok: z.literal(true),
     }),
     func: async () => {

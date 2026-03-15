@@ -47,16 +47,15 @@ export const useAgentVariable = <TType extends z.ZodType>(
     options: TPageUseVariableOptions,
 ): void => {
     useEffect(() => {
-        setVariable({
-            name: name,
+        setVariable(name, {
+            schema: options.schema,
             value: options.value,
-            type: options.schema,
         });
     }, [name, options.schema, options.value]);
 
     useEffect(
         () => () => {
-            unsetVariable({name: name});
+            unsetVariable(name);
         },
         [name],
     );
@@ -91,10 +90,9 @@ export const useAgentFunction = <
 
     useEffect(
         () =>
-            registerFunction({
-                name: name,
-                input: options.inputSchema,
-                output: options.outputSchema ?? z.void(),
+            registerFunction(name, {
+                inputSchema: options.inputSchema,
+                outputSchema: options.outputSchema,
                 mutates: options.mutates,
                 mutationTimeoutMs: options.mutationTimeoutMs,
                 func: async (input, signal) =>

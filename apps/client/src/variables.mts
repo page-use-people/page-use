@@ -304,36 +304,40 @@ export const ensureRegistered = (variableNames: readonly string[]): void => {
     }
 };
 
-export const setVariable = (options: {
-    name: string;
-    value: unknown;
-    type: z.ZodType;
-}): (() => void) => {
-    const previous = registeredVariables[options.name];
+export type TVariableOptions<TType extends z.ZodType = z.ZodType> = {
+    readonly schema: TType;
+    readonly value: z.infer<TType>;
+};
+
+export const setVariable = <TType extends z.ZodType>(
+    name: string,
+    options: TVariableOptions<TType>,
+): (() => void) => {
+    const previous = registeredVariables[name];
     // Object.is comparison — version only advances on actual value changes,
     // preventing false-positive waiter notifications on no-op updates.
     const shouldAdvanceVersion =
         previous === undefined || !Object.is(previous.value, options.value);
     const nextVersion = shouldAdvanceVersion
-        ? getVariableVersion(options.name) + 1
-        : getVariableVersion(options.name);
+        ? getVariableVersion(name) + 1
+        : getVariableVersion(name);
 
-    registeredVariables[options.name] = {
+    registeredVariables[name] = {
         value: options.value,
-        type: options.type,
+        type: options.schema,
         version: nextVersion,
     };
 
     if (shouldAdvanceVersion) {
-        notifyWaiters(options.name, nextVersion);
+        notifyWaiters(name, nextVersion);
     }
 
     return () => {
-        unsetVariable({name: options.name});
+        unsetVariable(name);
     };
 };
 
-export const unsetVariable = (options: {name: string}): void => {
-    delete registeredVariables[options.name];
-    delete updateWaiters[options.name];
+export const unsetVariable = (name: string): void => {
+    delete registeredVariables[name];
+    delete updateWaiters[name];
 };

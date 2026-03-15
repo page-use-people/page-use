@@ -37,32 +37,46 @@ let activeRunController: AbortController | null = null;
 export const getFunctionEntries = (): Array<[string, TRegisteredFunction]> =>
     Object.entries(functions);
 
+export type TFunctionOptions<
+    TInput extends z.ZodType = z.ZodType,
+    TOutput extends z.ZodType = z.ZodVoid,
+> = {
+    readonly inputSchema: TInput;
+    readonly outputSchema?: TOutput;
+    readonly mutates?: readonly string[];
+    readonly mutationTimeoutMs?: number;
+    readonly func: (
+        input: z.infer<TInput>,
+        signal?: AbortSignal,
+    ) => Promise<z.infer<TOutput>> | z.infer<TOutput>;
+};
+
 // Returns a cleanup function (disposer pattern) — useful in React useEffect
 // to auto-unregister when a component unmounts.
-export const registerFunction = (options: {
-    name: string;
-    input: z.ZodType;
-    output: z.ZodType;
-    mutates?: readonly string[];
-    mutationTimeoutMs?: number;
-    func: (input: unknown, signal?: AbortSignal) => Promise<unknown>;
-}): (() => void) => {
-    functions[options.name] = {
-        name: options.name,
-        inputType: options.input,
-        outputType: options.output,
+export const registerFunction = <
+    TInput extends z.ZodType,
+    TOutput extends z.ZodType = z.ZodVoid,
+>(
+    name: string,
+    options: TFunctionOptions<TInput, TOutput>,
+): (() => void) => {
+    functions[name] = {
+        name: name,
+        inputType: options.inputSchema,
+        outputType: options.outputSchema ?? z.void(),
         mutates: options.mutates,
         mutationTimeoutMs: options.mutationTimeoutMs,
-        func: options.func,
+        func: async (input, signal) =>
+            await options.func(input as z.infer<TInput>, signal),
     };
 
     return () => {
-        delete functions[options.name];
+        delete functions[name];
     };
 };
 
-export const unregisterFunction = (options: {name: string}): void => {
-    delete functions[options.name];
+export const unregisterFunction = (name: string): void => {
+    delete functions[name];
 };
 
 export const setSystemPrompt = (prompt: string): void => {

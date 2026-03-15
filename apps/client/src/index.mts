@@ -15,9 +15,14 @@ export {
     setSystemPrompt,
     setContextInformation,
     unsetContextInformation,
+    type TFunctionOptions,
 } from '#client/registry.mjs';
 
-export {setVariable, unsetVariable} from '#client/variables.mjs';
+export {
+    setVariable,
+    unsetVariable,
+    type TVariableOptions,
+} from '#client/variables.mjs';
 
 export type {
     TRunHandle,
