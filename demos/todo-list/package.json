@@ -10,16 +10,18 @@
         "preview": "vite preview"
     },
     "dependencies": {
-        "@page-use/client": "workspace:*",
-        "@page-use/react": "workspace:*",
-        "zod": "4.3.6",
         "@dnd-kit/core": "^6.3.1",
         "@dnd-kit/sortable": "^10.0.0",
         "@dnd-kit/utilities": "^3.2.2",
+        "@page-use/client": "workspace:*",
+        "@page-use/react": "workspace:*",
         "@tailwindcss/vite": "4.2.1",
+        "clsx": "2.1.1",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
-        "tailwindcss": "4.2.1"
+        "tailwindcss": "4.2.1",
+        "wouter": "3.9.0",
+        "zod": "4.3.6"
     },
     "devDependencies": {
         "@eslint/js": "^9.39.1",
