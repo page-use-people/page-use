@@ -23,8 +23,6 @@ import {
 import {MUTATION_TIMEOUT_MS, executeCodeBlock} from '#client/code-executor.mjs';
 import {
     getRegisteredEntries,
-    getValueSnapshot,
-    serializeSnapshot,
 } from '#client/variables.mjs';
 
 type TRequestBlock =
@@ -96,10 +94,6 @@ const buildConversationContext = (): Array<{
         title: entry.title ?? undefined,
         content: entry.content,
     })),
-    {
-        title: 'current_variables',
-        content: serializeSnapshot(getValueSnapshot()),
-    },
 ];
 
 const buildRequestPayload = async (
