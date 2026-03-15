@@ -1,14 +1,13 @@
 export {
-    PageUseFunction,
-    PageUseSystemPrompt,
-    PageUseVariable,
-    usePageUseFunction,
-    usePageUseSystemPrompt,
-    usePageUseVariable,
+    SystemPrompt,
+    useAgentFunction,
+    useSystemPrompt,
+    useAgentVariable,
     type TPageUseFunctionOptions,
     type TPageUseSystemPromptProps,
     type TPageUseVariableOptions,
 } from './page-use.js';
+
 export {
     PageUseChat,
     type TPageUseChatPrompt,

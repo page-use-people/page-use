@@ -5,6 +5,7 @@ import {
     setVariable,
     unsetVariable,
 } from '@page-use/client';
+
 import {z} from 'zod';
 
 type TPageUseSystemPromptWithProp = {
@@ -21,7 +22,7 @@ export type TPageUseSystemPromptProps =
     | TPageUseSystemPromptWithProp
     | TPageUseSystemPromptWithChildren;
 
-export const usePageUseSystemPrompt = (prompt: string): void => {
+export const useSystemPrompt = (prompt: string): void => {
     useEffect(() => {
         setSystemPrompt(prompt);
 
@@ -31,50 +32,42 @@ export const usePageUseSystemPrompt = (prompt: string): void => {
     }, [prompt]);
 };
 
-export const PageUseSystemPrompt = (props: TPageUseSystemPromptProps) => {
-    usePageUseSystemPrompt((props.prompt ?? props.children) as string);
+export const SystemPrompt = (props: TPageUseSystemPromptProps) => {
+    useSystemPrompt((props.prompt ?? props.children) as string);
     return null;
 };
 
 export type TPageUseVariableOptions<TType extends z.ZodType = z.ZodType> = {
-    readonly name: string;
-    readonly value: z.infer<TType>;
-    readonly type: TType;
+    schema: TType;
+    value: z.infer<TType>;
 };
 
-export const usePageUseVariable = <TType extends z.ZodType>(
-    options: TPageUseVariableOptions<TType>,
+export const useAgentVariable = <TType extends z.ZodType>(
+    name: string,
+    options: TPageUseVariableOptions,
 ): void => {
     useEffect(() => {
         setVariable({
-            name: options.name,
+            name: name,
             value: options.value,
-            type: options.type,
+            type: options.schema,
         });
-    }, [options.name, options.type, options.value]);
+    }, [name, options.schema, options.value]);
 
     useEffect(
         () => () => {
-            unsetVariable({name: options.name});
+            unsetVariable({name: name});
         },
-        [options.name],
+        [name],
     );
 };
 
-export const PageUseVariable = <TType extends z.ZodType>(
-    options: TPageUseVariableOptions<TType>,
-) => {
-    usePageUseVariable(options);
-    return null;
-};
-
 export type TPageUseFunctionOptions<
-    TInput extends z.ZodType = z.ZodType,
-    TOutput extends z.ZodType = z.ZodType,
+    TInput extends z.ZodType,
+    TOutput extends z.ZodType = z.ZodVoid,
 > = {
-    readonly name: string;
-    readonly input: TInput;
-    readonly output: TOutput;
+    readonly inputSchema: TInput;
+    readonly outputSchema?: TOutput;
     readonly mutates?: readonly string[];
     readonly mutationTimeoutMs?: number;
     readonly func: (
@@ -83,10 +76,11 @@ export type TPageUseFunctionOptions<
     ) => Promise<z.infer<TOutput>> | z.infer<TOutput>;
 };
 
-export const usePageUseFunction = <
+export const useAgentFunction = <
     TInput extends z.ZodType,
-    TOutput extends z.ZodType,
+    TOutput extends z.ZodType = z.ZodVoid,
 >(
+    name: string,
     options: TPageUseFunctionOptions<TInput, TOutput>,
 ): void => {
     const funcRef = useRef(options.func);
@@ -98,30 +92,20 @@ export const usePageUseFunction = <
     useEffect(
         () =>
             registerFunction({
-                name: options.name,
-                input: options.input,
-                output: options.output,
+                name: name,
+                input: options.inputSchema,
+                output: options.outputSchema ?? z.void(),
                 mutates: options.mutates,
                 mutationTimeoutMs: options.mutationTimeoutMs,
                 func: async (input, signal) =>
                     await funcRef.current(input as z.infer<TInput>, signal),
             }),
         [
-            options.input,
-            options.name,
-            options.output,
+            options.inputSchema,
+            name,
+            options.outputSchema,
             options.mutates,
             options.mutationTimeoutMs,
         ],
     );
-};
-
-export const PageUseFunction = <
-    TInput extends z.ZodType,
-    TOutput extends z.ZodType,
->(
-    options: TPageUseFunctionOptions<TInput, TOutput>,
-) => {
-    usePageUseFunction(options);
-    return null;
 };
