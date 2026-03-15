@@ -55,7 +55,7 @@ const todoItemsSchema = z
             text: z.string().describe('the todo item description'),
             dueDate: z
                 .string()
-                .regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)
+                .regex(/^($|([0-9]{4}-[0-9]{2}-[0-9]{2}$))/)
                 .describe('due date in YYYY-MM-DD format, or empty string if none'),
             completed: z.boolean().describe('whether the item is completed'),
         }),
@@ -127,7 +127,10 @@ const DroppableSection = ({
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-black/40">{title}</h2>
             <div
                 ref={setNodeRef}
-                className={clsx('min-h-[48px] rounded-lg border-2 border-dashed p-2 transition-colors', isOver ? 'border-black/20 bg-black/[0.03]' : 'border-transparent')}>
+                className={clsx(
+                    'min-h-[48px] rounded-lg border-2 border-dashed p-2 transition-colors',
+                    isOver ? 'border-black/20 bg-black/[0.03]' : 'border-transparent',
+                )}>
                 {isEmpty ? <p className="py-3 text-center text-sm text-black/20">No items</p> : children}
             </div>
         </div>
@@ -298,13 +301,19 @@ const Previous = () => {
                                                   readOnly
                                                   rows={1}
                                                   style={{ fieldSizing: 'content' } as React.CSSProperties}
-                                                  className={clsx('flex-1 resize-none bg-transparent p-0 text-sm outline-none', item.completed && 'text-black/40 line-through')}
+                                                  className={clsx(
+                                                      'flex-1 resize-none bg-transparent p-0 text-sm outline-none',
+                                                      item.completed && 'text-black/40 line-through',
+                                                  )}
                                               />
                                               <input
                                                   type="date"
                                                   value={item.dueDate}
                                                   readOnly
-                                                  className={clsx('mt-0.5 bg-transparent text-xs outline-none opacity-40', item.completed ? 'text-black/20' : 'text-black/60')}
+                                                  className={clsx(
+                                                      'mt-0.5 bg-transparent text-xs outline-none opacity-40',
+                                                      item.completed ? 'text-black/20' : 'text-black/60',
+                                                  )}
                                               />
                                               <button className="-mt-0.5 text-black/20 opacity-40" aria-label="Delete">
                                                   ✕
