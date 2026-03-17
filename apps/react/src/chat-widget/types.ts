@@ -55,5 +55,6 @@ export type TPageUseChatProps = {
     readonly roundedness?: TPageUseChatRoundedness;
     readonly cssVariables?: TPageUseCSSVariables;
     readonly devMode?: boolean;
+    readonly disablePageUseBanner?: boolean;
     readonly icon?: ComponentType<{readonly location: 'launcher' | 'panel'}>;
 };

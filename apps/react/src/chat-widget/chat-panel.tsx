@@ -25,6 +25,7 @@ type TChatPanelProps = {
     readonly width: number;
     readonly height: number;
     readonly devMode?: boolean;
+    readonly disablePageUseBanner?: boolean;
 };
 
 type TChatTranscriptProps = {
@@ -41,6 +42,7 @@ type TChatComposerProps = {
     readonly placeholder: string;
     readonly isRunning: boolean;
     readonly onSubmit: (prompt: string) => boolean;
+    readonly disablePageUseBanner?: boolean;
 };
 
 type TChatHeaderProps = {
@@ -125,7 +127,9 @@ const ChatHeader = ({title, onClose, dragHandleProps}: TChatHeaderProps) => (
             'flex items-center justify-between gap-3 py-2 px-2 border-b border-[color:var(--pu-muted)] cursor-grab text-sm select-none touch-none rounded-t-[var(--pu-radius-lg)]',
         )}>
         <div className={tw('flex items-center gap-2.5 min-w-0')}>
-            <slot name="icon-panel"><DefaultIcon /></slot>
+            <slot name="icon-panel">
+                <DefaultIcon />
+            </slot>
             <span>{title}</span>
         </div>
         <button
@@ -266,6 +270,7 @@ const ChatComposer = ({
     placeholder,
     isRunning,
     onSubmit,
+    disablePageUseBanner = false,
 }: TChatComposerProps) => {
     const [inputValue, setInputValue] = useState('');
     const isSendDisabled = isRunning || inputValue.trim().length === 0;
@@ -291,7 +296,7 @@ const ChatComposer = ({
                 submitInput();
             }}
             className={tw(
-                'border-t border-[color:var(--pu-muted)] p-2 grid grid-cols-[1fr_auto] gap-3 items-end rounded-b-[var(--pu-radius-lg)]',
+                `border-t ${disablePageUseBanner ? '' : 'border-b'} border-[color:var(--pu-muted)] p-2 grid grid-cols-[1fr_auto] gap-3 items-end`,
             )}>
             <textarea
                 ref={textareaRef}
@@ -337,7 +342,9 @@ export const ChatLauncher = ({onOpen, dragHandleProps}: TChatLauncherProps) => (
             'w-[84px] h-[84px] border-4 border-black bg-[color:var(--pu-bg)] text-[color:var(--pu-fg)] cursor-grab grid place-items-center p-0 select-none touch-none rounded-[var(--pu-radius-lg)]',
         )}>
         <div className={tw('pointer-events-none')}>
-            <slot name="icon-launcher"><DefaultIcon /></slot>
+            <slot name="icon-launcher">
+                <DefaultIcon />
+            </slot>
         </div>
     </button>
 );
@@ -356,6 +363,7 @@ export const ChatPanel = ({
     width,
     height,
     devMode,
+    disablePageUseBanner = false,
 }: TChatPanelProps) => (
     <div
         style={{width, height}}
@@ -384,7 +392,16 @@ export const ChatPanel = ({
                 placeholder={placeholder}
                 isRunning={isRunning}
                 onSubmit={onSendPrompt}
+                disablePageUseBanner={disablePageUseBanner}
             />
+            {disablePageUseBanner ? null : (
+                <div
+                    className={tw(
+                        'text-center text-[10px] text-[color:var(--pu-fg)] py-1.5',
+                    )}>
+                    built with <strong>{'<PageUse/>'}</strong>
+                </div>
+            )}
         </div>
     </div>
 );

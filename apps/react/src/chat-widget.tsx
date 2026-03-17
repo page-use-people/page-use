@@ -66,6 +66,7 @@ export const PageUseChat = ({
     roundedness = 'none',
     cssVariables,
     devMode,
+    disablePageUseBanner,
     icon,
 }: TPageUseChatProps) => {
     const vars = themeToVars(theme, roundedness, cssVariables);
@@ -121,6 +122,7 @@ export const PageUseChat = ({
                             width={width}
                             height={height}
                             devMode={devMode}
+                            disablePageUseBanner={disablePageUseBanner}
                         />
                     ) : (
                         <ChatLauncher
