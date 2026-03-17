@@ -11,6 +11,20 @@ export type TChatMessage = {
 
 export type TPageUseChatTheme = 'dark' | 'light';
 
+export type TPageUseChatRoundedness = 'none' | 'sm' | 'md' | 'lg' | 'xl';
+
+export type TPageUseCSSVariables = Partial<{
+    '--pu-bg': string;
+    '--pu-fg': string;
+    '--pu-surface': string;
+    '--pu-muted': string;
+    '--pu-divider': string;
+    '--pu-accent': string;
+    '--pu-radius-sm': string;
+    '--pu-radius-md': string;
+    '--pu-radius-lg': string;
+}>;
+
 export type TPageUseChatPrompt = {
     readonly label: string;
     readonly prompt: string;
@@ -36,5 +50,7 @@ export type TPageUseChatProps = {
     readonly width?: number;
     readonly height?: number;
     readonly theme?: TPageUseChatTheme;
+    readonly roundedness?: TPageUseChatRoundedness;
+    readonly cssVariables?: TPageUseCSSVariables;
     readonly devMode?: boolean;
 };

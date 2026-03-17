@@ -8,7 +8,7 @@ import type {
 } from './types.js';
 
 type TUsePageUseChatSessionOptions = {
-    readonly greeting: string;
+    readonly greeting: string | undefined;
     readonly submitPrompt: (
         prompt: string,
         callbacks: TPageUseChatSubmitCallbacks,

@@ -6,8 +6,8 @@ import {FloatingChatShell} from './chat-widget/floating-chat-shell.js';
 import {ShadowContainer} from './chat-widget/shadow-container.js';
 import {
     DEFAULT_HEIGHT,
-    DEFAULT_PROMPTS,
     DEFAULT_WIDTH,
+    ROUNDEDNESS_SCALES,
     THEME_PALETTES,
 } from './chat-widget/shared.js';
 import type {
@@ -19,8 +19,10 @@ import {usePageUseChatSession} from './chat-widget/use-page-use-chat-session.js'
 export type {
     TPageUseChatPrompt,
     TPageUseChatProps,
+    TPageUseChatRoundedness,
     TPageUseChatSubmitCallbacks,
     TPageUseChatTheme,
+    TPageUseCSSVariables,
 } from './chat-widget/types.js';
 
 const defaultSubmitPrompt = (
@@ -34,26 +36,50 @@ const defaultSubmitPrompt = (
         onError: callbacks.onError,
     });
 
+const themeToVars = (theme: TPageUseChatProps['theme'] = 'dark', roundedness: TPageUseChatProps['roundedness'] = 'none', overrides?: TPageUseChatProps['cssVariables']): Record<string, string> => {
+    const palette = THEME_PALETTES[theme ?? 'dark'];
+    const radii = ROUNDEDNESS_SCALES[roundedness ?? 'none'];
+    return {
+        '--pu-bg': palette.background,
+        '--pu-fg': palette.foreground,
+        '--pu-surface': palette.surface,
+        '--pu-muted': palette.muted,
+        '--pu-divider': palette.divider,
+        '--pu-accent': palette.accent,
+        '--pu-radius-sm': radii.sm,
+        '--pu-radius-md': radii.md,
+        '--pu-radius-lg': radii.lg,
+        ...overrides,
+    };
+};
+
 export const PageUseChat = ({
-    title = 'PAGE USE',
-    greeting = "Hello, I'm Page Use. I can inspect the current page state and call any functions you registered. How can I help?",
-    placeholder = 'Ask Page Use something',
-    promptChips = DEFAULT_PROMPTS,
+    title = 'Agent',
+    greeting,
+    placeholder = '',
+    promptChips = [],
     submitPrompt = defaultSubmitPrompt,
     initialOpen = false,
     width = DEFAULT_WIDTH,
     height = DEFAULT_HEIGHT,
     theme = 'dark',
+    roundedness = 'none',
+    cssVariables,
     devMode,
 }: TPageUseChatProps) => {
-    const palette = THEME_PALETTES[theme];
+    const vars = themeToVars(theme, roundedness, cssVariables);
     const [isOpen, setIsOpen] = useState(initialOpen);
-    const {messages, loadingDetails, isRunning, hasSubmittedPrompt, sendPrompt} =
-        usePageUseChatSession({
-            greeting,
-            submitPrompt,
-            devMode,
-        });
+    const {
+        messages,
+        loadingDetails,
+        isRunning,
+        hasSubmittedPrompt,
+        sendPrompt,
+    } = usePageUseChatSession({
+        greeting,
+        submitPrompt,
+        devMode,
+    });
 
     const showPromptChips =
         promptChips.length > 0 && !isRunning && !hasSubmittedPrompt;
@@ -68,7 +94,7 @@ export const PageUseChat = ({
     };
 
     return (
-        <ShadowContainer palette={palette}>
+        <ShadowContainer cssVariables={vars}>
             <FloatingChatShell
                 isOpen={isOpen}
                 width={width}

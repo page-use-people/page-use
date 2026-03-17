@@ -1,27 +1,20 @@
 import {memo} from 'react';
 
-import type {TPageUseChatPrompt, TPageUseChatTheme} from './types.js';
+import type {TPageUseChatRoundedness, TPageUseChatTheme} from './types.js';
 
 export const PANEL_GAP = 24;
 export const BUBBLE_SIZE = 84;
-export const DEFAULT_WIDTH = 380;
+export const DEFAULT_WIDTH = 320;
 export const DEFAULT_HEIGHT = 560;
 export const AUTO_SCROLL_THRESHOLD = 40;
 
-export const DEFAULT_PROMPTS: readonly TPageUseChatPrompt[] = [
-    {
-        label: 'What can you do?',
-        prompt: 'What are you capable of on this page?',
-    },
-];
-
 export const THEME_PALETTES = {
     dark: {
-        background: '#000000',
-        foreground: '#ffffff',
-        surface: '#2e2e2e',
-        muted: '#6d6d6d',
-        divider: '#3d3d3d',
+        background: '#222222',
+        foreground: '#EEEEEE',
+        surface: '#444444',
+        muted: '#555555',
+        divider: '#444444',
         accent: '#ff6a00',
     },
     light: {
@@ -44,8 +37,21 @@ export const THEME_PALETTES = {
     }
 >;
 
-export type TPageUseChatPalette =
-    (typeof THEME_PALETTES)[TPageUseChatTheme];
+export type TPageUseChatPalette = (typeof THEME_PALETTES)[TPageUseChatTheme];
+
+export const ROUNDEDNESS_SCALES = {
+    none: {sm: '0px', md: '0px', lg: '0px'},
+    sm: {sm: '2px', md: '4px', lg: '6px'},
+    md: {sm: '4px', md: '8px', lg: '12px'},
+    lg: {sm: '6px', md: '12px', lg: '16px'},
+    xl: {sm: '9999px', md: '16px', lg: '24px'},
+} as const satisfies Record<
+    TPageUseChatRoundedness,
+    {readonly sm: string; readonly md: string; readonly lg: string}
+>;
+
+export type TPageUseChatRadii =
+    (typeof ROUNDEDNESS_SCALES)[TPageUseChatRoundedness];
 
 const clamp = (value: number, min: number, max: number) =>
     Math.min(Math.max(value, min), max);
@@ -68,11 +74,7 @@ export const clampPosition = (
     ),
 });
 
-export const getBoxSize = (
-    isOpen: boolean,
-    width: number,
-    height: number,
-) => ({
+export const getBoxSize = (isOpen: boolean, width: number, height: number) => ({
     width: isOpen ? width : BUBBLE_SIZE,
     height: isOpen ? height : BUBBLE_SIZE,
 });
