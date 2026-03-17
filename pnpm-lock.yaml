@@ -153,6 +153,13 @@ importers:
         version: 5.9.3
 
   apps/react:
+    dependencies:
+      '@twind/core':
+        specifier: 1.1.3
+        version: 1.1.3(typescript@5.9.3)
+      '@twind/preset-tailwind':
+        specifier: 1.1.4
+        version: 1.1.4(@twind/core@1.1.3(typescript@5.9.3))(typescript@5.9.3)
     devDependencies:
       '@page-use/client':
         specifier: workspace:*
@@ -1360,6 +1367,25 @@ packages:
     resolution: {integrity: sha512-P4rzZRpEL7zDFgjxK65IdyH0e41FMFfTkQkuq0BA5tKcr7E6v9/v38DEklCpoDN6sPiB1Sigy/PUEzHENhswDA==}
     peerDependencies:
       typescript: '>=5.7.2'
+
+  '@twind/core@1.1.3':
+    resolution: {integrity: sha512-/B/aNFerMb2IeyjSJy3SJxqVxhrT77gBDknLMiZqXIRr4vNJqiuhx7KqUSRzDCwUmyGuogkamz+aOLzN6MeSLw==}
+    engines: {node: '>=14.15.0'}
+    peerDependencies:
+      typescript: ^4.8.4
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
+  '@twind/preset-tailwind@1.1.4':
+    resolution: {integrity: sha512-zv85wrP/DW4AxgWrLfH7kyGn/KJF3K04FMLVl2AjoxZGYdCaoZDkL8ma3hzaKQ+WGgBFRubuB/Ku2Rtv/wjzVw==}
+    engines: {node: '>=14.15.0'}
+    peerDependencies:
+      '@twind/core': ^1.1.0
+      typescript: ^4.8.4
+    peerDependenciesMeta:
+      typescript:
+        optional: true
 
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
@@ -4859,6 +4885,18 @@ snapshots:
 
   '@trpc/server@11.8.1(typescript@5.9.3)':
     dependencies:
+      typescript: 5.9.3
+
+  '@twind/core@1.1.3(typescript@5.9.3)':
+    dependencies:
+      csstype: 3.2.3
+    optionalDependencies:
+      typescript: 5.9.3
+
+  '@twind/preset-tailwind@1.1.4(@twind/core@1.1.3(typescript@5.9.3))(typescript@5.9.3)':
+    dependencies:
+      '@twind/core': 1.1.3(typescript@5.9.3)
+    optionalDependencies:
       typescript: 5.9.3
 
   '@types/babel__core@7.20.5':
