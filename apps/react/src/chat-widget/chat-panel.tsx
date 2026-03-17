@@ -1,6 +1,6 @@
 import {memo, useEffect, useMemo, useRef, useState} from 'react';
 
-import {AUTO_SCROLL_THRESHOLD, PageUseLogo} from './shared.js';
+import {AUTO_SCROLL_THRESHOLD} from './shared.js';
 import type {TDragHandleProps} from './floating-chat-shell.js';
 import {parseMarkdown} from './markdown.js';
 import type {TChatMessage, TPageUseChatPrompt} from './types.js';
@@ -48,6 +48,8 @@ type TChatHeaderProps = {
     readonly onClose: () => void;
     readonly dragHandleProps: TDragHandleProps;
 };
+
+const DefaultIcon = () => <span className={tw('text-xl')}>🤖</span>;
 
 const SPINNER_FRAMES = ['·', '✻', '✽', '✶', '✢'] as const;
 
@@ -123,11 +125,7 @@ const ChatHeader = ({title, onClose, dragHandleProps}: TChatHeaderProps) => (
             'flex items-center justify-between gap-3 py-2 px-2 border-b border-[color:var(--pu-muted)] cursor-grab text-sm select-none touch-none rounded-t-[var(--pu-radius-lg)]',
         )}>
         <div className={tw('flex items-center gap-2.5 min-w-0')}>
-            <PageUseLogo
-                frameColor="var(--pu-fg)"
-                accentColor="var(--pu-accent)"
-                size={28}
-            />
+            <slot name="icon-panel"><DefaultIcon /></slot>
             <span>{title}</span>
         </div>
         <button
@@ -338,11 +336,9 @@ export const ChatLauncher = ({onOpen, dragHandleProps}: TChatLauncherProps) => (
         className={tw(
             'w-[84px] h-[84px] border-4 border-black bg-[color:var(--pu-bg)] text-[color:var(--pu-fg)] cursor-grab grid place-items-center p-0 select-none touch-none rounded-[var(--pu-radius-lg)]',
         )}>
-        <PageUseLogo
-            frameColor="var(--pu-fg)"
-            accentColor="var(--pu-accent)"
-            size={52}
-        />
+        <div className={tw('pointer-events-none')}>
+            <slot name="icon-launcher"><DefaultIcon /></slot>
+        </div>
     </button>
 );
 

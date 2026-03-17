@@ -394,6 +394,7 @@ const Previous = () => {
                 greeting={`Hi, I'm the _Task Master_. I help you manage your todo list.`}
                 theme="dark"
                 roundedness={'md'}
+                icon={({ location }) => <span className={location === 'launcher' ? 'text-3xl' : 'text-xl'}>🐼</span>}
                 devMode
             />
         </>

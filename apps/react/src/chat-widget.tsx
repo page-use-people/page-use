@@ -66,6 +66,7 @@ export const PageUseChat = ({
     roundedness = 'none',
     cssVariables,
     devMode,
+    icon,
 }: TPageUseChatProps) => {
     const vars = themeToVars(theme, roundedness, cssVariables);
     const [isOpen, setIsOpen] = useState(initialOpen);
@@ -94,7 +95,7 @@ export const PageUseChat = ({
     };
 
     return (
-        <ShadowContainer cssVariables={vars}>
+        <ShadowContainer cssVariables={vars} icon={icon}>
             <FloatingChatShell
                 isOpen={isOpen}
                 width={width}

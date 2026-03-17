@@ -1,3 +1,5 @@
+import type {ComponentType} from 'react';
+
 import type {TRunHandle, TRunStatus, TRunUpdate} from '@page-use/client';
 
 export type TChatRole = 'assistant' | 'user';
@@ -53,4 +55,5 @@ export type TPageUseChatProps = {
     readonly roundedness?: TPageUseChatRoundedness;
     readonly cssVariables?: TPageUseCSSVariables;
     readonly devMode?: boolean;
+    readonly icon?: ComponentType<{readonly location: 'launcher' | 'panel'}>;
 };
