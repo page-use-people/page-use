@@ -2,14 +2,10 @@ import {memo, useEffect, useRef, useState} from 'react';
 
 import {AUTO_SCROLL_THRESHOLD, PageUseLogo} from './shared.js';
 import type {TDragHandleProps} from './floating-chat-shell.js';
-import type {
-    TChatMessage,
-    TPageUseChatPrompt,
-} from './types.js';
-import type {TPageUseChatPalette} from './shared.js';
+import type {TChatMessage, TPageUseChatPrompt} from './types.js';
+import {tw} from './twind.js';
 
 type TChatLauncherProps = {
-    readonly palette: TPageUseChatPalette;
     readonly onOpen: () => void;
     readonly dragHandleProps: TDragHandleProps;
 };
@@ -24,7 +20,6 @@ type TChatPanelProps = {
     readonly isRunning: boolean;
     readonly onSendPrompt: (prompt: string) => boolean;
     readonly onClose: () => void;
-    readonly palette: TPageUseChatPalette;
     readonly dragHandleProps: TDragHandleProps;
     readonly width: number;
     readonly height: number;
@@ -38,7 +33,6 @@ type TChatTranscriptProps = {
     readonly loadingDetails: readonly string[];
     readonly isRunning: boolean;
     readonly onSendPrompt: (prompt: string) => boolean;
-    readonly palette: TPageUseChatPalette;
     readonly devMode?: boolean;
 };
 
@@ -46,17 +40,26 @@ type TChatComposerProps = {
     readonly placeholder: string;
     readonly isRunning: boolean;
     readonly onSubmit: (prompt: string) => boolean;
-    readonly palette: TPageUseChatPalette;
 };
 
 type TChatHeaderProps = {
     readonly title: string;
     readonly onClose: () => void;
-    readonly palette: TPageUseChatPalette;
     readonly dragHandleProps: TDragHandleProps;
 };
 
-const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'] as const;
+const SPINNER_FRAMES = [
+    '⠋',
+    '⠙',
+    '⠹',
+    '⠸',
+    '⠼',
+    '⠴',
+    '⠦',
+    '⠧',
+    '⠇',
+    '⠏',
+] as const;
 
 const useSpinner = (running: boolean): string => {
     const [frame, setFrame] = useState(0);
@@ -77,32 +80,15 @@ const useSpinner = (running: boolean): string => {
 };
 
 const ChatMessageBubble = memo(
-    ({
-        message,
-        palette,
-    }: {
-        readonly message: TChatMessage;
-        readonly palette: TPageUseChatPalette;
-    }) => (
+    ({message}: {readonly message: TChatMessage}) => (
         <div
-            style={{
-                alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
-                maxWidth: '88%',
-                border: `2px solid ${
+            className={tw(
+                `max-w-[88%] border-2 border-solid py-3 px-3.5 whitespace-pre-wrap leading-[1.5] text-xs ${
                     message.role === 'user'
-                        ? palette.foreground
-                        : palette.divider
-                }`,
-                background:
-                    message.role === 'user'
-                        ? palette.surface
-                        : palette.background,
-                padding: '12px 14px',
-                whiteSpace: 'pre-wrap',
-                lineHeight: 1.5,
-                fontSize: 12,
-                opacity: message.pending ? 0.9 : 1,
-            }}>
+                        ? 'self-end border-[color:var(--pu-fg)] bg-[color:var(--pu-surface)]'
+                        : 'self-start border-[color:var(--pu-divider)] bg-[color:var(--pu-bg)]'
+                } ${message.pending ? 'opacity-90' : 'opacity-100'}`,
+            )}>
             {message.content}
         </div>
     ),
@@ -110,37 +96,16 @@ const ChatMessageBubble = memo(
 
 ChatMessageBubble.displayName = 'ChatMessageBubble';
 
-const ChatHeader = ({
-    title,
-    onClose,
-    palette,
-    dragHandleProps,
-}: TChatHeaderProps) => (
+const ChatHeader = ({title, onClose, dragHandleProps}: TChatHeaderProps) => (
     <div
         {...dragHandleProps}
-        style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12,
-            padding: '12px 14px',
-            borderBottom: `2px solid ${palette.foreground}`,
-            cursor: 'grab',
-            letterSpacing: '0.16em',
-            fontSize: 14,
-            userSelect: 'none',
-            touchAction: 'none',
-        }}>
-        <div
-            style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                minWidth: 0,
-            }}>
+        className={tw(
+            'flex items-center justify-between gap-3 py-3 px-3.5 border-b-2 border-[color:var(--pu-fg)] cursor-grab tracking-[0.16em] text-sm select-none touch-none',
+        )}>
+        <div className={tw('flex items-center gap-2.5 min-w-0')}>
             <PageUseLogo
-                frameColor={palette.foreground}
-                accentColor={palette.accent}
+                frameColor="var(--pu-fg)"
+                accentColor="var(--pu-accent)"
                 size={28}
             />
             <span>{title}</span>
@@ -149,14 +114,9 @@ const ChatHeader = ({
             type="button"
             onClick={onClose}
             onPointerDown={(event) => event.stopPropagation()}
-            style={{
-                border: `2px solid ${palette.foreground}`,
-                background: palette.surface,
-                color: palette.foreground,
-                padding: '4px 10px',
-                cursor: 'pointer',
-                font: 'inherit',
-            }}>
+            className={tw(
+                'border-2 border-[color:var(--pu-fg)] bg-[color:var(--pu-surface)] text-[color:var(--pu-fg)] py-1 px-2.5 cursor-pointer font-[inherit]',
+            )}>
             CLOSE
         </button>
     </div>
@@ -169,7 +129,6 @@ const ChatTranscript = ({
     loadingDetails,
     isRunning,
     onSendPrompt,
-    palette,
     devMode,
 }: TChatTranscriptProps) => {
     const spinner = useSpinner(isRunning);
@@ -223,30 +182,15 @@ const ChatTranscript = ({
         <div
             ref={viewportRef}
             onScroll={syncScrollAnchor}
-            style={{
-                overflowY: 'auto',
-                overscrollBehavior: 'contain',
-                padding: 16,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 12,
-            }}>
+            className={tw(
+                'overflow-y-auto overscroll-contain p-4 flex flex-col gap-3',
+            )}>
             {messages.map((message) => (
-                <ChatMessageBubble
-                    key={message.id}
-                    message={message}
-                    palette={palette}
-                />
+                <ChatMessageBubble key={message.id} message={message} />
             ))}
 
             {showPromptChips ? (
-                <div
-                    style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 8,
-                        marginTop: 4,
-                    }}>
+                <div className={tw('flex flex-col gap-2 mt-1')}>
                     {promptChips.map((chip) => (
                         <button
                             key={chip.label}
@@ -254,17 +198,9 @@ const ChatTranscript = ({
                             onClick={() => {
                                 onSendPrompt(chip.prompt);
                             }}
-                            style={{
-                                alignSelf: 'flex-start',
-                                border: `2px solid ${palette.divider}`,
-                                background: palette.surface,
-                                color: palette.foreground,
-                                padding: '10px 14px',
-                                cursor: 'pointer',
-                                font: 'inherit',
-                                fontSize: 12,
-                                textAlign: 'left',
-                            }}>
+                            className={tw(
+                                'self-start border-2 border-[color:var(--pu-divider)] bg-[color:var(--pu-surface)] text-[color:var(--pu-fg)] py-2.5 px-3.5 cursor-pointer font-[inherit] text-xs text-left',
+                            )}>
                             {chip.label}
                         </button>
                     ))}
@@ -273,17 +209,9 @@ const ChatTranscript = ({
 
             {isRunning || (devMode && loadingDetails.length > 0) ? (
                 <div
-                    style={{
-                        borderTop: `2px solid ${palette.divider}`,
-                        borderBottom: `2px solid ${palette.divider}`,
-                        padding: '8px 0',
-                        color: palette.muted,
-                        fontStyle: 'italic',
-                        fontSize: 12,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 8,
-                    }}>
+                    className={tw(
+                        'border-y-2 border-[color:var(--pu-divider)] py-2 text-[color:var(--pu-muted)] italic text-xs flex flex-col gap-2',
+                    )}>
                     <div>
                         {spinner}{' '}
                         {loadingDetails.length > 0
@@ -293,13 +221,9 @@ const ChatTranscript = ({
                     </div>
                     {devMode && loadingDetails.length > 0 ? (
                         <div
-                            style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: 4,
-                                fontStyle: 'normal',
-                                whiteSpace: 'pre-wrap',
-                            }}>
+                            className={tw(
+                                'flex flex-col gap-1 not-italic whitespace-pre-wrap',
+                            )}>
                             {loadingDetails.map((detail, index) => (
                                 <div key={`${index}-${detail}`}>{detail}</div>
                             ))}
@@ -315,7 +239,6 @@ const ChatComposer = ({
     placeholder,
     isRunning,
     onSubmit,
-    palette,
 }: TChatComposerProps) => {
     const [inputValue, setInputValue] = useState('');
     const isSendDisabled = isRunning || inputValue.trim().length === 0;
@@ -332,14 +255,9 @@ const ChatComposer = ({
                 event.preventDefault();
                 submitInput();
             }}
-            style={{
-                borderTop: `2px solid ${palette.foreground}`,
-                padding: 12,
-                display: 'grid',
-                gridTemplateColumns: '1fr auto',
-                gap: 12,
-                alignItems: 'end',
-            }}>
+            className={tw(
+                'border-t-2 border-[color:var(--pu-fg)] p-3 grid grid-cols-[1fr_auto] gap-3 items-end',
+            )}>
             <textarea
                 value={inputValue}
                 onChange={(event) => setInputValue(event.target.value)}
@@ -352,34 +270,20 @@ const ChatComposer = ({
                 placeholder={placeholder}
                 rows={3}
                 disabled={isRunning}
-                style={{
-                    resize: 'none',
-                    width: '100%',
-                    border: 'none',
-                    outline: 'none',
-                    background: palette.background,
-                    color: palette.foreground,
-                    font: 'inherit',
-                    fontSize: 16,
-                    lineHeight: 1.5,
-                }}
+                className={tw(
+                    'resize-none w-full border-none outline-none bg-[color:var(--pu-bg)] text-[color:var(--pu-fg)] font-[inherit] text-base leading-[1.5]',
+                )}
             />
             <button
                 type="submit"
                 disabled={isSendDisabled}
-                style={{
-                    border: `2px solid ${palette.foreground}`,
-                    background: isSendDisabled
-                        ? palette.surface
-                        : palette.foreground,
-                    color: isSendDisabled
-                        ? palette.muted
-                        : palette.background,
-                    padding: '10px 16px',
-                    cursor: isSendDisabled ? 'not-allowed' : 'pointer',
-                    font: 'inherit',
-                    fontSize: 14,
-                }}>
+                className={tw(
+                    `border-2 border-[color:var(--pu-fg)] py-2.5 px-4 font-[inherit] text-sm ${
+                        isSendDisabled
+                            ? 'bg-[color:var(--pu-surface)] text-[color:var(--pu-muted)] cursor-not-allowed'
+                            : 'bg-[color:var(--pu-fg)] text-[color:var(--pu-bg)] cursor-pointer'
+                    }`,
+                )}>
                 SEND
             </button>
         </form>
@@ -387,7 +291,6 @@ const ChatComposer = ({
 };
 
 export const ChatLauncher = ({
-    palette,
     onOpen,
     dragHandleProps,
 }: TChatLauncherProps) => (
@@ -396,22 +299,12 @@ export const ChatLauncher = ({
         aria-label="Open Page Use chat"
         onClick={onOpen}
         {...dragHandleProps}
-        style={{
-            width: 84,
-            height: 84,
-            border: `2px solid ${palette.foreground}`,
-            background: palette.background,
-            color: palette.foreground,
-            cursor: 'grab',
-            display: 'grid',
-            placeItems: 'center',
-            padding: 0,
-            userSelect: 'none',
-            touchAction: 'none',
-        }}>
+        className={tw(
+            'w-[84px] h-[84px] border-4 border-black bg-[color:var(--pu-bg)] text-[color:var(--pu-fg)] cursor-grab grid place-items-center p-0 select-none touch-none',
+        )}>
         <PageUseLogo
-            frameColor={palette.foreground}
-            accentColor={palette.accent}
+            frameColor="var(--pu-fg)"
+            accentColor="var(--pu-accent)"
             size={52}
         />
     </button>
@@ -427,25 +320,19 @@ export const ChatPanel = ({
     isRunning,
     onSendPrompt,
     onClose,
-    palette,
     dragHandleProps,
     width,
     height,
     devMode,
 }: TChatPanelProps) => (
     <div
-        style={{
-            width,
-            height,
-            display: 'grid',
-            gridTemplateRows: 'auto 1fr auto',
-            border: `2px solid ${palette.foreground}`,
-            background: palette.background,
-        }}>
+        className={tw(
+            'grid grid-rows-[auto_1fr_auto] border-2 border-[color:var(--pu-fg)] bg-[color:var(--pu-bg)]',
+        )}
+        style={{width, height}}>
         <ChatHeader
             title={title}
             onClose={onClose}
-            palette={palette}
             dragHandleProps={dragHandleProps}
         />
         <ChatTranscript
@@ -455,14 +342,12 @@ export const ChatPanel = ({
             loadingDetails={loadingDetails}
             isRunning={isRunning}
             onSendPrompt={onSendPrompt}
-            palette={palette}
             devMode={devMode}
         />
         <ChatComposer
             placeholder={placeholder}
             isRunning={isRunning}
             onSubmit={onSendPrompt}
-            palette={palette}
         />
     </div>
 );

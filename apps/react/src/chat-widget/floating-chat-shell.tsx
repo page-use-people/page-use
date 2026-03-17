@@ -12,6 +12,7 @@ import {
     getBoxSize,
     getDefaultPosition,
 } from './shared.js';
+import {tw} from './twind.js';
 
 const DRAG_THRESHOLD = 4;
 
@@ -50,11 +51,8 @@ type TFloatingChatShellProps = {
     readonly isOpen: boolean;
     readonly width: number;
     readonly height: number;
-    readonly foregroundColor: string;
     readonly onOpen: () => void;
-    readonly children: (
-        props: TFloatingChatShellRenderProps,
-    ) => ReactNode;
+    readonly children: (props: TFloatingChatShellRenderProps) => ReactNode;
 };
 
 const useClientLayoutEffect =
@@ -67,11 +65,11 @@ export const FloatingChatShell = ({
     isOpen,
     width,
     height,
-    foregroundColor,
     onOpen,
     children,
 }: TFloatingChatShellProps) => {
     const rootRef = useRef<HTMLDivElement | null>(null);
+
     const frameRef = useRef<number | null>(null);
     const positionRef = useRef<TPosition>({x: PANEL_GAP, y: PANEL_GAP});
     const queuedPositionRef = useRef<TPosition>(positionRef.current);
@@ -266,16 +264,11 @@ export const FloatingChatShell = ({
     return (
         <div
             ref={rootRef}
+            className={tw(
+                'fixed left-0 top-0 z-[2147483647] will-change-transform font-mono text-[color:var(--pu-fg)]',
+            )}
             style={{
-                position: 'fixed',
-                left: 0,
-                top: 0,
                 transform: createTranslateStyle(positionRef.current),
-                zIndex: 2147483647,
-                fontFamily:
-                    '"IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
-                color: foregroundColor,
-                willChange: 'transform',
             }}>
             {children({
                 launcherDragHandleProps: dragHandleProps,

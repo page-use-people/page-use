@@ -3,6 +3,7 @@ import {run} from '@page-use/client';
 
 import {ChatLauncher, ChatPanel} from './chat-widget/chat-panel.js';
 import {FloatingChatShell} from './chat-widget/floating-chat-shell.js';
+import {ShadowContainer} from './chat-widget/shadow-container.js';
 import {
     DEFAULT_HEIGHT,
     DEFAULT_PROMPTS,
@@ -67,42 +68,41 @@ export const PageUseChat = ({
     };
 
     return (
-        <FloatingChatShell
-            isOpen={isOpen}
-            width={width}
-            height={height}
-            foregroundColor={palette.foreground}
-            onOpen={() => setIsOpen(true)}>
-            {({
-                launcherDragHandleProps,
-                panelDragHandleProps,
-                onLauncherClick,
-            }) =>
-                isOpen ? (
-                    <ChatPanel
-                        title={title}
-                        placeholder={placeholder}
-                        promptChips={promptChips}
-                        showPromptChips={showPromptChips}
-                        messages={messages}
-                        loadingDetails={loadingDetails}
-                        isRunning={isRunning}
-                        onSendPrompt={handleSendPrompt}
-                        onClose={() => setIsOpen(false)}
-                        palette={palette}
-                        dragHandleProps={panelDragHandleProps}
-                        width={width}
-                        height={height}
-                        devMode={devMode}
-                    />
-                ) : (
-                    <ChatLauncher
-                        palette={palette}
-                        onOpen={onLauncherClick}
-                        dragHandleProps={launcherDragHandleProps}
-                    />
-                )
-            }
-        </FloatingChatShell>
+        <ShadowContainer palette={palette}>
+            <FloatingChatShell
+                isOpen={isOpen}
+                width={width}
+                height={height}
+                onOpen={() => setIsOpen(true)}>
+                {({
+                    launcherDragHandleProps,
+                    panelDragHandleProps,
+                    onLauncherClick,
+                }) =>
+                    isOpen ? (
+                        <ChatPanel
+                            title={title}
+                            placeholder={placeholder}
+                            promptChips={promptChips}
+                            showPromptChips={showPromptChips}
+                            messages={messages}
+                            loadingDetails={loadingDetails}
+                            isRunning={isRunning}
+                            onSendPrompt={handleSendPrompt}
+                            onClose={() => setIsOpen(false)}
+                            dragHandleProps={panelDragHandleProps}
+                            width={width}
+                            height={height}
+                            devMode={devMode}
+                        />
+                    ) : (
+                        <ChatLauncher
+                            onOpen={onLauncherClick}
+                            dragHandleProps={launcherDragHandleProps}
+                        />
+                    )
+                }
+            </FloatingChatShell>
+        </ShadowContainer>
     );
 };
