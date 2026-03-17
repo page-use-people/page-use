@@ -7,10 +7,8 @@ import {
 } from 'react';
 
 import {
-    BUBBLE_SIZE,
     PANEL_GAP,
     clampPosition,
-    getBoxSize,
     getDefaultPosition,
 } from './shared.js';
 import {tw} from './twind.js';
@@ -22,11 +20,8 @@ type TPosition = {
     readonly y: number;
 };
 
-type TDragHandleKind = 'launcher' | 'panel';
-
 type TDragSession = {
     readonly pointerId: number;
-    readonly kind: TDragHandleKind;
     readonly offsetX: number;
     readonly offsetY: number;
     readonly startX: number;
@@ -43,16 +38,12 @@ export type TDragHandleProps = {
 };
 
 type TFloatingChatShellRenderProps = {
-    readonly launcherDragHandleProps: TDragHandleProps;
     readonly panelDragHandleProps: TDragHandleProps;
-    readonly onLauncherClick: () => void;
 };
 
 type TFloatingChatShellProps = {
-    readonly isOpen: boolean;
     readonly width: number;
     readonly height: number;
-    readonly onOpen: () => void;
     readonly children: (props: TFloatingChatShellRenderProps) => ReactNode;
 };
 
@@ -63,10 +54,8 @@ const createTranslateStyle = ({x, y}: TPosition) =>
     `translate3d(${x}px, ${y}px, 0)`;
 
 export const FloatingChatShell = ({
-    isOpen,
     width,
     height,
-    onOpen,
     children,
 }: TFloatingChatShellProps) => {
     const rootRef = useRef<HTMLDivElement | null>(null);
@@ -74,11 +63,9 @@ export const FloatingChatShell = ({
     const frameRef = useRef<number | null>(null);
     const positionRef = useRef<TPosition>({x: PANEL_GAP, y: PANEL_GAP});
     const queuedPositionRef = useRef<TPosition>(positionRef.current);
-    const boxSizeRef = useRef(getBoxSize(isOpen, width, height));
+    const boxSizeRef = useRef({width, height});
     const dragSessionRef = useRef<TDragSession | null>(null);
     const hasUserPositionRef = useRef(false);
-    const suppressLauncherClickRef = useRef(false);
-    const prevIsOpenRef = useRef(isOpen);
 
     const applyPosition = (nextPosition: TPosition) => {
         positionRef.current = nextPosition;
@@ -135,21 +122,9 @@ export const FloatingChatShell = ({
     };
 
     useClientLayoutEffect(() => {
-        const wasOpen = prevIsOpenRef.current;
-        prevIsOpenRef.current = isOpen;
-
-        boxSizeRef.current = getBoxSize(isOpen, width, height);
-
-        if (wasOpen && !isOpen) {
-            const prev = positionRef.current;
-            positionRef.current = {
-                x: prev.x + width - BUBBLE_SIZE,
-                y: prev.y + height - BUBBLE_SIZE,
-            };
-        }
-
+        boxSizeRef.current = {width, height};
         syncPositionToViewport();
-    }, [height, isOpen, width]);
+    }, [height, width]);
 
     useEffect(() => {
         const onResize = () => {
@@ -170,28 +145,21 @@ export const FloatingChatShell = ({
         };
     }, []);
 
-    const createPointerDownHandler =
-        (kind: TDragHandleKind): PointerEventHandler<HTMLElement> =>
-        (event) => {
-            if (event.button !== 0) {
-                return;
-            }
+    const handlePointerDown: PointerEventHandler<HTMLElement> = (event) => {
+        if (event.button !== 0) {
+            return;
+        }
 
-            if (kind === 'launcher') {
-                suppressLauncherClickRef.current = false;
-            }
-
-            dragSessionRef.current = {
-                pointerId: event.pointerId,
-                kind,
-                offsetX: event.clientX - positionRef.current.x,
-                offsetY: event.clientY - positionRef.current.y,
-                startX: event.clientX,
-                startY: event.clientY,
-                active: false,
-            };
-            event.currentTarget.setPointerCapture(event.pointerId);
+        dragSessionRef.current = {
+            pointerId: event.pointerId,
+            offsetX: event.clientX - positionRef.current.x,
+            offsetY: event.clientY - positionRef.current.y,
+            startX: event.clientX,
+            startY: event.clientY,
+            active: false,
         };
+        event.currentTarget.setPointerCapture(event.pointerId);
+    };
 
     const handlePointerMove: PointerEventHandler<HTMLElement> = (event) => {
         const session = dragSessionRef.current;
@@ -208,10 +176,6 @@ export const FloatingChatShell = ({
 
             session.active = true;
             hasUserPositionRef.current = true;
-
-            if (session.kind === 'launcher') {
-                suppressLauncherClickRef.current = true;
-            }
         }
 
         queuePosition(
@@ -253,26 +217,12 @@ export const FloatingChatShell = ({
         endDrag();
     };
 
-    const dragHandleProps: TDragHandleProps = {
-        onPointerDown: createPointerDownHandler('launcher'),
+    const panelDragHandleProps: TDragHandleProps = {
+        onPointerDown: handlePointerDown,
         onPointerMove: handlePointerMove,
         onPointerUp: handlePointerUp,
         onPointerCancel: handlePointerCancel,
         onLostPointerCapture: handleLostPointerCapture,
-    };
-
-    const panelDragHandleProps: TDragHandleProps = {
-        ...dragHandleProps,
-        onPointerDown: createPointerDownHandler('panel'),
-    };
-
-    const onLauncherClick = () => {
-        if (suppressLauncherClickRef.current) {
-            suppressLauncherClickRef.current = false;
-            return;
-        }
-
-        onOpen();
     };
 
     return (
@@ -284,11 +234,7 @@ export const FloatingChatShell = ({
             style={{
                 transform: createTranslateStyle(positionRef.current),
             }}>
-            {children({
-                launcherDragHandleProps: dragHandleProps,
-                panelDragHandleProps,
-                onLauncherClick,
-            })}
+            {children({panelDragHandleProps})}
         </div>
     );
 };

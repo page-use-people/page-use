@@ -1,7 +1,7 @@
 import {useState} from 'react';
 import {run} from '@page-use/client';
 
-import {ChatLauncher, ChatPanel} from './chat-widget/chat-panel.js';
+import {LauncherBar, ChatPanel} from './chat-widget/chat-panel.js';
 import {FloatingChatShell} from './chat-widget/floating-chat-shell.js';
 import {ShadowContainer} from './chat-widget/shadow-container.js';
 import {
@@ -46,6 +46,7 @@ const themeToVars = (theme: TPageUseChatProps['theme'] = 'dark', roundedness: TP
         '--pu-muted': palette.muted,
         '--pu-divider': palette.divider,
         '--pu-accent': palette.accent,
+        '--pu-shadow': palette.shadow,
         '--pu-radius-sm': radii.sm,
         '--pu-radius-md': radii.md,
         '--pu-radius-lg': radii.lg,
@@ -71,6 +72,7 @@ export const PageUseChat = ({
 }: TPageUseChatProps) => {
     const vars = themeToVars(theme, roundedness, cssVariables);
     const [isOpen, setIsOpen] = useState(initialOpen);
+    const [launcherDraft, setLauncherDraft] = useState('');
     const {
         messages,
         loadingDetails,
@@ -97,17 +99,9 @@ export const PageUseChat = ({
 
     return (
         <ShadowContainer cssVariables={vars} icon={icon}>
-            <FloatingChatShell
-                isOpen={isOpen}
-                width={width}
-                height={height}
-                onOpen={() => setIsOpen(true)}>
-                {({
-                    launcherDragHandleProps,
-                    panelDragHandleProps,
-                    onLauncherClick,
-                }) =>
-                    isOpen ? (
+            {isOpen ? (
+                <FloatingChatShell width={width} height={height}>
+                    {({panelDragHandleProps}) => (
                         <ChatPanel
                             title={title}
                             placeholder={placeholder}
@@ -123,15 +117,19 @@ export const PageUseChat = ({
                             height={height}
                             devMode={devMode}
                             disablePageUseBanner={disablePageUseBanner}
+                            initialComposerValue={launcherDraft}
                         />
-                    ) : (
-                        <ChatLauncher
-                            onOpen={onLauncherClick}
-                            dragHandleProps={launcherDragHandleProps}
-                        />
-                    )
-                }
-            </FloatingChatShell>
+                    )}
+                </FloatingChatShell>
+            ) : (
+                <LauncherBar
+                    placeholder={placeholder}
+                    isRunning={isRunning}
+                    onSubmit={handleSendPrompt}
+                    onMaximize={(draft) => { setLauncherDraft(draft); setIsOpen(true); }}
+                    disablePageUseBanner={disablePageUseBanner}
+                />
+            )}
         </ShadowContainer>
     );
 };

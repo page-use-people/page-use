@@ -28,7 +28,6 @@ export const ShadowContainer = ({cssVariables, children, icon: Icon}: TShadowCon
 
     return (
         <div ref={hostRef}>
-            {Icon ? <span slot="icon-launcher"><Icon location="launcher" /></span> : null}
             {Icon ? <span slot="icon-panel"><Icon location="panel" /></span> : null}
             {shadowRoot
                 ? createPortal(

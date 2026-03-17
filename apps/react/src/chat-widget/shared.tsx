@@ -3,7 +3,7 @@ import {memo} from 'react';
 import type {TPageUseChatRoundedness, TPageUseChatTheme} from './types.js';
 
 export const PANEL_GAP = 24;
-export const BUBBLE_SIZE = 84;
+export const LAUNCHER_BAR_MAX_WIDTH = 300;
 export const DEFAULT_WIDTH = 320;
 export const DEFAULT_HEIGHT = 560;
 export const AUTO_SCROLL_THRESHOLD = 40;
@@ -16,14 +16,16 @@ export const THEME_PALETTES = {
         muted: '#555555',
         divider: '#444444',
         accent: '#ff6a00',
+        shadow: '0 25px 60px rgba(0,0,0,0.6)',
     },
     light: {
-        background: '#ffffff',
-        foreground: '#000000',
-        surface: '#e7e7e7',
-        muted: '#6d6d6d',
-        divider: '#c9c9c9',
+        background: '#f5f5f5',
+        foreground: '#1c1c1c',
+        surface: '#e8e8e8',
+        muted: '#909090',
+        divider: '#d0d0d0',
         accent: '#ff6a00',
+        shadow: '0 8px 30px rgba(0,0,0,0.12)',
     },
 } as const satisfies Record<
     TPageUseChatTheme,
@@ -34,6 +36,7 @@ export const THEME_PALETTES = {
         readonly muted: string;
         readonly divider: string;
         readonly accent: string;
+        readonly shadow: string;
     }
 >;
 
@@ -72,11 +75,6 @@ export const clampPosition = (
         PANEL_GAP,
         Math.max(PANEL_GAP, window.innerHeight - height - PANEL_GAP),
     ),
-});
-
-export const getBoxSize = (isOpen: boolean, width: number, height: number) => ({
-    width: isOpen ? width : BUBBLE_SIZE,
-    height: isOpen ? height : BUBBLE_SIZE,
 });
 
 export const getDefaultPosition = (width: number, height: number) =>

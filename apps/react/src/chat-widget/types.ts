@@ -22,6 +22,7 @@ export type TPageUseCSSVariables = Partial<{
     '--pu-muted': string;
     '--pu-divider': string;
     '--pu-accent': string;
+    '--pu-shadow': string;
     '--pu-radius-sm': string;
     '--pu-radius-md': string;
     '--pu-radius-lg': string;

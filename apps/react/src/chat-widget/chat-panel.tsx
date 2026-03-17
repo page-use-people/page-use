@@ -6,9 +6,12 @@ import {parseMarkdown} from './markdown.js';
 import type {TChatMessage, TPageUseChatPrompt} from './types.js';
 import {tw} from './twind.js';
 
-type TChatLauncherProps = {
-    readonly onOpen: () => void;
-    readonly dragHandleProps: TDragHandleProps;
+type TLauncherBarProps = {
+    readonly placeholder: string;
+    readonly isRunning: boolean;
+    readonly onSubmit: (prompt: string) => boolean;
+    readonly onMaximize: (draft: string) => void;
+    readonly disablePageUseBanner?: boolean;
 };
 
 type TChatPanelProps = {
@@ -26,6 +29,7 @@ type TChatPanelProps = {
     readonly height: number;
     readonly devMode?: boolean;
     readonly disablePageUseBanner?: boolean;
+    readonly initialComposerValue?: string;
 };
 
 type TChatTranscriptProps = {
@@ -43,6 +47,7 @@ type TChatComposerProps = {
     readonly isRunning: boolean;
     readonly onSubmit: (prompt: string) => boolean;
     readonly disablePageUseBanner?: boolean;
+    readonly initialValue?: string;
 };
 
 type TChatHeaderProps = {
@@ -271,8 +276,9 @@ const ChatComposer = ({
     isRunning,
     onSubmit,
     disablePageUseBanner = false,
+    initialValue = '',
 }: TChatComposerProps) => {
-    const [inputValue, setInputValue] = useState('');
+    const [inputValue, setInputValue] = useState(initialValue);
     const isSendDisabled = isRunning || inputValue.trim().length === 0;
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -313,7 +319,7 @@ const ChatComposer = ({
                 autoFocus
                 disabled={isRunning}
                 className={tw(
-                    'resize-none w-full border-none outline-none bg-[color:var(--pu-bg)] text-[color:var(--pu-fg)] font-[inherit] text-sm leading-[1.5]',
+                    'resize-none w-full border-none outline-none bg-[color:var(--pu-bg)] text-[color:var(--pu-fg)] font-[inherit] text-sm leading-[1.5] placeholder:text-[color:var(--pu-muted)]',
                 )}
             />
             <button
@@ -332,22 +338,112 @@ const ChatComposer = ({
     );
 };
 
-export const ChatLauncher = ({onOpen, dragHandleProps}: TChatLauncherProps) => (
-    <button
-        type="button"
-        aria-label="Open Page Use chat"
-        onClick={onOpen}
-        {...dragHandleProps}
-        className={tw(
-            'w-[84px] h-[84px] border-4 border-black bg-[color:var(--pu-bg)] text-[color:var(--pu-fg)] cursor-grab grid place-items-center p-0 select-none touch-none rounded-[var(--pu-radius-lg)]',
-        )}>
-        <div className={tw('pointer-events-none')}>
-            <slot name="icon-launcher">
-                <DefaultIcon />
-            </slot>
+export const LauncherBar = ({
+    placeholder,
+    isRunning,
+    onSubmit,
+    onMaximize,
+    disablePageUseBanner = false,
+}: TLauncherBarProps) => {
+    const [inputValue, setInputValue] = useState('');
+    const isSendDisabled = isRunning || inputValue.trim().length === 0;
+    const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+    const adjustHeight = () => {
+        const textarea = textareaRef.current;
+        if (!textarea) {
+            return;
+        }
+
+        textarea.style.height = 'auto';
+        textarea.style.height = `${textarea.scrollHeight}px`;
+    };
+
+    const submitInput = () => {
+        if (onSubmit(inputValue)) {
+            setInputValue('');
+            const textarea = textareaRef.current;
+            if (textarea) {
+                textarea.style.height = 'auto';
+            }
+        }
+    };
+
+    return (
+        <div
+            className={tw(
+                'fixed bottom-6 left-0 right-0 z-[2147483647] mx-auto w-full max-w-[400px] font-mono text-[color:var(--pu-fg)]',
+            )}>
+            <div
+                className={tw(
+                    'p-1.5 bg-[color:var(--pu-bg)] shadow-[var(--pu-shadow)] rounded-[calc(var(--pu-radius-lg)+3.5px)]',
+                )}>
+                <div
+                    className={tw(
+                        'border border-[color:var(--pu-muted)] rounded-[var(--pu-radius-lg)]',
+                    )}>
+                    <form
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            submitInput();
+                        }}
+                        className={tw(
+                            'grid grid-cols-[1fr_auto_auto] gap-2 items-center p-2',
+                        )}>
+                        <textarea
+                            ref={textareaRef}
+                            value={inputValue}
+                            onChange={(event) => {
+                                setInputValue(event.target.value);
+                                adjustHeight();
+                            }}
+                            onKeyDown={(event) => {
+                                if (event.key === 'Enter' && !event.shiftKey) {
+                                    event.preventDefault();
+                                    submitInput();
+                                }
+                            }}
+                            placeholder={placeholder}
+                            rows={1}
+                            disabled={isRunning}
+                            className={tw(
+                                'resize-none w-full border-none outline-none bg-[color:var(--pu-bg)] text-[color:var(--pu-fg)] font-[inherit] text-sm leading-[1.5] max-h-[120px] overflow-hidden placeholder:text-[color:var(--pu-muted)]',
+                            )}
+                        />
+                        <button
+                            type="button"
+                            onClick={() => onMaximize(inputValue)}
+                            className={tw(
+                                'border border-[color:var(--pu-muted)] py-1 px-2 cursor-pointer font-[inherit] text-sm rounded-[var(--pu-radius-sm)] bg-[color:var(--pu-surface)] text-[color:var(--pu-fg)]',
+                            )}>
+                            ↗
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isSendDisabled}
+                            className={tw(
+                                `border border-[color:var(--pu-muted)] py-1 px-2 font-[inherit] text-sm rounded-[var(--pu-radius-sm)] ${
+                                    isSendDisabled
+                                        ? 'bg-[color:var(--pu-surface)] text-[color:var(--pu-muted)] cursor-not-allowed'
+                                        : 'bg-[color:var(--pu-fg)] text-[color:var(--pu-bg)] cursor-pointer'
+                                }`,
+                            )}>
+                            SEND
+                        </button>
+                    </form>
+                    {disablePageUseBanner ? null : (
+                        <div
+                            className={tw(
+                                'text-center text-[10px] text-[color:var(--pu-fg)] py-1.5 border-t border-[color:var(--pu-muted)]',
+                            )}>
+                            built with <strong>{'<PageUse/>'}</strong>
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
-    </button>
-);
+    );
+};
 
 export const ChatPanel = ({
     title,
@@ -364,11 +460,12 @@ export const ChatPanel = ({
     height,
     devMode,
     disablePageUseBanner = false,
+    initialComposerValue,
 }: TChatPanelProps) => (
     <div
         style={{width, height}}
         className={tw(
-            'p-1.5 bg-[color:var(--pu-bg)] shadow-[0_25px_60px_rgba(0,0,0,0.6)] rounded-[calc(var(--pu-radius-lg)+3.5px)]',
+            'p-1.5 bg-[color:var(--pu-bg)] shadow-[var(--pu-shadow)] rounded-[calc(var(--pu-radius-lg)+3.5px)]',
         )}>
         <div
             className={tw(
@@ -393,6 +490,7 @@ export const ChatPanel = ({
                 isRunning={isRunning}
                 onSubmit={onSendPrompt}
                 disablePageUseBanner={disablePageUseBanner}
+                initialValue={initialComposerValue}
             />
             {disablePageUseBanner ? null : (
                 <div
