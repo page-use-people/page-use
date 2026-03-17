@@ -73,12 +73,24 @@ const createAnthropic = ({
                         stop_reason: response.stop_reason,
                     };
 
+                    const usage = response.usage as {
+                        readonly input_tokens: number;
+                        readonly output_tokens: number;
+                        readonly cache_creation_input_tokens?: number | null;
+                        readonly cache_read_input_tokens?: number | null;
+                    };
+
                     db.insertInto('inference_calls')
                         .values({
                             id: uuidv7(),
                             api: 'anthropic',
                             model: response.model as string,
-                            meta: null,
+                            meta: JSON.stringify({
+                                cache_creation_input_tokens:
+                                    usage.cache_creation_input_tokens ?? 0,
+                                cache_read_input_tokens:
+                                    usage.cache_read_input_tokens ?? 0,
+                            }),
                             input_tokens: response.usage.input_tokens,
                             output_tokens: response.usage.output_tokens,
                             thinking_tokens: 0,

@@ -1,5 +1,6 @@
 import type {
     MessageParam,
+    TextBlockParam,
     ToolResultBlockParam,
 } from '@anthropic-ai/sdk/resources/messages';
 import type {TSelectableBlock, TSelectableTurn} from '#core/db/types.mjs';
@@ -126,6 +127,60 @@ export const buildHistoryMessages = (
             content,
         };
     });
+
+// ── Cache Breakpoints ──────────────────────────────────────
+
+export const buildCachedSystemPrompt = (
+    stableText: string,
+    dynamicText: string,
+): TextBlockParam[] => [
+    // @ts-expect-error -- SDK types lack `ttl` but the API accepts it
+    {type: 'text', text: stableText, cache_control: {type: 'ephemeral', ttl: '1h'}},
+    {type: 'text', text: dynamicText},
+];
+
+export const markLastMessageForCaching = (
+    messages: MessageParam[],
+): MessageParam[] => {
+    if (messages.length < 2) {
+        return messages;
+    }
+
+    const cacheIdx = messages.length - 2;
+    const target = messages[cacheIdx];
+
+    if (typeof target.content === 'string') {
+        return messages.map((msg, i) =>
+            i === cacheIdx
+                ? {
+                      ...msg,
+                      content: [
+                          {
+                              type: 'text' as const,
+                              text: target.content as string,
+                              cache_control: {type: 'ephemeral' as const},
+                          },
+                      ],
+                  }
+                : msg,
+        );
+    }
+
+    if (!Array.isArray(target.content) || target.content.length === 0) {
+        return messages;
+    }
+
+    const lastBlockIdx = target.content.length - 1;
+    const updatedContent = target.content.map((block, i) =>
+        i === lastBlockIdx
+            ? {...block, cache_control: {type: 'ephemeral' as const}}
+            : block,
+    );
+
+    return messages.map((msg, i) =>
+        i === cacheIdx ? {...msg, content: updatedContent} : msg,
+    );
+};
 
 // ── Force Stop ──────────────────────────────────────────────
 

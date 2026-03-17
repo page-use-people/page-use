@@ -24,6 +24,8 @@ import {
     buildContextSection,
     sanitizeMessages,
     buildHistoryMessages,
+    buildCachedSystemPrompt,
+    markLastMessageForCaching,
     applyForceStop,
 } from './messages.mjs';
 import {
@@ -206,12 +208,16 @@ export const converseRouter = router({
                 page_variable_types: input.variables_object_definition,
             });
 
-            const systemPrompt =
-                contextSection +
-                systemPromptBase +
-                `\n\n<turn_budget>\nYou have a maximum of ${MAX_AGENT_TURNS} execution turns to fulfill the user's request. Budget your turns carefully: explore and plan early, execute decisively, and verify before your turns run out.\n</turn_budget>`;
+            const stableSystemPrompt =
+                contextSection + systemPromptBase;
 
-            // 9. Build tools + apply force-stop
+            const dynamicSystemPrompt =
+                `\n\n<turn_budget>\nYou have a maximum of ${MAX_AGENT_TURNS} execution turns to fulfill the user's request. Budget your turns carefully: explore and plan early, execute decisively, and verify before your turns run out.\n</turn_budget>` +
+                (shouldDisableEdit && !isForceStop
+                    ? `\n\n<important_notice>\nEditing has failed ${editFailures} times consecutively. The edit_and_run_js tool has been disabled. You MUST use write_and_run_js to write fresh code.\n</important_notice>`
+                    : '');
+
+            // 9. Build tools + apply force-stop + cache breakpoints
             const tools: Tool[] = isForceStop
                 ? []
                 : shouldDisableEdit
@@ -222,16 +228,19 @@ export const converseRouter = router({
                 applyForceStop(messages);
             }
 
-            const finalSystemPrompt =
-                shouldDisableEdit && !isForceStop
-                    ? `${systemPrompt}\n\n<important_notice>\nEditing has failed ${editFailures} times consecutively. The edit_and_run_js tool has been disabled. You MUST use write_and_run_js to write fresh code.\n</important_notice>`
-                    : systemPrompt;
+            const cachedMessages = markLastMessageForCaching(messages);
 
             // 10. Call Anthropic API
+            // Cache processing order: tools → system → messages
+            // 1h system breakpoint covers tools too (no tool breakpoint needed)
+            // 5m message breakpoint caches conversation history prefix
             const response = await anthropic.createMessage({
                 model: API_MODEL,
-                system: finalSystemPrompt,
-                messages,
+                system: buildCachedSystemPrompt(
+                    stableSystemPrompt,
+                    dynamicSystemPrompt,
+                ),
+                messages: cachedMessages,
                 max_tokens: MAX_TOKENS,
                 tools,
             });
