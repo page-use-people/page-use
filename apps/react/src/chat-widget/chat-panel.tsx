@@ -1,7 +1,8 @@
-import {memo, useEffect, useRef, useState} from 'react';
+import {memo, useEffect, useMemo, useRef, useState} from 'react';
 
 import {AUTO_SCROLL_THRESHOLD, PageUseLogo} from './shared.js';
 import type {TDragHandleProps} from './floating-chat-shell.js';
+import {parseMarkdown} from './markdown.js';
 import type {TChatMessage, TPageUseChatPrompt} from './types.js';
 import {tw} from './twind.js';
 
@@ -48,18 +49,24 @@ type TChatHeaderProps = {
     readonly dragHandleProps: TDragHandleProps;
 };
 
-const SPINNER_FRAMES = [
-    '⠋',
-    '⠙',
-    '⠹',
-    '⠸',
-    '⠼',
-    '⠴',
-    '⠦',
-    '⠧',
-    '⠇',
-    '⠏',
-] as const;
+const SPINNER_FRAMES = ['·', '✻', '✽', '✶', '✢'] as const;
+
+const LOADING_PHRASES = Object.freeze([
+    'doing agentic things',
+    'agenting agentically',
+    'agent go brrrr',
+    'thinking like an agent',
+    'thinking agentically',
+    'putting agent hat on',
+    'pondering agentically',
+    'agentic pondering',
+    'agent pondering',
+    'doing agentic stuff',
+    'agent beep booping',
+    'agent-as-a-service-ing',
+    'doing agent stuff',
+    'doing agent things',
+] as const);
 
 const useSpinner = (running: boolean): string => {
     const [frame, setFrame] = useState(0);
@@ -71,27 +78,40 @@ const useSpinner = (running: boolean): string => {
 
         const id = setInterval(
             () => setFrame((f) => (f + 1) % SPINNER_FRAMES.length),
-            80,
+            250,
         );
         return () => clearInterval(id);
     }, [running]);
 
-    return SPINNER_FRAMES[frame] ?? '⠋';
+    return SPINNER_FRAMES[frame] ?? '·';
 };
 
 const ChatMessageBubble = memo(
-    ({message}: {readonly message: TChatMessage}) => (
-        <div
-            className={tw(
-                `max-w-[88%] border-2 border-solid py-3 px-3.5 whitespace-pre-wrap leading-[1.5] text-xs ${
-                    message.role === 'user'
-                        ? 'self-end border-[color:var(--pu-fg)] bg-[color:var(--pu-surface)]'
-                        : 'self-start border-[color:var(--pu-divider)] bg-[color:var(--pu-bg)]'
-                } ${message.pending ? 'opacity-90' : 'opacity-100'}`,
-            )}>
-            {message.content}
-        </div>
-    ),
+    ({message}: {readonly message: TChatMessage}) => {
+        const isAssistant = message.role === 'assistant';
+
+        return (
+            <div
+                className={tw(
+                    `max-w-[88%] py-1 px-2 leading-[1.5] text-sm ${
+                        isAssistant
+                            ? 'self-start py-2 px-3 border border-[color:var(--pu-surface)] rounded-[var(--pu-radius-md)]'
+                            : 'self-end whitespace-pre-wrap text-[color:var(--pu-fg)] bg-[color:var(--pu-surface)] rounded-[var(--pu-radius-md)]'
+                    } ${message.pending ? 'opacity-90' : 'opacity-100'}`,
+                )}>
+                {isAssistant ? (
+                    <div
+                        className="pu-md"
+                        dangerouslySetInnerHTML={{
+                            __html: parseMarkdown(message.content),
+                        }}
+                    />
+                ) : (
+                    message.content
+                )}
+            </div>
+        );
+    },
 );
 
 ChatMessageBubble.displayName = 'ChatMessageBubble';
@@ -100,7 +120,7 @@ const ChatHeader = ({title, onClose, dragHandleProps}: TChatHeaderProps) => (
     <div
         {...dragHandleProps}
         className={tw(
-            'flex items-center justify-between gap-3 py-3 px-3.5 border-b-2 border-[color:var(--pu-fg)] cursor-grab tracking-[0.16em] text-sm select-none touch-none',
+            'flex items-center justify-between gap-3 py-2 px-2 border-b border-[color:var(--pu-muted)] cursor-grab text-sm select-none touch-none rounded-t-[var(--pu-radius-lg)]',
         )}>
         <div className={tw('flex items-center gap-2.5 min-w-0')}>
             <PageUseLogo
@@ -115,9 +135,9 @@ const ChatHeader = ({title, onClose, dragHandleProps}: TChatHeaderProps) => (
             onClick={onClose}
             onPointerDown={(event) => event.stopPropagation()}
             className={tw(
-                'border-2 border-[color:var(--pu-fg)] bg-[color:var(--pu-surface)] text-[color:var(--pu-fg)] py-1 px-2.5 cursor-pointer font-[inherit]',
+                'text-[color:var(--pu-muted)] py-1 px-2 cursor-pointer font-[inherit]',
             )}>
-            CLOSE
+            ✕
         </button>
     </div>
 );
@@ -132,6 +152,11 @@ const ChatTranscript = ({
     devMode,
 }: TChatTranscriptProps) => {
     const spinner = useSpinner(isRunning);
+    const loadingPhrase = useMemo(
+        () =>
+            LOADING_PHRASES[Math.floor(Math.random() * LOADING_PHRASES.length)],
+        [isRunning],
+    );
     const viewportRef = useRef<HTMLDivElement | null>(null);
     const frameRef = useRef<number | null>(null);
     const shouldStickToBottomRef = useRef(true);
@@ -183,7 +208,7 @@ const ChatTranscript = ({
             ref={viewportRef}
             onScroll={syncScrollAnchor}
             className={tw(
-                'overflow-y-auto overscroll-contain p-4 flex flex-col gap-3',
+                'overflow-y-auto overscroll-contain p-2 flex flex-col gap-3 flex-1',
             )}>
             {messages.map((message) => (
                 <ChatMessageBubble key={message.id} message={message} />
@@ -199,7 +224,7 @@ const ChatTranscript = ({
                                 onSendPrompt(chip.prompt);
                             }}
                             className={tw(
-                                'self-start border-2 border-[color:var(--pu-divider)] bg-[color:var(--pu-surface)] text-[color:var(--pu-fg)] py-2.5 px-3.5 cursor-pointer font-[inherit] text-xs text-left',
+                                'self-start border border-[color:var(--pu-muted)] bg-[color:var(--pu-surface)] text-[color:var(--pu-fg)] py-1 px-2 cursor-pointer font-[inherit] text-sm text-left rounded-[var(--pu-radius-sm)]',
                             )}>
                             {chip.label}
                         </button>
@@ -210,14 +235,18 @@ const ChatTranscript = ({
             {isRunning || (devMode && loadingDetails.length > 0) ? (
                 <div
                     className={tw(
-                        'border-y-2 border-[color:var(--pu-divider)] py-2 text-[color:var(--pu-muted)] italic text-xs flex flex-col gap-2',
+                        'border-y border-[color:var(--pu-muted)] py-2 text-[color:var(--pu-fg)] italic text-xs flex flex-col gap-2',
                     )}>
-                    <div>
-                        {spinner}{' '}
+                    <div className={tw(`flex flex-row gap-2`)}>
+                        <div
+                            className={tw(
+                                'text-[color:var(--pu-accent)] w-5 text-center',
+                            )}>
+                            {spinner}
+                        </div>{' '}
                         {loadingDetails.length > 0
                             ? loadingDetails[loadingDetails.length - 1]
-                            : 'forming a response'}{' '}
-                        ...
+                            : loadingPhrase}{' '}
                     </div>
                     {devMode && loadingDetails.length > 0 ? (
                         <div
@@ -242,6 +271,14 @@ const ChatComposer = ({
 }: TChatComposerProps) => {
     const [inputValue, setInputValue] = useState('');
     const isSendDisabled = isRunning || inputValue.trim().length === 0;
+    const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+    useEffect(() => {
+        if (!isRunning) {
+            const id = setTimeout(() => textareaRef.current?.focus(), 50);
+            return () => clearTimeout(id);
+        }
+    }, [isRunning]);
 
     const submitInput = () => {
         if (onSubmit(inputValue)) {
@@ -256,9 +293,10 @@ const ChatComposer = ({
                 submitInput();
             }}
             className={tw(
-                'border-t-2 border-[color:var(--pu-fg)] p-3 grid grid-cols-[1fr_auto] gap-3 items-end',
+                'border-t border-[color:var(--pu-muted)] p-2 grid grid-cols-[1fr_auto] gap-3 items-end rounded-b-[var(--pu-radius-lg)]',
             )}>
             <textarea
+                ref={textareaRef}
                 value={inputValue}
                 onChange={(event) => setInputValue(event.target.value)}
                 onKeyDown={(event) => {
@@ -269,16 +307,17 @@ const ChatComposer = ({
                 }}
                 placeholder={placeholder}
                 rows={3}
+                autoFocus
                 disabled={isRunning}
                 className={tw(
-                    'resize-none w-full border-none outline-none bg-[color:var(--pu-bg)] text-[color:var(--pu-fg)] font-[inherit] text-base leading-[1.5]',
+                    'resize-none w-full border-none outline-none bg-[color:var(--pu-bg)] text-[color:var(--pu-fg)] font-[inherit] text-sm leading-[1.5]',
                 )}
             />
             <button
                 type="submit"
                 disabled={isSendDisabled}
                 className={tw(
-                    `border-2 border-[color:var(--pu-fg)] py-2.5 px-4 font-[inherit] text-sm ${
+                    `border border-[color:var(--pu-muted)] py-1 px-2 font-[inherit] text-sm rounded-[var(--pu-radius-sm)] ${
                         isSendDisabled
                             ? 'bg-[color:var(--pu-surface)] text-[color:var(--pu-muted)] cursor-not-allowed'
                             : 'bg-[color:var(--pu-fg)] text-[color:var(--pu-bg)] cursor-pointer'
@@ -290,17 +329,14 @@ const ChatComposer = ({
     );
 };
 
-export const ChatLauncher = ({
-    onOpen,
-    dragHandleProps,
-}: TChatLauncherProps) => (
+export const ChatLauncher = ({onOpen, dragHandleProps}: TChatLauncherProps) => (
     <button
         type="button"
         aria-label="Open Page Use chat"
         onClick={onOpen}
         {...dragHandleProps}
         className={tw(
-            'w-[84px] h-[84px] border-4 border-black bg-[color:var(--pu-bg)] text-[color:var(--pu-fg)] cursor-grab grid place-items-center p-0 select-none touch-none',
+            'w-[84px] h-[84px] border-4 border-black bg-[color:var(--pu-bg)] text-[color:var(--pu-fg)] cursor-grab grid place-items-center p-0 select-none touch-none rounded-[var(--pu-radius-lg)]',
         )}>
         <PageUseLogo
             frameColor="var(--pu-fg)"
@@ -326,28 +362,33 @@ export const ChatPanel = ({
     devMode,
 }: TChatPanelProps) => (
     <div
+        style={{width, height}}
         className={tw(
-            'grid grid-rows-[auto_1fr_auto] border-2 border-[color:var(--pu-fg)] bg-[color:var(--pu-bg)]',
-        )}
-        style={{width, height}}>
-        <ChatHeader
-            title={title}
-            onClose={onClose}
-            dragHandleProps={dragHandleProps}
-        />
-        <ChatTranscript
-            messages={messages}
-            promptChips={promptChips}
-            showPromptChips={showPromptChips}
-            loadingDetails={loadingDetails}
-            isRunning={isRunning}
-            onSendPrompt={onSendPrompt}
-            devMode={devMode}
-        />
-        <ChatComposer
-            placeholder={placeholder}
-            isRunning={isRunning}
-            onSubmit={onSendPrompt}
-        />
+            'p-1.5 bg-[color:var(--pu-bg)] shadow-[0_25px_60px_rgba(0,0,0,0.6)] rounded-[calc(var(--pu-radius-lg)+3.5px)]',
+        )}>
+        <div
+            className={tw(
+                'h-full flex flex-col border border-[color:var(--pu-muted)] rounded-[var(--pu-radius-lg)]',
+            )}>
+            <ChatHeader
+                title={title}
+                onClose={onClose}
+                dragHandleProps={dragHandleProps}
+            />
+            <ChatTranscript
+                messages={messages}
+                promptChips={promptChips}
+                showPromptChips={showPromptChips}
+                loadingDetails={loadingDetails}
+                isRunning={isRunning}
+                onSendPrompt={onSendPrompt}
+                devMode={devMode}
+            />
+            <ChatComposer
+                placeholder={placeholder}
+                isRunning={isRunning}
+                onSubmit={onSendPrompt}
+            />
+        </div>
     </div>
 );

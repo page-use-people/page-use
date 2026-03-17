@@ -7,6 +7,7 @@ import {
 } from 'react';
 
 import {
+    BUBBLE_SIZE,
     PANEL_GAP,
     clampPosition,
     getBoxSize,
@@ -77,6 +78,7 @@ export const FloatingChatShell = ({
     const dragSessionRef = useRef<TDragSession | null>(null);
     const hasUserPositionRef = useRef(false);
     const suppressLauncherClickRef = useRef(false);
+    const prevIsOpenRef = useRef(isOpen);
 
     const applyPosition = (nextPosition: TPosition) => {
         positionRef.current = nextPosition;
@@ -133,7 +135,19 @@ export const FloatingChatShell = ({
     };
 
     useClientLayoutEffect(() => {
+        const wasOpen = prevIsOpenRef.current;
+        prevIsOpenRef.current = isOpen;
+
         boxSizeRef.current = getBoxSize(isOpen, width, height);
+
+        if (wasOpen && !isOpen) {
+            const prev = positionRef.current;
+            positionRef.current = {
+                x: prev.x + width - BUBBLE_SIZE,
+                y: prev.y + height - BUBBLE_SIZE,
+            };
+        }
+
         syncPositionToViewport();
     }, [height, isOpen, width]);
 
