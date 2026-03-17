@@ -8,11 +8,13 @@ const TodoItem = ({
     onToggle,
     onDelete,
     onUpdate,
+    highlighted = false,
 }: {
     item: TTodoItem;
     onToggle: () => void;
     onDelete: () => void;
     onUpdate: (text: string, dueDate: string) => void;
+    highlighted?: boolean;
 }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
 
@@ -24,7 +26,7 @@ const TodoItem = ({
         <div
             ref={setNodeRef}
             style={style}
-            className={clsx('flex items-start gap-2 rounded border border-gray-200 bg-white px-3 py-2', isDragging && 'opacity-30')}
+            className={clsx('flex items-start gap-2 rounded border border-gray-200 bg-white px-3 py-2', isDragging && 'opacity-30', highlighted && 'animate-highlight-fade')}
         >
             <button
                 {...attributes}

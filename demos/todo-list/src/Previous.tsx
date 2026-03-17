@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { useState, useReducer, useEffect, useMemo } from 'react';
+import { useState, useReducer, useEffect, useMemo, useRef, useCallback } from 'react';
 import { flushSync } from 'react-dom';
 import {
     DndContext,
@@ -62,16 +62,16 @@ const todoItemsSchema = z
     )
     .describe('the current list of all todo items');
 
-const promptChips = [
-    {
-        label: 'Add a task for today',
-        prompt: 'Add a todo item to buy groceries with today as the due date.',
-    },
-    {
-        label: 'What should I focus on?',
-        prompt: 'Look at my current todos and suggest which one I should focus on first based on due dates.',
-    },
-];
+// const promptChips = [
+//     {
+//         label: 'Add a task for today',
+//         prompt: 'Add a todo item to buy groceries with today as the due date.',
+//     },
+//     {
+//         label: 'What should I focus on?',
+//         prompt: 'Look at my current todos and suggest which one I should focus on first based on due dates.',
+//     },
+// ];
 
 const reducer = (state: TTodoItem[], action: TAction): TTodoItem[] => {
     switch (action.type) {
@@ -145,11 +145,34 @@ const Previous = () => {
         value: items,
     });
 
+    const [highlightedIDs, setHighlightedIDs] = useState<ReadonlySet<string>>(new Set());
+    const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const highlightItems = useCallback((ids: ReadonlyArray<string>) => {
+        if (highlightTimerRef.current) {
+            clearTimeout(highlightTimerRef.current);
+        }
+        setHighlightedIDs(new Set(ids));
+        highlightTimerRef.current = setTimeout(() => {
+            setHighlightedIDs(new Set());
+            highlightTimerRef.current = null;
+        }, 1500);
+    }, []);
+
     useAgentFunction('setItems', {
         inputSchema: todoItemsSchema,
         mutates: ['items'],
-        func: (items) => {
-            document.startViewTransition(() => flushSync(() => dispatch({ type: 'REPLACE', data: items })));
+        func: (newItems) => {
+            const changedIDs = newItems
+                .filter((ni) => {
+                    const old = items.find((o) => o.id === ni.id);
+                    return !old || old.text !== ni.text || old.completed !== ni.completed || old.dueDate !== ni.dueDate;
+                })
+                .map((i) => i.id);
+            const transition = document.startViewTransition(() =>
+                flushSync(() => dispatch({ type: 'REPLACE', data: newItems })),
+            );
+            transition.finished.then(() => highlightItems(changedIDs));
         },
     });
 
@@ -200,6 +223,7 @@ const Previous = () => {
                     ? [...targetList, ...filteredSource]
                     : [...filteredSource, ...targetList],
         });
+        highlightItems([active.id as string]);
     };
 
     const handleDragEnd = (event: DragEndEvent) => {
@@ -222,6 +246,7 @@ const Previous = () => {
             type: 'REORDER',
             items: activeContainer === 'incomplete' ? [...reordered, ...other] : [...other, ...reordered],
         });
+        highlightItems([active.id as string]);
     };
 
     return (
@@ -256,7 +281,11 @@ const Previous = () => {
                                         <TodoItem
                                             key={item.id}
                                             item={item}
-                                            onToggle={() => dispatch({ type: 'TOGGLE', id: item.id })}
+                                            highlighted={highlightedIDs.has(item.id)}
+                                            onToggle={() => {
+                                                dispatch({ type: 'TOGGLE', id: item.id });
+                                                highlightItems([item.id]);
+                                            }}
                                             onDelete={() => dispatch({ type: 'DELETE', id: item.id })}
                                             onUpdate={(text, dueDate) =>
                                                 dispatch({ type: 'UPDATE', id: item.id, text, dueDate })
@@ -273,7 +302,11 @@ const Previous = () => {
                                         <TodoItem
                                             key={item.id}
                                             item={item}
-                                            onToggle={() => dispatch({ type: 'TOGGLE', id: item.id })}
+                                            highlighted={highlightedIDs.has(item.id)}
+                                            onToggle={() => {
+                                                dispatch({ type: 'TOGGLE', id: item.id });
+                                                highlightItems([item.id]);
+                                            }}
                                             onDelete={() => dispatch({ type: 'DELETE', id: item.id })}
                                             onUpdate={(text, dueDate) =>
                                                 dispatch({ type: 'UPDATE', id: item.id, text, dueDate })
@@ -328,7 +361,11 @@ const Previous = () => {
                         <button
                             className="mt-4 w-full rounded border border-gray-300 py-2 text-sm text-black/40 transition-colors hover:border-black hover:text-black"
                             onClick={() => {
-                                document.startViewTransition(() => flushSync(() => dispatch({ type: 'SHUFFLE' })));
+                                const incompleteIDs = items.filter((i) => !i.completed).map((i) => i.id);
+                                const transition = document.startViewTransition(() =>
+                                    flushSync(() => dispatch({ type: 'SHUFFLE' })),
+                                );
+                                transition.finished.then(() => highlightItems(incompleteIDs));
                             }}>
                             Randomize
                         </button>
@@ -353,11 +390,10 @@ const Previous = () => {
             </div>
 
             <PageUseChat
-                title="TODO ASSISTANT"
-                placeholder="Add a task, ask what's due, or manage your list"
-                greeting="Hi! I can see your todo list and help you manage it — add tasks, mark them done, or clear everything."
-                promptChips={promptChips}
-                theme="light"
+                title={'Task Master'}
+                greeting={`Hi, I'm the _Task Master_. I help you manage your todo list.`}
+                theme="dark"
+                roundedness={'md'}
                 devMode
             />
         </>

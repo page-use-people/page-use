@@ -1,1 +1,19 @@
 @import 'tailwindcss';
+
+@theme {
+    --animate-highlight-fade: highlight-fade 1.5s ease-out forwards;
+}
+
+::view-transition-old(*),
+::view-transition-new(*) {
+    animation-duration: 600ms;
+}
+
+@keyframes highlight-fade {
+    0% {
+        box-shadow: 0 0 0 2px rgb(234 179 8 / 0.6);
+    }
+    100% {
+        box-shadow: 0 0 0 2px rgb(234 179 8 / 0);
+    }
+}
