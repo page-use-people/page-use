@@ -123,14 +123,14 @@ const DroppableSection = ({
     const { setNodeRef, isOver } = useDroppable({ id });
     return (
         <div className="mt-6">
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-black/40">{title}</h2>
+            <h2 className="mb-2 text-sm uppercase tracking-wide text-stone-700/60">{title}</h2>
             <div
                 ref={setNodeRef}
                 className={clsx(
                     'min-h-[48px] border-dashed transition-colors',
-                    isOver ? 'border-black/20 bg-black/[0.03]' : 'border-transparent',
+                    isOver ? 'border-amber-400/30 bg-amber-100/30' : 'border-transparent',
                 )}>
-                {isEmpty ? <p className="py-3 text-sm text-black/20">Time to get doing.</p> : children}
+                {isEmpty ? <p className="py-3 text-sm text-amber-400/50">Time to get doing.</p> : children}
             </div>
         </div>
     );
@@ -265,7 +265,7 @@ const Previous = () => {
                 `}
             </SystemPrompt>
 
-            <div className="min-h-screen bg-white px-4 py-8">
+            <div className="min-h-screen text-stone-800 px-4 py-8 mb-32">
                 <div className="mx-auto max-w-lg">
                     <DndContext
                         sensors={sensors}
@@ -324,7 +324,7 @@ const Previous = () => {
                                     setNewItemId(id);
                                     dispatch({ type: 'ADD', id, text: '', dueDate: '' });
                                 }}
-                                className="mt-2 flex items-center gap-1 text-sm text-black/40 transition-colors hover:text-black/70">
+                                className="mt-2 flex items-center gap-1 text-sm text-stone-600/60 transition-colors hover:text-stone-800">
                                 + Add Task
                             </button>
                         </div>
@@ -359,13 +359,13 @@ const Previous = () => {
                                 ? (() => {
                                       const item = items.find((i) => i.id === activeId);
                                       return item ? (
-                                          <div className="flex items-start gap-2 rounded border border-gray-200 bg-white px-3 py-2 shadow-lg">
-                                              <span className="-mt-0.5 text-black/20">⠿</span>
+                                          <div className="flex items-start gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 shadow-lg">
+                                              <span className="-mt-0.5 text-amber-400/50">⠿</span>
                                               <input
                                                   type="checkbox"
                                                   checked={item.completed}
                                                   readOnly
-                                                  className="mt-0.5 h-4 w-4 accent-black opacity-40"
+                                                  className="mt-0.5 h-4 w-4 accent-amber-700 opacity-50"
                                               />
                                               <textarea
                                                   value={item.text}
@@ -374,7 +374,7 @@ const Previous = () => {
                                                   style={{ fieldSizing: 'content' } as React.CSSProperties}
                                                   className={clsx(
                                                       'flex-1 resize-none bg-transparent p-0 text-sm outline-none',
-                                                      item.completed && 'text-black/40 line-through',
+                                                      item.completed && 'text-stone-400 line-through',
                                                   )}
                                               />
                                               <input
@@ -383,10 +383,10 @@ const Previous = () => {
                                                   readOnly
                                                   className={clsx(
                                                       'mt-0.5 bg-transparent text-xs outline-none opacity-40',
-                                                      item.completed ? 'text-black/20' : 'text-black/60',
+                                                      item.completed ? 'text-amber-400/50' : 'text-amber-700/70',
                                                   )}
                                               />
-                                              <button className="-mt-0.5 text-black/20 opacity-40" aria-label="Delete">
+                                              <button className="-mt-0.5 text-amber-400/50" aria-label="Delete">
                                                   ✕
                                               </button>
                                           </div>
@@ -434,6 +434,15 @@ const Previous = () => {
                 placeholder={'Write to Task Master'}
                 roundedness={'sm'}
                 icon={({ location }) => <span className={location === 'launcher' ? 'text-3xl' : 'text-xl'}>🐼</span>}
+                cssVariables={{
+                    '--pu-bg': '#292217',
+                    '--pu-fg': '#eae7d6',
+                    '--pu-surface': '#423c2c',
+                    '--pu-muted': '#776d55',
+                    '--pu-divider': '#433425',
+                    '--pu-accent': '#af9055',
+                    '--pu-shadow': '0 25px 60px rgba(6,4,0,0.65)',
+                }}
                 devMode
             />
         </>

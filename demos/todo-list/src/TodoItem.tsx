@@ -38,18 +38,24 @@ const TodoItem = ({
             ref={setNodeRef}
             style={style}
             className={clsx(
-                'flex items-start gap-2 border rounded border-gray-300 bg-white px-3 py-2',
+                'flex items-start gap-2 border rounded shadow  text-stone-800 px-3 py-2',
                 isDragging && 'opacity-30',
                 highlighted && 'animate-highlight-fade',
+                item.completed ? 'bg-stone-300 border-stone-400' : 'bg-amber-100 border-yellow-400',
             )}>
             <button
                 {...attributes}
                 {...listeners}
-                className="cursor-grab touch-none text-black/20 hover:text-black/60"
+                className="cursor-grab touch-none text-amber-600/50 hover:text-amber-700"
                 aria-label="Drag to reorder">
                 ⠿
             </button>
-            <input type="checkbox" checked={item.completed} onChange={onToggle} className="mt-1 h-4 w-4 accent-black" />
+            <input
+                type="checkbox"
+                checked={item.completed}
+                onChange={onToggle}
+                className="mt-1 h-4 w-4 accent-amber-700"
+            />
             <textarea
                 ref={textareaRef}
                 value={item.text}
@@ -77,21 +83,18 @@ const TodoItem = ({
                 style={{ fieldSizing: 'content' } as React.CSSProperties}
                 className={clsx(
                     'flex-1 resize-none bg-transparent p-0 outline-none',
-                    item.completed && 'text-black/40 line-through',
+                    item.completed && 'text-stone-600 line-through',
                 )}
             />
             <input
                 type="date"
                 value={item.dueDate}
                 onChange={(e) => onUpdate(item.text, e.target.value)}
-                className={clsx(
-                    'mt-1 w-20 bg-transparent text-xs outline-none',
-                    item.completed ? 'text-black/20' : 'text-black/60',
-                )}
+                className={clsx('mt-1 w-20 bg-transparent text-xs outline-none', 'text-stone-700/70')}
             />
             <button
                 onClick={onDelete}
-                className="  text-black/20 transition-colors hover:text-black"
+                className="mt-1 text-xs text-stone-500/60 transition-colors hover:text-amber-700"
                 aria-label="Delete">
                 ✕
             </button>

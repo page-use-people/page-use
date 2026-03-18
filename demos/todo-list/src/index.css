@@ -13,11 +13,15 @@ input[type='date']::-webkit-calendar-picker-indicator {
     display: none;
 }
 
+html, body {
+    @apply bg-amber-50;
+}
+
 @keyframes highlight-fade {
     0% {
-        box-shadow: 0 0 0 2px rgb(234 179 8 / 0.6);
+        box-shadow: 0 0 0 2px rgb(161 98 7 / 0.45);
     }
     100% {
-        box-shadow: 0 0 0 2px rgb(234 179 8 / 0);
+        box-shadow: 0 0 0 2px rgb(161 98 7 / 0);
     }
 }
