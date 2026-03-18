@@ -18,6 +18,8 @@ import { PageUseChat, SystemPrompt, useAgentVariable, useAgentFunction } from '@
 import z from 'zod';
 import TodoItem from './TodoItem.tsx';
 import ConfirmModal from './ConfirmModal.tsx';
+import { formatRelativeDate, getDateColorClass } from './DueDateDisplay.tsx';
+import { format, parseISO } from 'date-fns';
 
 export type TTodoItem = {
     id: string;
@@ -266,7 +268,8 @@ const Previous = () => {
             </SystemPrompt>
 
             <div className="min-h-screen text-stone-800 px-4 py-8 mb-32">
-                <div className="mx-auto max-w-lg">
+                <h1 className={'mx-auto max-w-md text-5xl text-center font-light text-pink-600'}>Todo List 🤝 Agent</h1>
+                <div className="mx-auto max-w-md">
                     <DndContext
                         sensors={sensors}
                         collisionDetection={closestCorners}
@@ -359,13 +362,17 @@ const Previous = () => {
                                 ? (() => {
                                       const item = items.find((i) => i.id === activeId);
                                       return item ? (
-                                          <div className="flex items-start gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 shadow-lg">
-                                              <span className="-mt-0.5 text-amber-400/50">⠿</span>
+                                          <div
+                                              className={clsx(
+                                                  'flex items-start gap-2 border rounded shadow text-stone-800 px-3 py-2',
+                                                  item.completed ? 'bg-stone-300 border-stone-400' : 'bg-amber-100 border-yellow-400',
+                                              )}>
+                                              <span className="cursor-grab touch-none text-amber-600/50">⠿</span>
                                               <input
                                                   type="checkbox"
                                                   checked={item.completed}
                                                   readOnly
-                                                  className="mt-0.5 h-4 w-4 accent-amber-700 opacity-50"
+                                                  className="mt-1 h-4 w-4 accent-amber-700"
                                               />
                                               <textarea
                                                   value={item.text}
@@ -373,20 +380,16 @@ const Previous = () => {
                                                   rows={1}
                                                   style={{ fieldSizing: 'content' } as React.CSSProperties}
                                                   className={clsx(
-                                                      'flex-1 resize-none bg-transparent p-0 text-sm outline-none',
-                                                      item.completed && 'text-stone-400 line-through',
+                                                      'flex-1 resize-none bg-transparent p-0 outline-none',
+                                                      item.completed && 'text-stone-600 line-through',
                                                   )}
                                               />
-                                              <input
-                                                  type="date"
-                                                  value={item.dueDate}
-                                                  readOnly
-                                                  className={clsx(
-                                                      'mt-0.5 bg-transparent text-xs outline-none opacity-40',
-                                                      item.completed ? 'text-amber-400/50' : 'text-amber-700/70',
-                                                  )}
-                                              />
-                                              <button className="-mt-0.5 text-amber-400/50" aria-label="Delete">
+                                              {item.dueDate && (
+                                                  item.completed
+                                                      ? <span className="mt-1 text-xs text-stone-500/70 whitespace-nowrap">{format(parseISO(item.dueDate), 'MMM d, yyyy')}</span>
+                                                      : <span className={clsx('mt-1 text-xs font-medium whitespace-nowrap', getDateColorClass(item.dueDate))}>{formatRelativeDate(item.dueDate)}</span>
+                                              )}
+                                              <button className="mt-1 text-xs text-stone-500/60" aria-label="Delete">
                                                   ✕
                                               </button>
                                           </div>

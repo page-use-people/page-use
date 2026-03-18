@@ -3,6 +3,7 @@ import { useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { TTodoItem } from './Previous.tsx';
+import DueDateDisplay from './DueDateDisplay.tsx';
 
 const TodoItem = ({
     item,
@@ -86,11 +87,10 @@ const TodoItem = ({
                     item.completed && 'text-stone-600 line-through',
                 )}
             />
-            <input
-                type="date"
-                value={item.dueDate}
-                onChange={(e) => onUpdate(item.text, e.target.value)}
-                className={clsx('mt-1 w-20 bg-transparent text-xs outline-none', 'text-stone-700/70')}
+            <DueDateDisplay
+                dueDate={item.dueDate}
+                onChange={(v) => onUpdate(item.text, v)}
+                completed={item.completed}
             />
             <button
                 onClick={onDelete}
