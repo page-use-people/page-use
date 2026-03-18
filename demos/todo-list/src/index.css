@@ -9,6 +9,10 @@
     animation-duration: 600ms;
 }
 
+input[type='date']::-webkit-calendar-picker-indicator {
+    display: none;
+}
+
 @keyframes highlight-fade {
     0% {
         box-shadow: 0 0 0 2px rgb(234 179 8 / 0.6);

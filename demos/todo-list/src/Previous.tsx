@@ -16,7 +16,6 @@ import {
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { PageUseChat, SystemPrompt, useAgentVariable, useAgentFunction } from '@page-use/react';
 import z from 'zod';
-import TodoInput from './TodoInput.tsx';
 import TodoItem from './TodoItem.tsx';
 import ConfirmModal from './ConfirmModal.tsx';
 
@@ -28,7 +27,7 @@ export type TTodoItem = {
 };
 
 type TAction =
-    | { type: 'ADD'; text: string; dueDate: string }
+    | { type: 'ADD'; id: string; text: string; dueDate: string }
     | { type: 'DELETE'; id: string }
     | { type: 'TOGGLE'; id: string }
     | { type: 'UPDATE'; id: string; text: string; dueDate: string }
@@ -81,7 +80,7 @@ const reducer = (state: TTodoItem[], action: TAction): TTodoItem[] => {
             return [
                 ...state,
                 {
-                    id: crypto.randomUUID(),
+                    id: action.id,
                     text: action.text,
                     dueDate: action.dueDate,
                     completed: false,
@@ -128,10 +127,10 @@ const DroppableSection = ({
             <div
                 ref={setNodeRef}
                 className={clsx(
-                    'min-h-[48px] rounded-lg border-2 border-dashed p-2 transition-colors',
+                    'min-h-[48px] border-dashed transition-colors',
                     isOver ? 'border-black/20 bg-black/[0.03]' : 'border-transparent',
                 )}>
-                {isEmpty ? <p className="py-3 text-center text-sm text-black/20">No items</p> : children}
+                {isEmpty ? <p className="py-3 text-sm text-black/20">Time to get doing.</p> : children}
             </div>
         </div>
     );
@@ -176,6 +175,8 @@ const Previous = () => {
         },
     });
 
+    const [newItemId, setNewItemId] = useState<string | null>(null);
+    const textareaRefs = useRef<Map<string, HTMLTextAreaElement>>(new Map());
     const [showClearModal, setShowClearModal] = useState(false);
     const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -264,24 +265,27 @@ const Previous = () => {
                 `}
             </SystemPrompt>
 
-            <div className="min-h-screen bg-gray-50 px-4 py-8">
+            <div className="min-h-screen bg-white px-4 py-8">
                 <div className="mx-auto max-w-lg">
-                    <h1 className="mb-6 text-2xl font-bold">Todo List</h1>
-                    <TodoInput onAdd={(text, dueDate) => dispatch({ type: 'ADD', text, dueDate })} />
                     <DndContext
                         sensors={sensors}
                         collisionDetection={closestCorners}
                         onDragStart={handleDragStart}
                         onDragOver={handleDragOver}
                         onDragEnd={handleDragEnd}>
-                        <DroppableSection id="incomplete" title="To Do" isEmpty={incomplete.length === 0}>
+                        <DroppableSection id="incomplete" title={'TO DO'} isEmpty={incomplete.length === 0}>
                             <SortableContext items={incomplete.map((i) => i.id)} strategy={verticalListSortingStrategy}>
                                 <div className="space-y-2">
-                                    {incomplete.map((item) => (
+                                    {incomplete.map((item, idx) => (
                                         <TodoItem
                                             key={item.id}
                                             item={item}
+                                            autoFocus={item.id === newItemId}
                                             highlighted={highlightedIDs.has(item.id)}
+                                            textareaRef={(el) => {
+                                                if (el) textareaRefs.current.set(item.id, el);
+                                                else textareaRefs.current.delete(item.id);
+                                            }}
                                             onToggle={() => {
                                                 dispatch({ type: 'TOGGLE', id: item.id });
                                                 highlightItems([item.id]);
@@ -290,12 +294,41 @@ const Previous = () => {
                                             onUpdate={(text, dueDate) =>
                                                 dispatch({ type: 'UPDATE', id: item.id, text, dueDate })
                                             }
+                                            onAddBelow={() => {
+                                                const id = crypto.randomUUID();
+                                                setNewItemId(id);
+                                                dispatch({ type: 'ADD', id, text: '', dueDate: '' });
+                                            }}
+                                            onDeleteFocusPrev={() => {
+                                                const prevItem = incomplete[idx - 1];
+                                                dispatch({ type: 'DELETE', id: item.id });
+                                                if (prevItem) {
+                                                    setTimeout(() => {
+                                                        const ta = textareaRefs.current.get(prevItem.id);
+                                                        if (ta) {
+                                                            ta.focus();
+                                                            ta.setSelectionRange(ta.value.length, ta.value.length);
+                                                        }
+                                                    }, 0);
+                                                }
+                                            }}
                                         />
                                     ))}
                                 </div>
                             </SortableContext>
                         </DroppableSection>
-                        <DroppableSection id="completed" title="Completed" isEmpty={completed.length === 0}>
+                        <div className={'text-center py-2 px-8'}>
+                            <button
+                                onClick={() => {
+                                    const id = crypto.randomUUID();
+                                    setNewItemId(id);
+                                    dispatch({ type: 'ADD', id, text: '', dueDate: '' });
+                                }}
+                                className="mt-2 flex items-center gap-1 text-sm text-black/40 transition-colors hover:text-black/70">
+                                + Add Task
+                            </button>
+                        </div>
+                        <DroppableSection id="completed" title="Done" isEmpty={completed.length === 0}>
                             <SortableContext items={completed.map((i) => i.id)} strategy={verticalListSortingStrategy}>
                                 <div className="space-y-2">
                                     {completed.map((item) => (
@@ -311,6 +344,11 @@ const Previous = () => {
                                             onUpdate={(text, dueDate) =>
                                                 dispatch({ type: 'UPDATE', id: item.id, text, dueDate })
                                             }
+                                            onAddBelow={() => {
+                                                const id = crypto.randomUUID();
+                                                setNewItemId(id);
+                                                dispatch({ type: 'ADD', id, text: '', dueDate: '' });
+                                            }}
                                         />
                                     ))}
                                 </div>
@@ -357,26 +395,26 @@ const Previous = () => {
                                 : null}
                         </DragOverlay>
                     </DndContext>
-                    {incomplete.length > 1 && (
-                        <button
-                            className="mt-4 w-full rounded border border-gray-300 py-2 text-sm text-black/40 transition-colors hover:border-black hover:text-black"
-                            onClick={() => {
-                                const incompleteIDs = items.filter((i) => !i.completed).map((i) => i.id);
-                                const transition = document.startViewTransition(() =>
-                                    flushSync(() => dispatch({ type: 'SHUFFLE' })),
-                                );
-                                transition.finished.then(() => highlightItems(incompleteIDs));
-                            }}>
-                            Randomize
-                        </button>
-                    )}
-                    {items.length > 0 && (
-                        <button
-                            className="mt-2 w-full rounded border border-gray-300 py-2 text-sm text-black/40 transition-colors hover:border-black hover:text-black"
-                            onClick={() => setShowClearModal(true)}>
-                            Clear All
-                        </button>
-                    )}
+                    {/*{incomplete.length > 1 && (*/}
+                    {/*    <button*/}
+                    {/*        className="mt-4 w-full rounded border border-gray-300 py-2 text-sm text-black/40 transition-colors hover:border-black hover:text-black"*/}
+                    {/*        onClick={() => {*/}
+                    {/*            const incompleteIDs = items.filter((i) => !i.completed).map((i) => i.id);*/}
+                    {/*            const transition = document.startViewTransition(() =>*/}
+                    {/*                flushSync(() => dispatch({ type: 'SHUFFLE' })),*/}
+                    {/*            );*/}
+                    {/*            transition.finished.then(() => highlightItems(incompleteIDs));*/}
+                    {/*        }}>*/}
+                    {/*        Randomize*/}
+                    {/*    </button>*/}
+                    {/*)}*/}
+                    {/*{items.length > 0 && (*/}
+                    {/*    <button*/}
+                    {/*        className="mt-2 w-full rounded border border-gray-300 py-2 text-sm text-black/40 transition-colors hover:border-black hover:text-black"*/}
+                    {/*        onClick={() => setShowClearModal(true)}>*/}
+                    {/*        Clear All*/}
+                    {/*    </button>*/}
+                    {/*)}*/}
                     <ConfirmModal
                         open={showClearModal}
                         message="Are you sure you want to clear all items?"
