@@ -346,7 +346,7 @@ const ChatComposer = ({
                     onSelectionChange?.(el.selectionStart, el.selectionEnd);
                 }}
                 onKeyDown={(event) => {
-                    if (event.key === 'Enter' && !event.shiftKey) {
+                    if (event.key === 'Enter' && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
                         event.preventDefault();
                         submitInput();
                     }
@@ -444,7 +444,7 @@ export const LauncherBar = ({
                                 adjustHeight();
                             }}
                             onKeyDown={(event) => {
-                                if (event.key === 'Enter' && !event.shiftKey) {
+                                if (event.key === 'Enter' && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
                                     event.preventDefault();
                                     submitInput();
                                 }
