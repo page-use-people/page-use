@@ -10,7 +10,11 @@ type TLauncherBarProps = {
     readonly placeholder: string;
     readonly isRunning: boolean;
     readonly onSubmit: (prompt: string) => boolean;
-    readonly onMaximize: (draft: string, selectionStart: number, selectionEnd: number) => void;
+    readonly onMaximize: (
+        draft: string,
+        selectionStart: number,
+        selectionEnd: number,
+    ) => void;
     readonly disablePageUseBanner?: boolean;
     readonly initialValue?: string;
     readonly initialSelection?: readonly [number, number];
@@ -25,7 +29,11 @@ type TChatPanelProps = {
     readonly loadingDetails: readonly string[];
     readonly isRunning: boolean;
     readonly onSendPrompt: (prompt: string) => boolean;
-    readonly onClose: (text: string, selectionStart: number, selectionEnd: number) => void;
+    readonly onClose: (
+        text: string,
+        selectionStart: number,
+        selectionEnd: number,
+    ) => void;
     readonly dragHandleProps: TDragHandleProps;
     readonly width: number;
     readonly height: number;
@@ -53,7 +61,10 @@ type TChatComposerProps = {
     readonly initialValue?: string;
     readonly initialSelection?: readonly [number, number];
     readonly onTextChange?: (text: string) => void;
-    readonly onSelectionChange?: (selectionStart: number, selectionEnd: number) => void;
+    readonly onSelectionChange?: (
+        selectionStart: number,
+        selectionEnd: number,
+    ) => void;
 };
 
 type TChatHeaderProps = {
@@ -298,7 +309,10 @@ const ChatComposer = ({
                 if (!el) return;
                 el.focus();
                 if (initialSelection) {
-                    el.setSelectionRange(initialSelection[0], initialSelection[1]);
+                    el.setSelectionRange(
+                        initialSelection[0],
+                        initialSelection[1],
+                    );
                 }
             }, 50);
             return () => clearTimeout(id);
@@ -420,7 +434,7 @@ export const LauncherBar = ({
                             submitInput();
                         }}
                         className={tw(
-                            'grid grid-cols-[1fr_auto_auto] gap-2 items-center p-2',
+                            'grid grid-cols-[1fr_auto_auto] gap-2 items-end p-1',
                         )}>
                         <textarea
                             ref={textareaRef}
@@ -439,14 +453,18 @@ export const LauncherBar = ({
                             rows={1}
                             disabled={isRunning}
                             className={tw(
-                                'resize-none w-full border-none outline-none bg-[color:var(--pu-bg)] text-[color:var(--pu-fg)] font-[inherit] text-sm leading-[1.5] max-h-[120px] overflow-hidden placeholder:text-[color:var(--pu-muted)]',
+                                'px-1 self-center resize-none w-full border-none outline-none bg-[color:var(--pu-bg)] text-[color:var(--pu-fg)] font-[inherit] text-sm leading-[1.5] max-h-[120px] overflow-hidden placeholder:text-[color:var(--pu-muted)]',
                             )}
                         />
                         <button
                             type="button"
                             onClick={() => {
                                 const el = textareaRef.current;
-                                onMaximize(inputValue, el?.selectionStart ?? inputValue.length, el?.selectionEnd ?? inputValue.length);
+                                onMaximize(
+                                    inputValue,
+                                    el?.selectionStart ?? inputValue.length,
+                                    el?.selectionEnd ?? inputValue.length,
+                                );
                             }}
                             className={tw(
                                 'border border-[color:var(--pu-muted)] py-1 px-2 cursor-pointer font-[inherit] text-sm rounded-[var(--pu-radius-sm)] bg-[color:var(--pu-surface)] text-[color:var(--pu-fg)]',
@@ -471,7 +489,14 @@ export const LauncherBar = ({
                             className={tw(
                                 'text-center text-[10px] text-[color:var(--pu-fg)] py-1.5 border-t border-[color:var(--pu-muted)]',
                             )}>
-                            built with <strong>{'<PageUse/>'}</strong>
+                            built with{' '}
+                            <a
+                                className={tw('font-bold')}
+                                href={
+                                    'https://github.com/page-use-people/page-use'
+                                }>
+                                {'<PageUse/>'}
+                            </a>
                         </div>
                     )}
                 </div>
@@ -499,7 +524,9 @@ export const ChatPanel = ({
     initialComposerSelection,
 }: TChatPanelProps) => {
     const composerTextRef = useRef(initialComposerValue ?? '');
-    const composerSelectionRef = useRef<readonly [number, number]>(initialComposerSelection ?? [0, 0]);
+    const composerSelectionRef = useRef<readonly [number, number]>(
+        initialComposerSelection ?? [0, 0],
+    );
 
     return (
         <div
@@ -513,7 +540,13 @@ export const ChatPanel = ({
                 )}>
                 <ChatHeader
                     title={title}
-                    onClose={() => onClose(composerTextRef.current, composerSelectionRef.current[0], composerSelectionRef.current[1])}
+                    onClose={() =>
+                        onClose(
+                            composerTextRef.current,
+                            composerSelectionRef.current[0],
+                            composerSelectionRef.current[1],
+                        )
+                    }
                     dragHandleProps={dragHandleProps}
                 />
                 <ChatTranscript
@@ -532,8 +565,12 @@ export const ChatPanel = ({
                     disablePageUseBanner={disablePageUseBanner}
                     initialValue={initialComposerValue}
                     initialSelection={initialComposerSelection}
-                    onTextChange={(text) => { composerTextRef.current = text; }}
-                    onSelectionChange={(start, end) => { composerSelectionRef.current = [start, end]; }}
+                    onTextChange={(text) => {
+                        composerTextRef.current = text;
+                    }}
+                    onSelectionChange={(start, end) => {
+                        composerSelectionRef.current = [start, end];
+                    }}
                 />
                 {disablePageUseBanner ? null : (
                     <div
