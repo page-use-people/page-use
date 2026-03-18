@@ -10,8 +10,10 @@ type TLauncherBarProps = {
     readonly placeholder: string;
     readonly isRunning: boolean;
     readonly onSubmit: (prompt: string) => boolean;
-    readonly onMaximize: (draft: string) => void;
+    readonly onMaximize: (draft: string, selectionStart: number, selectionEnd: number) => void;
     readonly disablePageUseBanner?: boolean;
+    readonly initialValue?: string;
+    readonly initialSelection?: readonly [number, number];
 };
 
 type TChatPanelProps = {
@@ -23,13 +25,14 @@ type TChatPanelProps = {
     readonly loadingDetails: readonly string[];
     readonly isRunning: boolean;
     readonly onSendPrompt: (prompt: string) => boolean;
-    readonly onClose: () => void;
+    readonly onClose: (text: string, selectionStart: number, selectionEnd: number) => void;
     readonly dragHandleProps: TDragHandleProps;
     readonly width: number;
     readonly height: number;
     readonly devMode?: boolean;
     readonly disablePageUseBanner?: boolean;
     readonly initialComposerValue?: string;
+    readonly initialComposerSelection?: readonly [number, number];
 };
 
 type TChatTranscriptProps = {
@@ -48,6 +51,9 @@ type TChatComposerProps = {
     readonly onSubmit: (prompt: string) => boolean;
     readonly disablePageUseBanner?: boolean;
     readonly initialValue?: string;
+    readonly initialSelection?: readonly [number, number];
+    readonly onTextChange?: (text: string) => void;
+    readonly onSelectionChange?: (selectionStart: number, selectionEnd: number) => void;
 };
 
 type TChatHeaderProps = {
@@ -277,6 +283,9 @@ const ChatComposer = ({
     onSubmit,
     disablePageUseBanner = false,
     initialValue = '',
+    initialSelection,
+    onTextChange,
+    onSelectionChange,
 }: TChatComposerProps) => {
     const [inputValue, setInputValue] = useState(initialValue);
     const isSendDisabled = isRunning || inputValue.trim().length === 0;
@@ -284,7 +293,14 @@ const ChatComposer = ({
 
     useEffect(() => {
         if (!isRunning) {
-            const id = setTimeout(() => textareaRef.current?.focus(), 50);
+            const id = setTimeout(() => {
+                const el = textareaRef.current;
+                if (!el) return;
+                el.focus();
+                if (initialSelection) {
+                    el.setSelectionRange(initialSelection[0], initialSelection[1]);
+                }
+            }, 50);
             return () => clearTimeout(id);
         }
     }, [isRunning]);
@@ -307,7 +323,14 @@ const ChatComposer = ({
             <textarea
                 ref={textareaRef}
                 value={inputValue}
-                onChange={(event) => setInputValue(event.target.value)}
+                onChange={(event) => {
+                    setInputValue(event.target.value);
+                    onTextChange?.(event.target.value);
+                }}
+                onSelect={(event) => {
+                    const el = event.currentTarget;
+                    onSelectionChange?.(el.selectionStart, el.selectionEnd);
+                }}
                 onKeyDown={(event) => {
                     if (event.key === 'Enter' && !event.shiftKey) {
                         event.preventDefault();
@@ -344,10 +367,19 @@ export const LauncherBar = ({
     onSubmit,
     onMaximize,
     disablePageUseBanner = false,
+    initialValue,
+    initialSelection,
 }: TLauncherBarProps) => {
-    const [inputValue, setInputValue] = useState('');
+    const [inputValue, setInputValue] = useState(initialValue ?? '');
     const isSendDisabled = isRunning || inputValue.trim().length === 0;
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+    useEffect(() => {
+        const el = textareaRef.current;
+        if (!el || !initialSelection) return;
+        el.focus();
+        el.setSelectionRange(initialSelection[0], initialSelection[1]);
+    }, []);
 
     const adjustHeight = () => {
         const textarea = textareaRef.current;
@@ -412,7 +444,10 @@ export const LauncherBar = ({
                         />
                         <button
                             type="button"
-                            onClick={() => onMaximize(inputValue)}
+                            onClick={() => {
+                                const el = textareaRef.current;
+                                onMaximize(inputValue, el?.selectionStart ?? inputValue.length, el?.selectionEnd ?? inputValue.length);
+                            }}
                             className={tw(
                                 'border border-[color:var(--pu-muted)] py-1 px-2 cursor-pointer font-[inherit] text-sm rounded-[var(--pu-radius-sm)] bg-[color:var(--pu-surface)] text-[color:var(--pu-fg)]',
                             )}>
@@ -461,45 +496,54 @@ export const ChatPanel = ({
     devMode,
     disablePageUseBanner = false,
     initialComposerValue,
-}: TChatPanelProps) => (
-    <div
-        style={{width, height}}
-        className={tw(
-            'p-1.5 bg-[color:var(--pu-bg)] shadow-[var(--pu-shadow)] rounded-[calc(var(--pu-radius-lg)+3.5px)]',
-        )}>
+    initialComposerSelection,
+}: TChatPanelProps) => {
+    const composerTextRef = useRef(initialComposerValue ?? '');
+    const composerSelectionRef = useRef<readonly [number, number]>(initialComposerSelection ?? [0, 0]);
+
+    return (
         <div
+            style={{width, height}}
             className={tw(
-                'h-full flex flex-col border border-[color:var(--pu-muted)] rounded-[var(--pu-radius-lg)]',
+                'p-1.5 bg-[color:var(--pu-bg)] shadow-[var(--pu-shadow)] rounded-[calc(var(--pu-radius-lg)+3.5px)]',
             )}>
-            <ChatHeader
-                title={title}
-                onClose={onClose}
-                dragHandleProps={dragHandleProps}
-            />
-            <ChatTranscript
-                messages={messages}
-                promptChips={promptChips}
-                showPromptChips={showPromptChips}
-                loadingDetails={loadingDetails}
-                isRunning={isRunning}
-                onSendPrompt={onSendPrompt}
-                devMode={devMode}
-            />
-            <ChatComposer
-                placeholder={placeholder}
-                isRunning={isRunning}
-                onSubmit={onSendPrompt}
-                disablePageUseBanner={disablePageUseBanner}
-                initialValue={initialComposerValue}
-            />
-            {disablePageUseBanner ? null : (
-                <div
-                    className={tw(
-                        'text-center text-[10px] text-[color:var(--pu-fg)] py-1.5',
-                    )}>
-                    built with <strong>{'<PageUse/>'}</strong>
-                </div>
-            )}
+            <div
+                className={tw(
+                    'h-full flex flex-col border border-[color:var(--pu-muted)] rounded-[var(--pu-radius-lg)]',
+                )}>
+                <ChatHeader
+                    title={title}
+                    onClose={() => onClose(composerTextRef.current, composerSelectionRef.current[0], composerSelectionRef.current[1])}
+                    dragHandleProps={dragHandleProps}
+                />
+                <ChatTranscript
+                    messages={messages}
+                    promptChips={promptChips}
+                    showPromptChips={showPromptChips}
+                    loadingDetails={loadingDetails}
+                    isRunning={isRunning}
+                    onSendPrompt={onSendPrompt}
+                    devMode={devMode}
+                />
+                <ChatComposer
+                    placeholder={placeholder}
+                    isRunning={isRunning}
+                    onSubmit={onSendPrompt}
+                    disablePageUseBanner={disablePageUseBanner}
+                    initialValue={initialComposerValue}
+                    initialSelection={initialComposerSelection}
+                    onTextChange={(text) => { composerTextRef.current = text; }}
+                    onSelectionChange={(start, end) => { composerSelectionRef.current = [start, end]; }}
+                />
+                {disablePageUseBanner ? null : (
+                    <div
+                        className={tw(
+                            'text-center text-[10px] text-[color:var(--pu-fg)] py-1.5',
+                        )}>
+                        built with <strong>{'<PageUse/>'}</strong>
+                    </div>
+                )}
+            </div>
         </div>
-    </div>
-);
+    );
+};

@@ -72,7 +72,7 @@ export const PageUseChat = ({
 }: TPageUseChatProps) => {
     const vars = themeToVars(theme, roundedness, cssVariables);
     const [isOpen, setIsOpen] = useState(initialOpen);
-    const [launcherDraft, setLauncherDraft] = useState('');
+    const [launcherDraft, setLauncherDraft] = useState<{readonly text: string; readonly selectionStart: number; readonly selectionEnd: number} | null>(null);
     const {
         messages,
         loadingDetails,
@@ -111,13 +111,14 @@ export const PageUseChat = ({
                             loadingDetails={loadingDetails}
                             isRunning={isRunning}
                             onSendPrompt={handleSendPrompt}
-                            onClose={() => setIsOpen(false)}
+                            onClose={(text, selectionStart, selectionEnd) => { setLauncherDraft({text, selectionStart, selectionEnd}); setIsOpen(false); }}
                             dragHandleProps={panelDragHandleProps}
                             width={width}
                             height={height}
                             devMode={devMode}
                             disablePageUseBanner={disablePageUseBanner}
-                            initialComposerValue={launcherDraft}
+                            initialComposerValue={launcherDraft?.text ?? ''}
+                            initialComposerSelection={launcherDraft ? [launcherDraft.selectionStart, launcherDraft.selectionEnd] as const : undefined}
                         />
                     )}
                 </FloatingChatShell>
@@ -126,7 +127,9 @@ export const PageUseChat = ({
                     placeholder={placeholder}
                     isRunning={isRunning}
                     onSubmit={handleSendPrompt}
-                    onMaximize={(draft) => { setLauncherDraft(draft); setIsOpen(true); }}
+                    onMaximize={(draft, selectionStart, selectionEnd) => { setLauncherDraft({text: draft, selectionStart, selectionEnd}); setIsOpen(true); }}
+                    initialValue={launcherDraft?.text ?? ''}
+                    initialSelection={launcherDraft ? [launcherDraft.selectionStart, launcherDraft.selectionEnd] as const : undefined}
                     disablePageUseBanner={disablePageUseBanner}
                 />
             )}
