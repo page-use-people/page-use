@@ -6,6 +6,8 @@
 import dedent from 'dedent';
 import {z} from 'zod';
 
+import {validateName} from './validate-name.mjs';
+
 type TContextEntry = {
     readonly title: string | null;
     readonly content: string;
@@ -60,6 +62,8 @@ export const registerFunction = <
     name: string,
     options: TFunctionOptions<TInput, TOutput>,
 ): (() => void) => {
+    validateName(name);
+
     functions[name] = {
         name: name,
         inputType: options.inputSchema,
@@ -89,6 +93,8 @@ export const setContextInformation = (
     key: string,
     options: TContextEntry,
 ): (() => void) => {
+    validateName(key);
+
     config.contextByKey[key] = {...options, content: dedent(options.content)};
 
     return () => {

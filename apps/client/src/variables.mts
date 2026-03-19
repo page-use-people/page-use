@@ -6,6 +6,8 @@
 
 import {z} from 'zod';
 
+import {validateName} from './validate-name.mjs';
+
 type TRegisteredVariable = {
     readonly value: unknown;
     readonly type: z.ZodType;
@@ -313,6 +315,8 @@ export const setVariable = <TType extends z.ZodType>(
     name: string,
     options: TVariableOptions<TType>,
 ): (() => void) => {
+    validateName(name);
+
     const previous = registeredVariables[name];
     // Object.is comparison — version only advances on actual value changes,
     // preventing false-positive waiter notifications on no-op updates.
