@@ -3,110 +3,17 @@
 // iteration re-renders function types and variable state since they may change
 // between turns. Only one conversation can run at a time (single-run lock).
 
-import {z} from 'zod';
-import {
-    renderFunctionType,
-    renderVariableInterface,
-} from '#client/type-renderer.mjs';
 import {createClient} from '#client/trpc.mjs';
 import type {TRunUpdate, TRunHandle, TRunOptions} from '#client/types.mjs';
 import {
-    getContextEntries,
-    getConversationId,
     getFunctionEntries,
-    getSystemPrompt,
     resetConversation,
     getActiveRunController,
     setActiveRunController,
-    type TRegisteredFunction,
-} from '#client/registry.mjs';
-import {MUTATION_TIMEOUT_MS, executeCodeBlock} from '#client/code-executor.mjs';
-import {
-    getRegisteredEntries,
-} from '#client/variables.mjs';
+} from '#client/registry/index.mjs';
 
-type TRequestBlock =
-    | {
-          readonly type: 'text';
-          readonly message: string;
-      }
-    | {
-          readonly type: 'execution_result';
-          readonly execution_identifier: string;
-          readonly result: string;
-          readonly error: string | null;
-      };
-
-// Produces the natural-language metadata the AI sees alongside each function's
-// type signature — includes mutation declarations and timeout info.
-const buildFunctionDescription = (
-    registeredFunction: TRegisteredFunction,
-): string => {
-    const segments = [registeredFunction.name];
-
-    if ((registeredFunction.mutates?.length ?? 0) > 0) {
-        segments.push(
-            `Declared default waits: ${registeredFunction.mutates?.join(', ')}.`,
-        );
-        segments.push(
-            typeof registeredFunction.mutationTimeoutMs === 'number'
-                ? `Automatic wait timeout: ${registeredFunction.mutationTimeoutMs}ms.`
-                : `Automatic wait timeout: ${MUTATION_TIMEOUT_MS}ms by default.`,
-        );
-    }
-
-    return segments.join(' ');
-};
-
-const renderToolDefinitions = async (
-    registeredFunctionEntries: ReadonlyArray<[string, TRegisteredFunction]>,
-): Promise<Array<{definition: string}>> =>
-    await Promise.all(
-        registeredFunctionEntries.map(
-            async ([functionName, registeredFunction]) => ({
-                definition: await renderFunctionType(
-                    functionName,
-                    registeredFunction.inputType,
-                    registeredFunction.outputType,
-                    buildFunctionDescription(registeredFunction),
-                ),
-            }),
-        ),
-    );
-
-const renderVariablesType = async (): Promise<string> =>
-    await renderVariableInterface(
-        z.object(
-            Object.fromEntries(
-                getRegisteredEntries().map(([name, state]) => [
-                    name,
-                    state.type,
-                ]),
-            ),
-        ),
-    );
-
-const buildConversationContext = (): Array<{
-    title?: string;
-    content: string;
-}> => [
-    ...getContextEntries().map((entry) => ({
-        title: entry.title ?? undefined,
-        content: entry.content,
-    })),
-];
-
-const buildRequestPayload = async (
-    requestBlocks: TRequestBlock[],
-    registeredFunctionEntries: ReadonlyArray<[string, TRegisteredFunction]>,
-) => ({
-    conversation_id: getConversationId(),
-    system_prompt: getSystemPrompt(),
-    context: buildConversationContext(),
-    available_tools: await renderToolDefinitions(registeredFunctionEntries),
-    variables_object_definition: await renderVariablesType(),
-    blocks: requestBlocks,
-});
+import {executeCodeBlock} from './executor.mjs';
+import {buildRequestPayload, type TRequestBlock} from './payload.mjs';
 
 // If a prior run was aborted mid-execution, the server may have dangling
 // tool_use blocks without matching results. This detects that specific

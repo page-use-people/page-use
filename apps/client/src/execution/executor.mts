@@ -5,9 +5,9 @@
 import {
     makeRunInAnimationFrames,
     type TRunInAnimationFrames,
-} from '#client/animation.mjs';
+} from '#client/lib/animation.mjs';
 import type {TRunUpdate} from '#client/types.mjs';
-import type {TRegisteredFunction} from '#client/registry.mjs';
+import type {TRegisteredFunction} from '#client/registry/functions.mjs';
 import {
     MUTATION_QUIET_MS,
     createLiveProxy,
@@ -16,13 +16,19 @@ import {
     getVersionSnapshot,
     getVersionSnapshotFor,
     waitForMutations,
-} from '#client/variables.mjs';
+} from '#client/registry/variables.mjs';
 
-type TSandboxConsole = {
-    readonly log: (...args: unknown[]) => void;
-    readonly error: (...args: unknown[]) => void;
-    readonly info: (...args: unknown[]) => void;
-};
+import {
+    createChildAbortController,
+    createDelay,
+    deferExecution,
+} from './abort.mjs';
+import {
+    createSandboxConsole,
+    formatError,
+    wrapCodeAsFunction,
+    type TSandboxConsole,
+} from './sandbox.mjs';
 
 type TTrackedFunctions = Record<string, (input: unknown) => Promise<unknown>>;
 
@@ -39,119 +45,6 @@ type TCodeResult = {
 
 export const MUTATION_TIMEOUT_MS = 5_000;
 const EXECUTION_TIMEOUT_MS = 12_000;
-
-// --- Abort utilities ---
-
-// Promise-based setTimeout that rejects immediately if the signal is already
-// aborted, and cleans up the timer + listener whichever fires first.
-const createAbortableTimeout = (
-    signal: AbortSignal,
-    ms: number,
-): Promise<void> =>
-    new Promise<void>((resolve, reject) => {
-        signal.throwIfAborted();
-        const id = setTimeout(() => {
-            signal.removeEventListener('abort', onAbort);
-            resolve();
-        }, ms);
-        const onAbort = () => {
-            clearTimeout(id);
-            reject(signal.reason);
-        };
-        signal.addEventListener('abort', onAbort, {once: true});
-    });
-
-// Pushes execution to the next macrotask (setTimeout 0) so that DOM updates
-// and state changes from prior microtasks have settled before the function runs.
-const deferExecution = async <TValue,>(
-    func: () => Promise<TValue>,
-    signal: AbortSignal,
-): Promise<TValue> => {
-    await createAbortableTimeout(signal, 0);
-    return await func();
-};
-
-const createDelay = (signal: AbortSignal) => (ms: number) =>
-    createAbortableTimeout(signal, ms);
-
-// Two-tier abort: the child controller aborts if the parent does (user cancels
-// the whole run) or if its own timeout fires (single execution took too long).
-// cleanup() removes both the timeout and parent listener to prevent leaks.
-const createChildAbortController = (
-    parentSignal: AbortSignal,
-    timeoutMs: number,
-): {signal: AbortSignal; cleanup: () => void} => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(
-        () =>
-            controller.abort(`execution timed out after ${timeoutMs / 1000}s`),
-        timeoutMs,
-    );
-    const onParentAbort = () => controller.abort(parentSignal.reason);
-    parentSignal.addEventListener('abort', onParentAbort, {once: true});
-
-    return {
-        signal: controller.signal,
-        cleanup: () => {
-            clearTimeout(timeoutId);
-            parentSignal.removeEventListener('abort', onParentAbort);
-        },
-    };
-};
-
-// --- Sandbox helpers ---
-
-// Errors get full stack traces; objects get JSON; everything else is stringified.
-const formatLoggedValue = (value: unknown): string => {
-    if (value instanceof Error) {
-        return `${value.name}: ${value.message}\n${value.stack}`;
-    }
-
-    if (typeof value === 'string') {
-        return value;
-    }
-
-    const serializedValue = JSON.stringify(value);
-    return serializedValue ?? String(value);
-};
-
-// All console methods (log/error/info) funnel to one appender — the AI sees
-// captured output as a single stream, severity levels are not distinguished.
-const createSandboxConsole = (): [TSandboxConsole, string[]] => {
-    const capturedLogLines: string[] = [];
-
-    const appendLogLine = (...args: unknown[]) => {
-        capturedLogLines.push(args.map(formatLoggedValue).join(' '));
-        console.debug('LLM', ...args);
-    };
-
-    return [
-        {
-            log: appendLogLine,
-            error: appendLogLine,
-            info: appendLogLine,
-        },
-        capturedLogLines,
-    ];
-};
-
-// Wraps the AI's code as an async IIFE with two destructured parameters:
-// 1st arg = registered functions by name, 2nd arg = context utilities
-// (variables, delay, animations, mutation waiter, console, abortSignal).
-const wrapCodeAsFunction = (
-    availableFunctionNames: readonly string[],
-    code: string,
-): string =>
-    [
-        `(async function({${availableFunctionNames.join(', ')}}, {variables, delay, runInAnimationFrames, waitForMutation, console, abortSignal}) {`,
-        code,
-        '})',
-    ].join('\n');
-
-const formatError = (error: unknown): string =>
-    error instanceof Error
-        ? `${error.name}: ${error.message}\n${error.stack}`
-        : String(error);
 
 // --- Mutation tracking ---
 

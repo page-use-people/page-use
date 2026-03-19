@@ -6,24 +6,31 @@ export {
 } from '#client/trpc.mjs';
 
 // Runtime
-export {run} from '#client/runner.mjs';
+export {run} from '#client/execution/runner.mjs';
 
+// Registry — functions
 export {
     registerFunction,
     unregisterFunction,
+    type TFunctionOptions,
+} from '#client/registry/functions.mjs';
+
+// Registry — context & conversation
+export {
     resetConversation,
     setSystemPrompt,
     setContextInformation,
     unsetContextInformation,
-    type TFunctionOptions,
-} from '#client/registry.mjs';
+} from '#client/registry/context.mjs';
 
+// Registry — variables
 export {
     setVariable,
     unsetVariable,
     type TVariableOptions,
-} from '#client/variables.mjs';
+} from '#client/registry/variables.mjs';
 
+// Types
 export type {
     TRunHandle,
     TRunOptions,
@@ -38,7 +45,7 @@ export {default as dedent} from 'dedent';
 export {
     renderFunctionType,
     renderVariableInterface,
-} from '#client/type-renderer.mjs';
+} from '#client/lib/type-renderer.mjs';
 
 // Animation
 export {
@@ -47,4 +54,4 @@ export {
     type TAnimationOptions,
     type TAnimationCallback,
     type TRunInAnimationFrames,
-} from '#client/animation.mjs';
+} from '#client/lib/animation.mjs';
