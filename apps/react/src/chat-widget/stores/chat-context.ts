@@ -2,7 +2,7 @@ import {createContext, useContext} from 'react';
 
 import type {TSessionStore} from './create-session-store.js';
 import type {TUIStore} from './create-ui-store.js';
-import type {TPageUseChatPrompt} from './types.js';
+import type {TPageUseChatPrompt} from '../types.js';
 
 export type TChatWidgetConfig = {
     readonly placeholder: string;

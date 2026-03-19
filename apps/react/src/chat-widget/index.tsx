@@ -1,24 +1,24 @@
 import {useEffect, useRef} from 'react';
-import {observer} from './observe.js';
+import {observer} from './lib/observe.js';
 import {run} from '@page-use/client';
 
 import {
     ChatWidgetProvider,
     useChatWidget,
     type TChatWidgetConfig,
-} from './chat-context.js';
-import {ConversationPanel} from './conversation-panel.js';
-import {createSessionStore} from './create-session-store.js';
-import {createUIStore} from './create-ui-store.js';
-import {DraggablePanel} from './draggable-panel.js';
-import {LauncherInput} from './launcher-input.js';
-import {ShadowContainer} from './shadow-container.js';
+} from './stores/chat-context.js';
+import {ConversationPanel} from './components/conversation-panel.js';
+import {createSessionStore} from './stores/create-session-store.js';
+import {createUIStore} from './stores/create-ui-store.js';
+import {DraggablePanel} from './components/draggable-panel.js';
+import {LauncherInput} from './components/launcher-input.js';
+import {ShadowContainer} from './components/shadow-container.js';
 import {
     DEFAULT_HEIGHT,
     DEFAULT_WIDTH,
     ROUNDEDNESS_SCALES,
     THEME_PALETTES,
-} from './shared.js';
+} from './lib/constants.js';
 import type {TPageUseChatProps, TPageUseChatSubmitCallbacks} from './types.js';
 
 export type {

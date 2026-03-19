@@ -1,11 +1,11 @@
-import {observer} from './observe.js';
+import {observer} from '../lib/observe.js';
 
-import {useChatWidget} from './chat-context.js';
+import {useChatWidget} from '../stores/chat-context.js';
 import type {TDragHandleProps} from './draggable-panel.js';
 import {MessageInput} from './message-input.js';
 import {MessageList} from './message-list.js';
 import {PanelHeader} from './panel-header.js';
-import {tw} from './twind.js';
+import {tw} from '../lib/twind.js';
 
 type TConversationPanelProps = {
     readonly title: string;

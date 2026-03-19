@@ -1,13 +1,13 @@
 import {useEffect, useRef} from 'react';
-import {observer} from './observe.js';
+import {observer} from '../lib/observe.js';
 import {reaction} from 'mobx';
 
-import {AUTO_SCROLL_THRESHOLD, SCROLL_SETTLE_MS} from './shared.js';
-import {useChatWidget} from './chat-context.js';
+import {AUTO_SCROLL_THRESHOLD, SCROLL_SETTLE_MS} from '../lib/constants.js';
+import {useChatWidget} from '../stores/chat-context.js';
 import {ExecutionStatus} from './execution-status.js';
 import {MessageBubble} from './message-bubble.js';
 import {SuggestionChips} from './suggestion-chips.js';
-import {tw} from './twind.js';
+import {tw} from '../lib/twind.js';
 
 export const MessageList = observer(() => {
     const {session} = useChatWidget();

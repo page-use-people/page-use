@@ -1,9 +1,9 @@
 import {useEffect, useRef} from 'react';
-import {observer} from './observe.js';
+import {observer} from '../lib/observe.js';
 import {reaction} from 'mobx';
 
-import {useChatWidget} from './chat-context.js';
-import {tw} from './twind.js';
+import {useChatWidget} from '../stores/chat-context.js';
+import {tw} from '../lib/twind.js';
 
 export const MessageInput = observer(() => {
     const {session, ui, config} = useChatWidget();

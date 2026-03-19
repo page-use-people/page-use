@@ -1,6 +1,4 @@
-import {memo} from 'react';
-
-import type {TPageUseChatRoundedness, TPageUseChatTheme} from './types.js';
+import type {TPageUseChatRoundedness, TPageUseChatTheme} from '../types.js';
 
 export const PANEL_GAP = 24;
 export const LAUNCHER_BAR_MAX_WIDTH = 300;
@@ -95,48 +93,3 @@ const formatVariableList = (variables: readonly string[]) =>
 
 export const formatVariableWaitLabel = (variables: readonly string[]) =>
     variables.length === 0 ? 'state' : formatVariableList(variables);
-
-export const PageUseLogo = memo(
-    ({
-        frameColor,
-        accentColor,
-        size,
-    }: {
-        readonly frameColor: string;
-        readonly accentColor: string;
-        readonly size: number;
-    }) => (
-        <svg
-            aria-hidden="true"
-            viewBox="0 0 64 64"
-            width={size}
-            height={size}
-            fill="none">
-            <path
-                d="M18 6H39L50 17V54C50 56.2091 48.2091 58 46 58H18C15.7909 58 14 56.2091 14 54V10C14 7.79086 15.7909 6 18 6Z"
-                stroke={frameColor}
-                strokeWidth="3"
-                strokeLinejoin="round"
-            />
-            <path
-                d="M39 6V17H50"
-                stroke={frameColor}
-                strokeWidth="3"
-                strokeLinejoin="round"
-            />
-            {[0, 45, 90, 135].map((rotation) => (
-                <path
-                    key={rotation}
-                    d="M32 18C36.5 22 41.5 22.5 46 32C41.5 41.5 36.5 42 32 46C27.5 42 22.5 41.5 18 32C22.5 22.5 27.5 22 32 18Z"
-                    stroke={accentColor}
-                    strokeWidth="2.4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    transform={`rotate(${rotation} 32 32)`}
-                />
-            ))}
-        </svg>
-    ),
-);
-
-PageUseLogo.displayName = 'PageUseLogo';

@@ -1,9 +1,9 @@
-import {observer} from './observe.js';
+import {observer} from '../lib/observe.js';
 
-import {useChatWidget} from './chat-context.js';
+import {useChatWidget} from '../stores/chat-context.js';
 import type {TDragHandleProps} from './draggable-panel.js';
 import {FallbackIcon} from './message-bubble.js';
-import {tw} from './twind.js';
+import {tw} from '../lib/twind.js';
 
 type TPanelHeaderProps = {
     readonly title: string;

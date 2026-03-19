@@ -1,8 +1,8 @@
 import {useEffect, useRef, useState, type ComponentType, type CSSProperties, type ReactNode} from 'react';
 import {createPortal} from 'react-dom';
 
-import {markdownStyles} from './markdown.js';
-import {twindTarget, scrollbarStyles} from './twind.js';
+import {markdownStyles} from '../lib/markdown.js';
+import {twindTarget, scrollbarStyles} from '../lib/twind.js';
 
 type TIconComponent = ComponentType<{readonly location: 'launcher' | 'panel'}>;
 

@@ -1,8 +1,8 @@
 import {makeAutoObservable, runInAction} from 'mobx';
 import type {TRunHandle, TRunStatus, TRunUpdate} from '@page-use/client';
 
-import {createId} from './shared.js';
-import type {TChatMessage, TPageUseChatSubmitCallbacks} from './types.js';
+import {createId} from '../lib/constants.js';
+import type {TChatMessage, TPageUseChatSubmitCallbacks} from '../types.js';
 
 type TSubmitPromptFn = (
     prompt: string,

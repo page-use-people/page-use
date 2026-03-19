@@ -1,8 +1,8 @@
 import {memo} from 'react';
 
-import {parseMarkdown} from './markdown.js';
-import type {TChatMessage} from './types.js';
-import {tw} from './twind.js';
+import {parseMarkdown} from '../lib/markdown.js';
+import type {TChatMessage} from '../types.js';
+import {tw} from '../lib/twind.js';
 
 const FallbackIcon = () => <span className={tw('text-xl')}>🤖</span>;
 

@@ -1,7 +1,7 @@
-import {observer} from './observe.js';
+import {observer} from '../lib/observe.js';
 
-import {useChatWidget} from './chat-context.js';
-import {tw} from './twind.js';
+import {useChatWidget} from '../stores/chat-context.js';
+import {tw} from '../lib/twind.js';
 
 export const SuggestionChips = observer(() => {
     const {session, config} = useChatWidget();

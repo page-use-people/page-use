@@ -10,8 +10,8 @@ import {
     PANEL_GAP,
     clampPosition,
     getDefaultPosition,
-} from './shared.js';
-import {tw} from './twind.js';
+} from '../lib/constants.js';
+import {tw} from '../lib/twind.js';
 
 const DRAG_THRESHOLD = 4;
 
