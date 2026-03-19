@@ -1,65 +1,7 @@
 import {useEffect, useRef} from 'react';
-import {
-    registerFunction,
-    setSystemPrompt,
-    setVariable,
-    unsetVariable,
-} from '@page-use/client';
+import {registerFunction} from '@page-use/client';
 
 import {z} from 'zod';
-
-type TPageUseSystemPromptWithProp = {
-    readonly prompt: string;
-    readonly children?: never;
-};
-
-type TPageUseSystemPromptWithChildren = {
-    readonly prompt?: never;
-    readonly children: string;
-};
-
-export type TPageUseSystemPromptProps =
-    | TPageUseSystemPromptWithProp
-    | TPageUseSystemPromptWithChildren;
-
-export const useSystemPrompt = (prompt: string): void => {
-    useEffect(() => {
-        setSystemPrompt(prompt);
-
-        return () => {
-            setSystemPrompt('');
-        };
-    }, [prompt]);
-};
-
-export const SystemPrompt = (props: TPageUseSystemPromptProps) => {
-    useSystemPrompt((props.prompt ?? props.children) as string);
-    return null;
-};
-
-export type TPageUseVariableOptions<TType extends z.ZodType = z.ZodType> = {
-    schema: TType;
-    value: z.infer<TType>;
-};
-
-export const useAgentVariable = <TType extends z.ZodType>(
-    name: string,
-    options: TPageUseVariableOptions,
-): void => {
-    useEffect(() => {
-        setVariable(name, {
-            schema: options.schema,
-            value: options.value,
-        });
-    }, [name, options.schema, options.value]);
-
-    useEffect(
-        () => () => {
-            unsetVariable(name);
-        },
-        [name],
-    );
-};
 
 export type TPageUseFunctionOptions<
     TInput extends z.ZodType,

@@ -6,7 +6,7 @@ export {
     type TPageUseFunctionOptions,
     type TPageUseSystemPromptProps,
     type TPageUseVariableOptions,
-} from './page-use.js';
+} from './page-use/index.js';
 
 export {
     PageUseChat,
