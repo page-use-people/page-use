@@ -8,8 +8,20 @@
         ".": {
             "import": "./dist/index.mjs",
             "types": "./dist/index.d.mts"
+        },
+        "./hooks": {
+            "import": "./dist/page-use/index.js",
+            "types": "./dist/page-use/index.d.ts"
+        },
+        "./ui/chat": {
+            "import": "./dist/chat-widget/index.js",
+            "types": "./dist/chat-widget/index.d.ts"
         }
     },
+    "sideEffects": [
+        "./dist/chat-widget/lib/twind.*",
+        "./dist/chat-widget/lib/markdown.*"
+    ],
     "imports": {
         "#react/*": "./dist/*"
     },
