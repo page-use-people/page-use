@@ -64,14 +64,8 @@ const todoItemsSchema = z
     .describe('the current list of all todo items');
 
 // const suggestions = [
-//     {
-//         label: 'Add a task for today',
-//         prompt: 'Add a todo item to buy groceries with today as the due date.',
-//     },
-//     {
-//         label: 'What should I focus on?',
-//         prompt: 'Look at my current todos and suggest which one I should focus on first based on due dates.',
-//     },
+//     'Add a todo item to buy groceries with today as the due date.',
+//     'Look at my current todos and suggest which one I should focus on first based on due dates.',
 // ];
 
 const reducer = (state: TTodoItem[], action: TAction): TTodoItem[] => {

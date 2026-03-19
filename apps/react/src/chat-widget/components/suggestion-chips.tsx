@@ -15,13 +15,13 @@ export const SuggestionChips = observer(() => {
         <div className={tw('flex flex-col gap-2 mt-1')}>
             {config.suggestions.map((suggestion) => (
                 <button
-                    key={suggestion.label}
+                    key={suggestion}
                     type="button"
-                    onClick={() => session.submitMessage(suggestion.prompt)}
+                    onClick={() => session.submitMessage(suggestion)}
                     className={tw(
                         'self-start border border-[color:var(--pu-muted)] bg-[color:var(--pu-surface)] text-[color:var(--pu-fg)] py-1 px-2 cursor-pointer font-[inherit] text-sm text-left rounded-[var(--pu-radius-sm)]',
                     )}>
-                    {suggestion.label}
+                    {suggestion}
                 </button>
             ))}
         </div>

@@ -22,7 +22,6 @@ import {
 import type {TPageUseChatProps, TPageUseChatSubmitCallbacks} from './types.js';
 
 export type {
-    TPageUseChatPrompt,
     TPageUseChatProps,
     TPageUseChatRoundedness,
     TPageUseChatSubmitCallbacks,

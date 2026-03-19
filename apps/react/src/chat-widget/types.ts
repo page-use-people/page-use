@@ -28,11 +28,6 @@ export type TPageUseCSSVariables = Partial<{
     '--pu-radius-lg': string;
 }>;
 
-export type TPageUseChatPrompt = {
-    readonly label: string;
-    readonly prompt: string;
-};
-
 export type TPageUseChatSubmitCallbacks = {
     readonly onMessage: (message: string) => void;
     readonly onUpdate: (update: TRunUpdate) => void;
@@ -44,7 +39,7 @@ export type TPageUseChatProps = {
     readonly title?: string;
     readonly greeting?: string;
     readonly placeholder?: string;
-    readonly suggestions?: readonly TPageUseChatPrompt[];
+    readonly suggestions?: readonly string[];
     readonly submitPrompt?: (
         prompt: string,
         callbacks: TPageUseChatSubmitCallbacks,

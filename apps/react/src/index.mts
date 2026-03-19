@@ -10,7 +10,6 @@ export {
 
 export {
     PageUseChat,
-    type TPageUseChatPrompt,
     type TPageUseChatProps,
     type TPageUseChatSubmitCallbacks,
     type TPageUseChatTheme,

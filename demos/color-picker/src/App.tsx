@@ -31,14 +31,8 @@ const setColorInput = z.string().describe('the color to set in hex format');
 const setColorOutput = z.void().describe('void');
 
 const suggestions = [
-    {
-        label: 'Pick a warm color',
-        prompt: 'Set the page to a warm orange color that still keeps the text readable.',
-    },
-    {
-        label: 'High contrast mode',
-        prompt: 'Switch the page to the highest-contrast readable color scheme you can.',
-    },
+    'Set the page to a warm orange color that still keeps the text readable.',
+    'Switch the page to the highest-contrast readable color scheme you can.',
 ];
 
 const App = () => {
