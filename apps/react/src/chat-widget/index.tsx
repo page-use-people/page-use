@@ -96,7 +96,7 @@ export const PageUseChat = ({
     title = 'Agent',
     greeting,
     placeholder = '',
-    promptChips = [],
+    suggestions = [],
     submitPrompt = defaultSubmitPrompt,
     initialOpen = false,
     width = DEFAULT_WIDTH,
@@ -134,7 +134,7 @@ export const PageUseChat = ({
 
     const config: TChatWidgetConfig = {
         placeholder,
-        suggestions: promptChips,
+        suggestions,
         devMode: devMode ?? false,
         disablePageUseBanner: disablePageUseBanner ?? false,
     };

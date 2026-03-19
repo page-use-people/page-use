@@ -44,7 +44,7 @@ export type TPageUseChatProps = {
     readonly title?: string;
     readonly greeting?: string;
     readonly placeholder?: string;
-    readonly promptChips?: readonly TPageUseChatPrompt[];
+    readonly suggestions?: readonly TPageUseChatPrompt[];
     readonly submitPrompt?: (
         prompt: string,
         callbacks: TPageUseChatSubmitCallbacks,

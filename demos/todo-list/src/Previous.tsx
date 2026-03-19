@@ -63,7 +63,7 @@ const todoItemsSchema = z
     )
     .describe('the current list of all todo items');
 
-// const promptChips = [
+// const suggestions = [
 //     {
 //         label: 'Add a task for today',
 //         prompt: 'Add a todo item to buy groceries with today as the due date.',

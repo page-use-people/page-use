@@ -30,7 +30,7 @@ const textColorType = z
 const setColorInput = z.string().describe('the color to set in hex format');
 const setColorOutput = z.void().describe('void');
 
-const promptChips = [
+const suggestions = [
     {
         label: 'Pick a warm color',
         prompt: 'Set the page to a warm orange color that still keeps the text readable.',
@@ -99,7 +99,7 @@ const App = () => {
                 title="PICASO"
                 placeholder="Set a color, ask for contrast, or describe a mood"
                 greeting="Hello, I'm Picaso. I can see the current page color, keep contrast readable, and call the color setter for you."
-                promptChips={promptChips}
+                suggestions={suggestions}
                 theme={textColor === '#000000' ? 'light' : 'dark'}
             />
         </>
