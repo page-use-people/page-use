@@ -13,3 +13,8 @@ export {
     useAgentFunction,
     type TPageUseFunctionOptions,
 } from './use-agent-function.js';
+
+export {
+    useAgentState,
+    type TPageUseStateOptions,
+} from './use-agent-state.js';
