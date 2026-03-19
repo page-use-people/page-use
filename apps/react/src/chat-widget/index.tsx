@@ -1,28 +1,25 @@
 import {useEffect, useRef} from 'react';
-import {observer} from './chat-widget/observe.js';
+import {observer} from './observe.js';
 import {run} from '@page-use/client';
 
 import {
     ChatWidgetProvider,
     useChatWidget,
     type TChatWidgetConfig,
-} from './chat-widget/chat-context.js';
-import {ConversationPanel} from './chat-widget/conversation-panel.js';
-import {createSessionStore} from './chat-widget/create-session-store.js';
-import {createUIStore} from './chat-widget/create-ui-store.js';
-import {DraggablePanel} from './chat-widget/draggable-panel.js';
-import {LauncherInput} from './chat-widget/launcher-input.js';
-import {ShadowContainer} from './chat-widget/shadow-container.js';
+} from './chat-context.js';
+import {ConversationPanel} from './conversation-panel.js';
+import {createSessionStore} from './create-session-store.js';
+import {createUIStore} from './create-ui-store.js';
+import {DraggablePanel} from './draggable-panel.js';
+import {LauncherInput} from './launcher-input.js';
+import {ShadowContainer} from './shadow-container.js';
 import {
     DEFAULT_HEIGHT,
     DEFAULT_WIDTH,
     ROUNDEDNESS_SCALES,
     THEME_PALETTES,
-} from './chat-widget/shared.js';
-import type {
-    TPageUseChatProps,
-    TPageUseChatSubmitCallbacks,
-} from './chat-widget/types.js';
+} from './shared.js';
+import type {TPageUseChatProps, TPageUseChatSubmitCallbacks} from './types.js';
 
 export type {
     TPageUseChatPrompt,
@@ -31,7 +28,7 @@ export type {
     TPageUseChatSubmitCallbacks,
     TPageUseChatTheme,
     TPageUseCSSVariables,
-} from './chat-widget/types.js';
+} from './types.js';
 
 const defaultSubmitPrompt = (
     prompt: string,
@@ -151,11 +148,7 @@ export const PageUseChat = ({
     return (
         <ChatWidgetProvider value={contextValue}>
             <ShadowContainer cssVariables={vars} icon={icon}>
-                <ChatWidgetBody
-                    title={title}
-                    width={width}
-                    height={height}
-                />
+                <ChatWidgetBody title={title} width={width} height={height} />
             </ShadowContainer>
         </ChatWidgetProvider>
     );

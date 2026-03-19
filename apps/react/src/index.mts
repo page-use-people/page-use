@@ -14,4 +14,4 @@ export {
     type TPageUseChatProps,
     type TPageUseChatSubmitCallbacks,
     type TPageUseChatTheme,
-} from './chat-widget.js';
+} from './chat-widget/index.js';
