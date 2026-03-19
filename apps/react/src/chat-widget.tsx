@@ -1,8 +1,17 @@
-import {useState} from 'react';
+import {useEffect, useRef} from 'react';
+import {observer} from './chat-widget/observe.js';
 import {run} from '@page-use/client';
 
-import {LauncherBar, ChatPanel} from './chat-widget/chat-panel.js';
-import {FloatingChatShell} from './chat-widget/floating-chat-shell.js';
+import {
+    ChatWidgetProvider,
+    useChatWidget,
+    type TChatWidgetConfig,
+} from './chat-widget/chat-context.js';
+import {ConversationPanel} from './chat-widget/conversation-panel.js';
+import {createSessionStore} from './chat-widget/create-session-store.js';
+import {createUIStore} from './chat-widget/create-ui-store.js';
+import {DraggablePanel} from './chat-widget/draggable-panel.js';
+import {LauncherInput} from './chat-widget/launcher-input.js';
 import {ShadowContainer} from './chat-widget/shadow-container.js';
 import {
     DEFAULT_HEIGHT,
@@ -14,7 +23,6 @@ import type {
     TPageUseChatProps,
     TPageUseChatSubmitCallbacks,
 } from './chat-widget/types.js';
-import {usePageUseChatSession} from './chat-widget/use-page-use-chat-session.js';
 
 export type {
     TPageUseChatPrompt,
@@ -36,7 +44,11 @@ const defaultSubmitPrompt = (
         onError: callbacks.onError,
     });
 
-const themeToVars = (theme: TPageUseChatProps['theme'] = 'dark', roundedness: TPageUseChatProps['roundedness'] = 'none', overrides?: TPageUseChatProps['cssVariables']): Record<string, string> => {
+const themeToVars = (
+    theme: TPageUseChatProps['theme'] = 'dark',
+    roundedness: TPageUseChatProps['roundedness'] = 'none',
+    overrides?: TPageUseChatProps['cssVariables'],
+): Record<string, string> => {
     const palette = THEME_PALETTES[theme ?? 'dark'];
     const radii = ROUNDEDNESS_SCALES[roundedness ?? 'none'];
     return {
@@ -53,6 +65,35 @@ const themeToVars = (theme: TPageUseChatProps['theme'] = 'dark', roundedness: TP
         ...overrides,
     };
 };
+
+const ChatWidgetBody = observer(
+    ({
+        title,
+        width,
+        height,
+    }: {
+        readonly title: string;
+        readonly width: number;
+        readonly height: number;
+    }) => {
+        const {ui} = useChatWidget();
+
+        return ui.isPanelExpanded ? (
+            <DraggablePanel width={width} height={height}>
+                {({panelDragHandleProps}) => (
+                    <ConversationPanel
+                        title={title}
+                        dragHandleProps={panelDragHandleProps}
+                        width={width}
+                        height={height}
+                    />
+                )}
+            </DraggablePanel>
+        ) : (
+            <LauncherInput />
+        );
+    },
+);
 
 export const PageUseChat = ({
     title = 'Agent',
@@ -71,68 +112,51 @@ export const PageUseChat = ({
     icon,
 }: TPageUseChatProps) => {
     const vars = themeToVars(theme, roundedness, cssVariables);
-    const [isOpen, setIsOpen] = useState(initialOpen);
-    const [launcherDraft, setLauncherDraft] = useState<{readonly text: string; readonly selectionStart: number; readonly selectionEnd: number} | null>(null);
-    const {
-        messages,
-        loadingDetails,
-        isRunning,
-        hasSubmittedPrompt,
-        sendPrompt,
-    } = usePageUseChatSession({
-        greeting,
-        submitPrompt,
-        devMode,
-    });
 
-    const showPromptChips =
-        promptChips.length > 0 && !isRunning && !hasSubmittedPrompt;
+    const sessionRef = useRef<ReturnType<typeof createSessionStore> | null>(
+        null,
+    );
+    if (!sessionRef.current) {
+        sessionRef.current = createSessionStore({
+            greeting,
+            submitPrompt,
+            devMode,
+        });
+    }
 
-    const handleSendPrompt = (prompt: string) => {
-        const didSend = sendPrompt(prompt);
-        if (didSend && !isOpen) {
-            setIsOpen(true);
-        }
+    const uiRef = useRef<ReturnType<typeof createUIStore> | null>(null);
+    if (!uiRef.current) {
+        uiRef.current = createUIStore({initiallyExpanded: initialOpen});
+    }
 
-        return didSend;
+    useEffect(() => {
+        sessionRef.current?.store.updateSubmitPrompt(submitPrompt);
+    }, [submitPrompt]);
+
+    useEffect(() => () => sessionRef.current?.dispose(), []);
+
+    const config: TChatWidgetConfig = {
+        placeholder,
+        suggestions: promptChips,
+        devMode: devMode ?? false,
+        disablePageUseBanner: disablePageUseBanner ?? false,
+    };
+
+    const contextValue = {
+        session: sessionRef.current.store,
+        ui: uiRef.current,
+        config,
     };
 
     return (
-        <ShadowContainer cssVariables={vars} icon={icon}>
-            {isOpen ? (
-                <FloatingChatShell width={width} height={height}>
-                    {({panelDragHandleProps}) => (
-                        <ChatPanel
-                            title={title}
-                            placeholder={placeholder}
-                            promptChips={promptChips}
-                            showPromptChips={showPromptChips}
-                            messages={messages}
-                            loadingDetails={loadingDetails}
-                            isRunning={isRunning}
-                            onSendPrompt={handleSendPrompt}
-                            onClose={(text, selectionStart, selectionEnd) => { setLauncherDraft({text, selectionStart, selectionEnd}); setIsOpen(false); }}
-                            dragHandleProps={panelDragHandleProps}
-                            width={width}
-                            height={height}
-                            devMode={devMode}
-                            disablePageUseBanner={disablePageUseBanner}
-                            initialComposerValue={launcherDraft?.text ?? ''}
-                            initialComposerSelection={launcherDraft ? [launcherDraft.selectionStart, launcherDraft.selectionEnd] as const : undefined}
-                        />
-                    )}
-                </FloatingChatShell>
-            ) : (
-                <LauncherBar
-                    placeholder={placeholder}
-                    isRunning={isRunning}
-                    onSubmit={handleSendPrompt}
-                    onMaximize={(draft, selectionStart, selectionEnd) => { setLauncherDraft({text: draft, selectionStart, selectionEnd}); setIsOpen(true); }}
-                    initialValue={launcherDraft?.text ?? ''}
-                    initialSelection={launcherDraft ? [launcherDraft.selectionStart, launcherDraft.selectionEnd] as const : undefined}
-                    disablePageUseBanner={disablePageUseBanner}
+        <ChatWidgetProvider value={contextValue}>
+            <ShadowContainer cssVariables={vars} icon={icon}>
+                <ChatWidgetBody
+                    title={title}
+                    width={width}
+                    height={height}
                 />
-            )}
-        </ShadowContainer>
+            </ShadowContainer>
+        </ChatWidgetProvider>
     );
 };

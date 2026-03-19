@@ -37,14 +37,14 @@ export type TDragHandleProps = {
     readonly onLostPointerCapture: PointerEventHandler<HTMLElement>;
 };
 
-type TFloatingChatShellRenderProps = {
+type TDraggablePanelRenderProps = {
     readonly panelDragHandleProps: TDragHandleProps;
 };
 
-type TFloatingChatShellProps = {
+type TDraggablePanelProps = {
     readonly width: number;
     readonly height: number;
-    readonly children: (props: TFloatingChatShellRenderProps) => ReactNode;
+    readonly children: (props: TDraggablePanelRenderProps) => ReactNode;
 };
 
 const useClientLayoutEffect =
@@ -53,11 +53,11 @@ const useClientLayoutEffect =
 const createTranslateStyle = ({x, y}: TPosition) =>
     `translate3d(${x}px, ${y}px, 0)`;
 
-export const FloatingChatShell = ({
+export const DraggablePanel = ({
     width,
     height,
     children,
-}: TFloatingChatShellProps) => {
+}: TDraggablePanelProps) => {
     const rootRef = useRef<HTMLDivElement | null>(null);
 
     const frameRef = useRef<number | null>(null);
