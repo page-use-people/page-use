@@ -7,6 +7,7 @@ export const LAUNCHER_BAR_MAX_WIDTH = 300;
 export const DEFAULT_WIDTH = 320;
 export const DEFAULT_HEIGHT = 560;
 export const AUTO_SCROLL_THRESHOLD = 40;
+export const SCROLL_SETTLE_MS = 100;
 
 export const THEME_PALETTES = {
     dark: {

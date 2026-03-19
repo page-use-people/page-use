@@ -2,7 +2,7 @@ import {useEffect, useRef} from 'react';
 import {observer} from './observe.js';
 import {reaction} from 'mobx';
 
-import {AUTO_SCROLL_THRESHOLD} from './shared.js';
+import {AUTO_SCROLL_THRESHOLD, SCROLL_SETTLE_MS} from './shared.js';
 import {useChatWidget} from './chat-context.js';
 import {ExecutionStatus} from './execution-status.js';
 import {MessageBubble} from './message-bubble.js';
@@ -15,12 +15,18 @@ export const MessageList = observer(() => {
     const isNearBottomRef = useRef(true);
 
     useEffect(() => {
+        let scrollTimer: ReturnType<typeof setTimeout> | null = null;
+
         const disposer = reaction(
-            () => ({
-                messageCount: session.messages.length,
-                isRunning: session.isRunning,
-                stepCount: session.executionSteps.length,
-            }),
+            () => {
+                const lastMessage =
+                    session.messages[session.messages.length - 1];
+                return {
+                    messageCount: session.messages.length,
+                    lastContentLength: lastMessage?.content.length ?? 0,
+                    stepCount: session.executionSteps.length,
+                };
+            },
             () => {
                 if (!isNearBottomRef.current && !session.isRunning) {
                     return;
@@ -31,12 +37,23 @@ export const MessageList = observer(() => {
                     return;
                 }
 
-                requestAnimationFrame(() => {
+                if (scrollTimer) {
+                    clearTimeout(scrollTimer);
+                }
+
+                scrollTimer = setTimeout(() => {
                     viewport.scrollTop = viewport.scrollHeight;
-                });
+                    scrollTimer = null;
+                }, SCROLL_SETTLE_MS);
             },
         );
-        return disposer;
+
+        return () => {
+            disposer();
+            if (scrollTimer) {
+                clearTimeout(scrollTimer);
+            }
+        };
     }, [session]);
 
     const syncScrollAnchor = () => {
