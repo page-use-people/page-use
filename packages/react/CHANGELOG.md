@@ -1,5 +1,14 @@
 # @page-use/react
 
+## 0.2.4
+
+### Patch Changes
+
+- [`48ae47a`](https://github.com/page-use-people/page-use/commit/48ae47a49462d712e0ae9151408462b8570014f0) Thanks [@omranjamal](https://github.com/omranjamal)! - publish
+
+- Updated dependencies [[`48ae47a`](https://github.com/page-use-people/page-use/commit/48ae47a49462d712e0ae9151408462b8570014f0)]:
+    - @page-use/client@0.2.4
+
 ## 0.2.3
 
 ### Patch Changes
