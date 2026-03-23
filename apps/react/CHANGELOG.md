@@ -1,5 +1,14 @@
 # @page-use/react
 
+## 0.2.3
+
+### Patch Changes
+
+- [`6c455f9`](https://github.com/page-use-people/page-use/commit/6c455f9cfe3e2d7cd048a5124c59eaa3a2b92559) Thanks [@omranjamal](https://github.com/omranjamal)! - testing publish
+
+- Updated dependencies [[`6c455f9`](https://github.com/page-use-people/page-use/commit/6c455f9cfe3e2d7cd048a5124c59eaa3a2b92559)]:
+    - @page-use/client@0.2.3
+
 ## 0.2.2
 
 ### Patch Changes
