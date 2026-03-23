@@ -11,8 +11,13 @@ permissions:
     contents: read
 
 jobs:
-    publish:
+    check-version:
         runs-on: blacksmith-2vcpu-ubuntu-2404
+
+        outputs:
+            version: ${{ steps.version.outputs.version }}
+            changed: ${{ steps.version.outputs.changed }}
+
         steps:
             - uses: actions/checkout@v6
               with:
@@ -28,27 +33,103 @@ jobs:
                     echo "changed=true" >> "$GITHUB_OUTPUT"
                   fi
 
+    publish-amd64:
+        runs-on: blacksmith-4vcpu-ubuntu-2404
+
+        needs:
+            - check-version
+
+        if: needs.check-version.outputs.changed == 'true'
+
+        steps:
+            - uses: actions/checkout@v6
+
             - name: Setup Blacksmith Builder
               uses: useblacksmith/setup-docker-builder@v1
 
             - uses: docker/login-action@v3
-              if: steps.version.outputs.changed == 'true'
               with:
                   username: pageuse
                   password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
             - uses: useblacksmith/build-push-action@v2
-              if: steps.version.outputs.changed == 'true'
               with:
                   context: .
                   file: Dockerfile.core
                   push: true
-                  tags: |
-                      pageuse/core:${{ steps.version.outputs.version }}
-                      pageuse/core:latest
+                  tags: pageuse/core:${{ needs.check-version.outputs.version }}-amd64
+                  platforms: linux/amd64
+
+    publish-arm64:
+        runs-on: blacksmith-4vcpu-ubuntu-2404-arm
+
+        needs:
+            - check-version
+
+        if: needs.check-version.outputs.changed == 'true'
+
+        steps:
+            - uses: actions/checkout@v6
+
+            - name: Setup Blacksmith Builder
+              uses: useblacksmith/setup-docker-builder@v1
+
+            - uses: docker/login-action@v3
+              with:
+                  username: pageuse
+                  password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+            - uses: useblacksmith/build-push-action@v2
+              with:
+                  context: .
+                  file: Dockerfile.core
+                  push: true
+                  tags: pageuse/core:${{ needs.check-version.outputs.version }}-arm64
+                  platforms: linux/arm64
+
+    merge-manifests:
+        runs-on: blacksmith-2vcpu-ubuntu-2404
+
+        needs:
+            - publish-amd64
+            - publish-arm64
+            - check-version
+
+        steps:
+            - uses: docker/setup-buildx-action@v3
+
+            - uses: docker/login-action@v3
+              with:
+                  username: pageuse
+                  password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+            - name: Merge Docker images
+              env:
+                  VERSION: ${{ needs.check-version.outputs.version }}
+              run: |
+                  docker buildx imagetools create \
+                    -t "pageuse/core:${VERSION}" \
+                    "pageuse/core:${VERSION}-amd64" \
+                    "pageuse/core:${VERSION}-arm64"
+
+                  docker buildx imagetools create \
+                    -t "pageuse/core:latest" \
+                    "pageuse/core:${VERSION}-amd64" \
+                    "pageuse/core:${VERSION}-arm64"
+
+    update-dockerhub-description:
+        runs-on: blacksmith-2vcpu-ubuntu-2404
+
+        needs:
+            - merge-manifests
+            - check-version
+
+        if: needs.check-version.outputs.changed == 'true'
+
+        steps:
+            - uses: actions/checkout@v6
 
             - name: Update Docker Hub description
-              if: steps.version.outputs.changed == 'true'
               uses: peter-evans/dockerhub-description@v4
               with:
                   username: pageuse
