@@ -1,5 +1,14 @@
 # @page-use/react
 
+## 0.2.5
+
+### Patch Changes
+
+- [`1b6105e`](https://github.com/page-use-people/page-use/commit/1b6105e90d36b13beb3328bc3e1ddb1ddc7c4b11) Thanks [@omranjamal](https://github.com/omranjamal)! - publish
+
+- Updated dependencies [[`1b6105e`](https://github.com/page-use-people/page-use/commit/1b6105e90d36b13beb3328bc3e1ddb1ddc7c4b11)]:
+    - @page-use/client@0.2.5
+
 ## 0.2.4
 
 ### Patch Changes

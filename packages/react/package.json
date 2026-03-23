@@ -1,6 +1,6 @@
 {
     "name": "@page-use/react",
-    "version": "0.2.4",
+    "version": "0.2.5",
     "license": "MIT",
     "type": "module",
     "main": "dist/index.mjs",
@@ -43,7 +43,7 @@
         "build:no-check": "tsc --noCheck"
     },
     "peerDependencies": {
-        "@page-use/client": ">=0.2.4",
+        "@page-use/client": ">=0.2.5",
         "react": ">=18.0.0",
         "react-dom": ">=18.0.0",
         "zod": ">=4.0.0"
