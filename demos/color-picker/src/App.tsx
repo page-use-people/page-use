@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { PageUseChat, PageUseFunction, PageUseSystemPrompt, PageUseVariable } from '@page-use/react';
-import z from 'zod';
+import {z} from '@page-use/react';
 const randomHex = () =>
     `#${Array.from({ length: 6 }, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('')}`;
 

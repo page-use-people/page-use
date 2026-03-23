@@ -16,7 +16,7 @@ import {
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { SystemPrompt, useAgentVariable, useAgentFunction } from '@page-use/react';
 import { PageUseChat } from '@page-use/react/ui/chat';
-import z from 'zod';
+import {z} from '@page-use/react';
 import TodoItem from './TodoItem.tsx';
 import ConfirmModal from './ConfirmModal.tsx';
 import { formatRelativeDate, getDateColorClass } from './DueDateDisplay.tsx';
