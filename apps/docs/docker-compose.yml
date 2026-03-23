@@ -1,0 +1,40 @@
+services:
+  valkey:
+    image: valkey/valkey:8.1.1
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: valkey-data
+        target: /data
+
+  postgres:
+    image: postgres:17.4-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:-postgres}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+      POSTGRES_DB: "${POSTGRES_DB:-page_use}"
+    volumes:
+      - type: volume
+        source: postgres-data
+        target: /var/lib/postgresql/data
+
+  core:
+    image: page-use-core:latest
+    restart: unless-stopped
+    ports:
+      - target: 12001
+        published: "${PAGE_USE_CORE_PORT:-12001}"
+    environment:
+      DATABASE_URL: "${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/page_use}"
+      REDIS_URL: "${REDIS_URL:-redis://valkey:6379}"
+      CORE_PORT: "${PAGE_USE_CORE_PORT:-12001}"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-sk-ant-dummy-key-for-dev}"
+      JWT_SIGNING_KEY: "${JWT_SIGNING_KEY:-dev-jwt-signing-key-not-for-production}"
+    depends_on:
+      - postgres
+      - valkey
+
+volumes:
+  valkey-data:
+  postgres-data:
