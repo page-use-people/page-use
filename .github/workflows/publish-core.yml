@@ -12,7 +12,7 @@ permissions:
 
 jobs:
     check-version:
-        runs-on: blacksmith-2vcpu-ubuntu-2404
+        runs-on: ubuntu-latest
 
         outputs:
             version: ${{ steps.version.outputs.version }}
@@ -34,7 +34,7 @@ jobs:
                   fi
 
     publish-amd64:
-        runs-on: blacksmith-4vcpu-ubuntu-2404
+        runs-on: ubuntu-latest
 
         needs:
             - check-version
@@ -44,21 +44,22 @@ jobs:
         steps:
             - uses: actions/checkout@v6
 
-            - name: Setup Blacksmith Builder
-              uses: useblacksmith/setup-docker-builder@v1
+            - uses: docker/setup-buildx-action@v3
 
             - uses: docker/login-action@v3
               with:
                   username: pageuse
                   password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
-            - uses: useblacksmith/build-push-action@v2
+            - uses: docker/build-push-action@v6
               with:
                   context: .
                   file: Dockerfile.core
                   push: true
                   tags: pageuse/core:${{ needs.check-version.outputs.version }}-amd64
                   platforms: linux/amd64
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max
 
     publish-arm64:
         runs-on: blacksmith-4vcpu-ubuntu-2404-arm
@@ -88,7 +89,7 @@ jobs:
                   platforms: linux/arm64
 
     merge-manifests:
-        runs-on: blacksmith-2vcpu-ubuntu-2404
+        runs-on: ubuntu-latest
 
         needs:
             - publish-amd64
@@ -118,7 +119,7 @@ jobs:
                     "pageuse/core:${VERSION}-arm64"
 
     update-dockerhub-description:
-        runs-on: blacksmith-2vcpu-ubuntu-2404
+        runs-on: ubuntu-latest
 
         needs:
             - merge-manifests
