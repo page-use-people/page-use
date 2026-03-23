@@ -5,7 +5,7 @@ React bindings for Page Use. Hooks and components that wire your React state to 
 ## Install
 
 ```bash
-pnpm add @page-use/react @page-use/client react react-dom zod
+pnpm add @page-use/react @page-use/client zod
 ```
 
 ## Quick Start

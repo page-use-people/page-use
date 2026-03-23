@@ -25,7 +25,7 @@ ANTHROPIC_API_KEY=sk-ant-... docker compose up -d
 ### 2. Add to your React app
 
 ```bash
-pnpm add @page-use/react @page-use/client react react-dom zod
+pnpm add @page-use/react @page-use/client zod
 ```
 
 ```tsx
