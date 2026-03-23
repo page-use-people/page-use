@@ -5,8 +5,8 @@ on:
         branches:
             - main
         paths:
-            - apps/client/package.json
-            - apps/react/package.json
+            - packages/client/package.json
+            - packages/react/package.json
 
 permissions:
     id-token: write

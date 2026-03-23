@@ -8,8 +8,8 @@ An open-source SDK to add AI agents into any webapp.
 
 | Package | Description | Links |
 |---------|-------------|-------|
-| `@page-use/react` | React hooks and chat widget | [npm](https://www.npmjs.com/package/@page-use/react) · [docs](./apps/react/README.md) |
-| `@page-use/client` | TypeScript runtime | [npm](https://www.npmjs.com/package/@page-use/client) · [docs](./apps/client/README.md) |
+| `@page-use/react` | React hooks and chat widget | [npm](https://www.npmjs.com/package/@page-use/react) · [docs](./packages/react/README.md) |
+| `@page-use/client` | TypeScript runtime | [npm](https://www.npmjs.com/package/@page-use/client) · [docs](./packages/client/README.md) |
 | `@page-use/core` | Backend server | [Docker Hub](https://hub.docker.com/r/pageuse/core) · [docs](./apps/core/README.md) |
 
 ## Quick Start
