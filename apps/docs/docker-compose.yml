@@ -20,7 +20,7 @@ services:
         target: /var/lib/postgresql/data
 
   core:
-    image: page-use-core:latest
+    image: pageuse/core:latest
     restart: unless-stopped
     ports:
       - target: 12001
