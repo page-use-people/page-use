@@ -1,6 +1,7 @@
 {
     "name": "@page-use/client",
     "version": "0.2.3",
+    "license": "MIT",
     "type": "module",
     "main": "dist/index.mjs",
     "types": "dist/index.d.mts",

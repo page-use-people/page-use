@@ -2,7 +2,7 @@
 
 TypeScript runtime for wiring page state, page functions, and the Page Use conversation loop together.
 
-## Installation
+## Install
 
 ```bash
 pnpm add @page-use/client zod
@@ -19,12 +19,11 @@ import {
 } from '@page-use/client';
 import {z} from 'zod';
 
-setSystemPrompt(
-    'You are helping the user interact with a todo list application.',
-);
+// describe the assistant's role
+setSystemPrompt('You are helping the user manage a todo list.');
 
+// expose state the assistant can read
 setVariable('items', {
-    value: [],
     schema: z.array(
         z.object({
             id: z.string(),
@@ -32,227 +31,86 @@ setVariable('items', {
             completed: z.boolean(),
         }),
     ),
+    value: [],
 });
 
-registerFunction('addTodo', {
-    inputSchema: z.object({
-        text: z.string(),
-    }),
-    outputSchema: z.object({
-        ok: z.literal(true),
-    }),
+// expose a function the assistant can call
+registerFunction('setItems', {
+    inputSchema: z.array(
+        z.object({
+            id: z.string(),
+            text: z.string(),
+            completed: z.boolean(),
+        }),
+    ),
     mutates: ['items'],
-    mutationTimeoutMs: 750,
-    func: async ({text}) => {
-        await addTodoInYourApp(text);
+    func: async (items) => {
+        updateItemsInYourApp(items);
         return {ok: true};
     },
 });
 
-const runHandle = run('Add "buy milk" to the list', {
-    onMessage: (message) => {
-        console.log('assistant:', message);
-    },
-    onUpdate: (update) => {
-        console.log('update:', update);
-    },
-    onError: (error) => {
-        console.error('page-use error:', error);
-    },
+// run a conversation turn
+const handle = run('Add "buy milk" to the list', {
+    onMessage: (message) => console.log('assistant:', message),
+    onUpdate: (update) => console.log('update:', update),
+    onError: (error) => console.error('error:', error),
 });
 
-await runHandle.done;
+await handle.done;
 ```
 
-## Runtime Model
+## API
 
-`@page-use/client` keeps a small in-memory runtime:
+### Context
 
-- registered variables: values the model can read through `variables.*`
-- registered functions: async functions the model can call directly
-- context information: extra text blocks injected into the system prompt
-- a conversation id: reused across turns until you reset it
-- a single active run lock: only one `run(...)` can execute at a time
+| Export | Description |
+|--------|-------------|
+| `setSystemPrompt(prompt)` | Set the system prompt for the assistant |
+| `setContextInformation(key, {title?, content})` | Add extra context sent with each turn |
+| `unsetContextInformation(key)` | Remove a context entry |
+| `resetConversation()` | Start a fresh conversation (new ID) |
 
-The conversation loop sends:
+### Variables
 
-- the current system prompt
-- context information
-- a serialized snapshot of current variables
-- TypeScript signatures for registered functions
-- a TypeScript interface describing the `variables` object
+| Export | Description |
+|--------|-------------|
+| `setVariable(name, {schema, value})` | Register a readable variable with a Zod schema |
+| `unsetVariable(name)` | Remove a variable |
 
-The core service responds with either plain text or an execution block. Execution blocks are evaluated inside a constrained runtime that exposes:
+### Functions
 
-- registered page functions
-- `variables`
-- `delay(ms)`
-- `runInAnimationFrames(...)`
-- `waitForMutation([...])`
-- a stubbed `console`
-- `abortSignal`
+| Export | Description |
+|--------|-------------|
+| `registerFunction(name, options)` | Register a callable function with Zod-validated I/O |
+| `unregisterFunction(name)` | Remove a function |
 
-## Variable Mutations
+`registerFunction` options:
 
-Variable updates are asynchronous from the model's point of view.
+- `inputSchema` — Zod schema for the input
+- `outputSchema` — Zod schema for the output (optional)
+- `mutates` — variable names this function changes (triggers automatic wait)
+- `mutationTimeoutMs` — max wait time for declared mutations (default `5s`)
+- `func(input, signal?)` — the handler
 
-- `mutates` is optional metadata on `registerFunction(...)`.
-- When `mutates` is present, the client automatically waits for those variables after the function handler resolves.
-- Automatic waits use a default timeout of `5s`.
-- When `mutationTimeoutMs` is present, it overrides that automatic post-function timeout.
-- When `mutates` is omitted, no automatic wait happens.
-- `waitForMutation([...])` is always available to the generated code for extra variables, narrower waits, or functions without declared mutates.
-- Manual `waitForMutation([...])` calls also use a default timeout of `5s` and return the variable names that changed before timing out.
+### Runner
 
-This means `await addTodo(...)` can already include a wait for declared mutates, while `await waitForMutation([...])` remains the explicit escape hatch.
+| Export | Description |
+|--------|-------------|
+| `run(prompt, options?)` | Start a conversation turn (single-flight) |
 
-## End-To-End Flow
+`run` returns a `TRunHandle` with `abort()` and `done: Promise<void>`.
 
-1. Your app registers variables and page functions.
-2. `run(userPrompt)` snapshots the current runtime and sends a converse request to core.
-3. Core returns either assistant text or an execution block.
-4. The client evaluates the execution block with the registered functions and helpers in scope.
-5. If a called function declared `mutates`, the client waits for those variables to mutate before letting that function resolve.
-6. Execution logs are sent back to core as an `execution_result` block.
-7. Core can respond with another execution block or final assistant text.
+### Client
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant Client as run()
-    participant Core
-    participant Code as Assistant Code
-    participant Func as Page Function
-    participant Vars as Variable Observer
+| Export | Description |
+|--------|-------------|
+| `createClient(options?)` | Create a typed tRPC client to the core service |
 
-    User->>Client: run("Add buy milk")
-    Client->>Core: prompt + tool defs + variable snapshot
-    Core-->>Client: execution block
-    Client->>Code: eval(block)
-    Code->>Func: await addTodo({ text: "buy milk" })
-    Func-->>Code: handler resolved
-    Code->>Vars: auto-wait declared mutates
-    Vars-->>Code: mutated variables / timeout
-    Code->>Client: console output
-    Client->>Core: execution_result
-    Core-->>Client: final text
-    Client-->>User: assistant message
-```
+### Types
 
-## Module Layout
+`TRunHandle`, `TRunOptions`, `TRunStatus`, `TRunUpdate`, `TFunctionOptions`, `TVariableOptions`
 
-```mermaid
-flowchart TD
-    Main["main.mts\npublic facade"] --> State["runtime-state.mts\nfunction registry, prompt, context, conversation id"]
-    Main --> Runner["conversation-runner.mts\nrequest loop and response handling"]
-    Main --> Vars["variable-observer.mts\nvariable registry and mutation tracking"]
-    Runner --> Exec["execution-runtime.mts\ncode execution and helper environment"]
-    Runner --> Vars
-    Exec --> State
-    Exec --> Vars
-```
+## License
 
-## Examples
-
-### Function With Declared Mutations
-
-Use `mutates` when your function is expected to change exposed variables and you want the runtime to wait automatically.
-
-```ts
-registerFunction('toggleTodo', {
-    inputSchema: z.object({
-        id: z.string(),
-    }),
-    outputSchema: z.object({
-        ok: z.literal(true),
-    }),
-    mutates: ['items', 'remainingCount'],
-    func: async ({id}) => {
-        await toggleTodoInYourApp(id);
-        return {ok: true};
-    },
-});
-```
-
-### Function With `mutationTimeoutMs`
-
-Use `mutationTimeoutMs` when a function should not wait indefinitely for declared mutations.
-
-```ts
-registerFunction('saveDraft', {
-    inputSchema: z.object({
-        text: z.string(),
-    }),
-    outputSchema: z.object({
-        ok: z.literal(true),
-    }),
-    mutates: ['draftStatus'],
-    mutationTimeoutMs: 500,
-    func: async ({text}) => {
-        await saveDraftInYourApp(text);
-        return {ok: true};
-    },
-});
-```
-
-If `draftStatus` does not update within `500ms`, the runtime emits a `state_wait_timeout` update and continues.
-
-### Function Without Declared Mutations
-
-When `mutates` is omitted, the model can still decide what to wait for through `waitForMutation([...])`.
-
-Registered function:
-
-```ts
-registerFunction('recalculateTotals', {
-    inputSchema: z.object({}),
-    outputSchema: z.object({
-        ok: z.literal(true),
-    }),
-    func: async () => {
-        await recalculateTotalsInYourApp();
-        return {ok: true};
-    },
-});
-```
-
-Typical generated code:
-
-```ts
-await recalculateTotals({});
-const changedVariables = await waitForMutation(['subtotal', 'grandTotal']);
-console.log(changedVariables);
-console.log(variables.grandTotal);
-```
-
-### React Mapping
-
-`@page-use/react` is a thin wrapper over this package:
-
-- `PageUseSystemPrompt` calls `setSystemPrompt(...)`
-- `PageUseVariable` calls `setVariable(...)` and `unsetVariable(...)`
-- `PageUseFunction` calls `registerFunction(...)`
-- `PageUseChat` eventually calls `run(...)`
-
-Use `@page-use/client` directly when you want full control outside React or when you want to understand the exact runtime behavior.
-
-## API Notes
-
-- `run(...)` is single-flight. Starting a second run while one is active throws.
-- Registered variables are exposed as a read-only live `variables` object inside generated code.
-- Registered functions are validated with their Zod input schema before the handler runs.
-- Function registrations and tool definitions are refreshed at the start of each converse-loop turn.
-- `mutationTimeoutMs` only applies to the automatic wait driven by `mutates`.
-- If `mutates` is present and `mutationTimeoutMs` is omitted, the automatic wait uses the default `5s` timeout.
-- `waitForMutation([...])` also uses the default `5s` timeout and returns the variable names that mutated before timeout.
-
-## TODO: Tests
-
-Future automated coverage should include:
-
-- variable waiter lifecycle and cleanup
-- mutation detection with and without a timeout
-- automatic `mutates`-based waiting after function handlers resolve
-- manual `waitForMutation([...])` behavior across multiple waits in one execution
-- run loop retry behavior for invalid conversation history
-- React wrapper compatibility with emitted `TRunUpdate` variants
+MIT
