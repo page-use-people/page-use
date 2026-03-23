@@ -5,7 +5,7 @@ TypeScript runtime for wiring page state, page functions, and the Page Use conve
 ## Install
 
 ```bash
-pnpm add @page-use/client zod
+pnpm add @page-use/client
 ```
 
 ## Quick Start
@@ -17,7 +17,7 @@ import {
     setSystemPrompt,
     setVariable,
 } from '@page-use/client';
-import {z} from 'zod';
+import {z} from '@page-use/client';
 
 // describe the assistant's role
 setSystemPrompt('You are helping the user manage a todo list.');

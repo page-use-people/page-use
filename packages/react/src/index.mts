@@ -9,3 +9,6 @@ export {
     type TPageUseSystemPromptProps,
     type TPageUseVariableOptions,
 } from './page-use/index.js';
+
+// Zod (re-exported from @page-use/client)
+export {z} from '@page-use/client';

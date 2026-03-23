@@ -47,6 +47,9 @@ export {
     renderVariableInterface,
 } from '#client/lib/type-renderer.mjs';
 
+// Zod (re-exported for version compatibility)
+export {z} from 'zod';
+
 // Animation
 export {
     makeRunInAnimationFrames,

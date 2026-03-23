@@ -1,4 +1,4 @@
-import {z} from 'zod';
+import {z} from '@page-use/client';
 
 import {useAgentVariable} from './use-agent-variable.js';
 import {useAgentFunction} from './use-agent-function.js';

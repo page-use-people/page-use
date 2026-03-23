@@ -1,7 +1,7 @@
 import {useEffect} from 'react';
 import {setVariable, unsetVariable} from '@page-use/client';
 
-import {z} from 'zod';
+import {z} from '@page-use/client';
 
 export type TPageUseVariableOptions<TType extends z.ZodType = z.ZodType> = {
     schema: TType;

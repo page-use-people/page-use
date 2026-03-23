@@ -1,7 +1,7 @@
 import {useEffect, useRef} from 'react';
 import {registerFunction} from '@page-use/client';
 
-import {z} from 'zod';
+import {z} from '@page-use/client';
 
 export type TPageUseFunctionOptions<
     TInput extends z.ZodType,

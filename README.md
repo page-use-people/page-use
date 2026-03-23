@@ -25,13 +25,13 @@ ANTHROPIC_API_KEY=sk-ant-... docker compose up -d
 ### 2. Add to your React app
 
 ```bash
-pnpm add @page-use/react @page-use/client zod
+pnpm add @page-use/react @page-use/client
 ```
 
 ```tsx
 import {SystemPrompt, useAgentVariable, useAgentFunction} from '@page-use/react';
 import {PageUseChat} from '@page-use/react/ui/chat';
-import {z} from 'zod';
+import {z} from '@page-use/react';
 
 const itemsSchema = z.array(z.object({id: z.string(), text: z.string(), completed: z.boolean()}));
 

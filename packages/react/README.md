@@ -5,7 +5,7 @@ React bindings for Page Use. Hooks and components that wire your React state to 
 ## Install
 
 ```bash
-pnpm add @page-use/react @page-use/client zod
+pnpm add @page-use/react @page-use/client
 ```
 
 ## Quick Start
@@ -13,7 +13,7 @@ pnpm add @page-use/react @page-use/client zod
 ```tsx
 import {SystemPrompt, useAgentVariable, useAgentFunction} from '@page-use/react';
 import {PageUseChat} from '@page-use/react/ui/chat';
-import {z} from 'zod';
+import {z} from '@page-use/react';
 
 const itemsSchema = z.array(
     z.object({
