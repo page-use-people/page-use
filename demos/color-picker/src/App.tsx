@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { PageUseChat, PageUseFunction, PageUseSystemPrompt, PageUseVariable } from '@page-use/react';
-import {z} from '@page-use/react';
+import {useState} from 'react';
+import {SystemPrompt, useAgentVariable, useAgentFunction, z} from '@page-use/react';
+import {PageUseChat} from '@page-use/react/ui/chat';
+
 const randomHex = () =>
-    `#${Array.from({ length: 6 }, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('')}`;
+    `#${Array.from({length: 6}, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('')}`;
 
 const luminance = (hex: string) => {
     const r = parseInt(hex.slice(1, 3), 16) / 255;
@@ -23,12 +24,11 @@ const systemPrompt = `
         - There is a button for "Random Color" it will generate a random color
 `;
 
-const colorType = z.string().describe('the currently selected color in hex format');
-const textColorType = z
+const colorSchema = z.string().describe('the currently selected color in hex format');
+const textColorSchema = z
     .string()
     .describe('the current text color, typically black when the luminance is greater than 0.5');
-const setColorInput = z.string().describe('the color to set in hex format');
-const setColorOutput = z.void().describe('void');
+const setColorInputSchema = z.string().describe('the color to set in hex format');
 
 const suggestions = [
     'Set the page to a warm orange color that still keeps the text readable.',
@@ -39,23 +39,23 @@ const App = () => {
     const [color, setColor] = useState('#ffffff');
     const textColor = luminance(color) > 0.5 ? '#000000' : '#ffffff';
 
+    useAgentVariable('color', {schema: colorSchema, value: color});
+    useAgentVariable('text_color', {schema: textColorSchema, value: textColor});
+
+    useAgentFunction('set_color', {
+        inputSchema: setColorInputSchema,
+        func: async (input) => {
+            setColor(input);
+        },
+    });
+
     return (
         <>
-            <PageUseSystemPrompt prompt={systemPrompt} />
-            <PageUseVariable name="color" value={color} type={colorType} />
-            <PageUseVariable name="text_color" value={textColor} type={textColorType} />
-            <PageUseFunction
-                name="set_color"
-                input={setColorInput}
-                output={setColorOutput}
-                func={async (input) => {
-                    setColor(input);
-                }}
-            />
+            <SystemPrompt>{systemPrompt}</SystemPrompt>
 
             <div
                 className="min-h-screen flex items-center justify-center"
-                style={{ backgroundColor: color, color: textColor }}>
+                style={{backgroundColor: color, color: textColor}}>
                 <div className="flex flex-col items-center gap-6">
                     <p className="text-6xl font-bold tracking-tight font-mono">{color}</p>
 
@@ -70,19 +70,19 @@ const App = () => {
                         <button
                             onClick={() => setColor(randomHex())}
                             className="px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors border-2 border-current/20 hover:border-current/40 cursor-pointer"
-                            style={{ color: textColor }}>
+                            style={{color: textColor}}>
                             Random
                         </button>
                         <button
                             onClick={() => setColor('#ffffff')}
                             className="px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors border-2 border-current/20 hover:border-current/40 cursor-pointer"
-                            style={{ color: textColor }}>
+                            style={{color: textColor}}>
                             White
                         </button>
                         <button
                             onClick={() => setColor('#000000')}
                             className="px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors border-2 border-current/20 hover:border-current/40 cursor-pointer"
-                            style={{ color: textColor }}>
+                            style={{color: textColor}}>
                             Black
                         </button>
                     </div>
