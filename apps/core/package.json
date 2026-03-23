@@ -15,7 +15,8 @@
         "#core/*": "./dist/*"
     },
     "files": [
-        "dist"
+        "dist",
+        "templates"
     ],
     "scripts": {
         "build": "tsc",

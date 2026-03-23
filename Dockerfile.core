@@ -1,19 +1,35 @@
-FROM node:24.1.0-bookworm-slim AS base
+FROM node:24.1.0-alpine3.21 AS base
+
 RUN corepack enable && corepack prepare pnpm@10.28.2 --activate
 
+
 FROM base AS build
+
 WORKDIR /app
+
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/core/package.json apps/core/package.json
+
 RUN pnpm install --frozen-lockfile
+
 COPY apps/core/src/ apps/core/src/
 COPY apps/core/tsconfig.json apps/core/tsconfig.json
+COPY apps/core/templates/ apps/core/templates/
+
 RUN pnpm --filter @page-use/core build
+
 RUN pnpm deploy --legacy --filter @page-use/core --prod /deploy
 
-FROM node:24.1.0-bookworm-slim
+FROM node:24.1.0-alpine3.21
+
+
 WORKDIR /app
+
 COPY --from=build /deploy ./
+
 ENV NODE_ENV=production
+ENV CORE_PORT=12001
+
 EXPOSE 12001
+
 CMD ["node", "dist/index.mjs"]
