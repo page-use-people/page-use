@@ -51,10 +51,6 @@ ANTHROPIC_API_KEY=sk-ant-...
 JWT_SIGNING_KEY=...
 ```
 
-> [!NOTE]
-> For now, we only exclusively support Anthropic's Claude models. We're still working on adding support for other models like Gemini or ChatGPT
-
-
 Download this [docker-compose.yml](https://github.com/page-use-people/page-use/blob/main/docs/docker-compose.yml)
 file and start the server.
 
