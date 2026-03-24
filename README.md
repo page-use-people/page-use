@@ -1,6 +1,8 @@
-# page-use
+<img src="./docs/logo.svg" width="400" />
 
-An open-source SDK to add AI agents into any webapp.
+<p align="center">
+    An open-source SDK to add AI agents into any webapp.
+</p>
 
 > **Beta** — the API is still unstable. Use in production at your own risk.
 
