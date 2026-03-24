@@ -19,6 +19,10 @@
 
 > **Beta** — the API is still unstable. Use in production at your own risk.
 
+## Demo
+
+[![](https://static.airstate.dev/page-use-demo_todo-list_github_thumbnail.jpg)](https://youtu.be/BaOlb2ao1FQ)
+
 ## Features
 
 - **Fast** — `page-use` writes and executes JS code, not raw tool use.
