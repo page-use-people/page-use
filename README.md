@@ -119,6 +119,45 @@ const App = () => {
 > a certain version of zod (`>=4.0.0 & <5.0.0`); importing from our
 > package ensure you are using a compatible version of Zod.
 
+## Maintainers
+
+<table>
+    <tbody>
+        <tr>
+            <td align="center">
+                <br/>
+                <a href="https://github.com/imas234">
+                    <img src="https://github.com/imas234.png" width="120"/>
+                    <br/>
+                    imas234
+                </a>
+                <br/>
+                <br/>
+            </td>
+            <td align="center">
+                <br/>
+                <a href="https://github.com/tanvir001728">
+                    <img src="https://github.com/tanvir001728.png" width="120"/>
+                    <br/>
+                    tanvir001728
+                </a>
+                <br/>
+                <br/>
+            </td>
+            <td align="center">
+                <br/>
+                <a href="https://github.com/omranjamal">
+                    <img src="https://github.com/omranjamal.png" width="120"/>
+                    <br/>
+                    omranjamal
+                </a>
+                <br/>
+                <br/>
+            </td>
+        </tr>
+    </tbody>
+</table>
+
 ## License
 
 MIT
