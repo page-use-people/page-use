@@ -158,6 +158,25 @@ const App = () => {
     </tbody>
 </table>
 
+## Community Managers
+
+<table>
+    <tbody>
+        <tr>
+            <td align="center">
+                <br/>
+                <a href="https://www.linkedin.com/in/samiha-tahsin/">
+                    <img src="https://github.com/samiha-tahsin.png" width="120"/>
+                    <br/>
+                    samiha-tahsin
+                </a>
+                <br/>
+                <br/>
+            </td>
+        </tr>
+    </tbody>
+</table>
+
 ## License
 
 MIT
