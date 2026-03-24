@@ -8,12 +8,29 @@ React bindings for Page Use. Hooks and components that wire your React state to 
 pnpm add @page-use/react @page-use/client
 ```
 
+## Configuration
+
+By default the client connects to `http://localhost:12001/trpc`. Point it at a
+different server with `configure` from `@page-use/client`:
+
+```ts
+import {configure} from '@page-use/client';
+
+configure({serverURL: 'https://my-server.com/trpc'});
+```
+
+Call `configure` once before rendering — typically in your entry file.
+
 ## Quick Start
 
 ```tsx
+import {configure} from '@page-use/client';
 import {SystemPrompt, useAgentVariable, useAgentFunction} from '@page-use/react';
 import {PageUseChat} from '@page-use/react/ui/chat';
 import {z} from '@page-use/react';
+
+// point at your server (defaults to http://localhost:12001/trpc)
+configure({serverURL: 'https://my-server.com/trpc'});
 
 const itemsSchema = z.array(
     z.object({

@@ -1,3 +1,6 @@
+// Configuration
+export {configure, type TConfig} from '#client/config.mjs';
+
 // tRPC client
 export {
     createClient,

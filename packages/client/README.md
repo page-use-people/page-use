@@ -8,16 +8,33 @@ TypeScript runtime for wiring page state, page functions, and the Page Use conve
 pnpm add @page-use/client
 ```
 
+## Configuration
+
+By default the client connects to `http://localhost:12001/trpc`. Point it at a
+different server with `configure`:
+
+```ts
+import {configure} from '@page-use/client';
+
+configure({serverURL: 'https://my-server.com/trpc'});
+```
+
+Call `configure` once before `run` — typically at app startup.
+
 ## Quick Start
 
 ```ts
 import {
+    configure,
     registerFunction,
     run,
     setSystemPrompt,
     setVariable,
 } from '@page-use/client';
 import {z} from '@page-use/client';
+
+// point at your server (defaults to http://localhost:12001/trpc)
+configure({serverURL: 'https://my-server.com/trpc'});
 
 // describe the assistant's role
 setSystemPrompt('You are helping the user manage a todo list.');
@@ -100,6 +117,12 @@ await handle.done;
 | `run(prompt, options?)` | Start a conversation turn (single-flight) |
 
 `run` returns a `TRunHandle` with `abort()` and `done: Promise<void>`.
+
+### Configuration
+
+| Export | Description |
+|--------|-------------|
+| `configure(options)` | Set global config (e.g. `serverURL`). Call once before `run`. |
 
 ### Client
 
