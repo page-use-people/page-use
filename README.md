@@ -1,8 +1,13 @@
-<img src="./docs/logo.svg" width="400" />
+
+<p align="center">
+    <img src="./docs/logo.svg" width="400" />
+</p>
 
 <p align="center">
     An open-source SDK to add AI agents into any webapp.
 </p>
+
+---
 
 > **Beta** — the API is still unstable. Use in production at your own risk.
 
