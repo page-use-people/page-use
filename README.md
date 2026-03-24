@@ -15,9 +15,19 @@
 
 <br/>
 
-# page-use 📄 🤖
+# page-use
 
 > **Beta** — the API is still unstable. Use in production at your own risk.
+
+## Features
+
+- **Fast** — `page-use` writes and executes JS code, not raw tool use.
+- **Tool Definitions Powered by [Zod](https://zod.dev/)** — Friendlier to read and write than JSON Schema.
+- **Inspired by [WebMCP](https://webmcp.dev/)** — `page-use` aims to be fully compatible with WebMCP.
+- **React Integration**
+  - `<PageUseChat/>` — component for ready-made UI
+  - `useAgentState()` — to expose state to page-use agent.
+- Fully Opensource — MIT Licensed
 
 ## Packages
 
@@ -31,10 +41,29 @@
 
 ### 1. Start the server
 
-See the [core README](./apps/core/README.md) for the full `docker-compose.yml`.
+First create a `.env` file with the following
+
+```nginx configuration
+# required
+ANTHROPIC_API_KEY=sk-ant-...
+
+# used for verification, but enter the same string as signing key
+JWT_SIGNING_KEY=...
+```
+
+> [!NOTE]
+> For now, we only exclusively support Anthropic's Claude models. We're still working on adding support for other models like Gemini or ChatGPT
+
+
+Download this [docker-compose.yml](https://github.com/page-use-people/page-use/blob/main/docs/docker-compose.yml)
+file and start the server.
 
 ```bash
-ANTHROPIC_API_KEY=sk-ant-... docker compose up -d
+# DOWNLOAD docker-compose.yml
+curl -s "https://raw.githubusercontent.com/page-use-people/page-use/refs/heads/main/docs/docker-compose.yml" -o docker-compose.yml
+
+# START
+docker compose up -d
 ```
 
 ### 2. Add to your React app
@@ -45,34 +74,50 @@ pnpm add @page-use/react @page-use/client
 
 ```tsx
 import {configure} from '@page-use/client';
-import {SystemPrompt, useAgentVariable, useAgentFunction} from '@page-use/react';
+import {SystemPrompt, useAgentState, z} from '@page-use/react';
 import {PageUseChat} from '@page-use/react/ui/chat';
-import {z} from '@page-use/react';
 
-// point at your server (defaults to http://localhost:12001/trpc)
-configure({serverURL: 'https://my-server.com/trpc'});
+configure({
+    serverURL: 'https://[SELF HOSTED PAGE USER CORE ADDRESS]/trpc'
+});
 
-const itemsSchema = z.array(z.object({id: z.string(), text: z.string(), completed: z.boolean()}));
+const itemsSchema = z.array(
+    z.object({
+        id: z.string(),
+        text: z.string(),
+      
+        // .describe is very important to provide the agent with context
+        due: z.string()
+                .regex(/[0-9]{4}-[0-9]{2}-[0-9]{2}/)
+                .describe('the date the task is due in YYYY-MM-DD format')
+    })
+).describe('all todo list items');
 
 const App = () => {
     const [items, setItems] = useState([]);
-
-    useAgentVariable('items', {schema: itemsSchema, value: items});
-    useAgentFunction('setItems', {
-        inputSchema: itemsSchema,
-        mutates: ['items'],
-        func: async (next) => { setItems(next); return {ok: true}; },
-    });
+    
+    useAgentState('items', [items, setItems], {schema: itemsSchema});
 
     return (
         <>
-            <SystemPrompt>You help the user manage a todo list.</SystemPrompt>
-            {items.map((item) => <div key={item.id}>{item.text}</div>)}
+            <SystemPrompt>
+                You help the user manage a todo list.
+            </SystemPrompt>
+            
+            <ul>
+                {items.map((item) => <li key={item.id}>{item.text}</li>)}
+            </ul>
+            
             <PageUseChat title="Assistant" theme="dark" />
         </>
     );
 };
 ```
+
+> [!TIP]
+> We are importing `z` (zod) from `@page-use/react` because we expect
+> a certain version of zod (`>=4.0.0 & <5.0.0`); importing from our
+> package ensure you are using a compatible version of Zod.
 
 ## License
 
