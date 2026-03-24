@@ -4,6 +4,7 @@ type TProductCardProps = {
     readonly product: TCatalogProduct;
     readonly quantityInCart: number;
     readonly isHighlighted: boolean;
+    readonly isAgentActive: boolean;
     readonly onOpen: () => void;
     readonly registerRef: (node: HTMLElement | null) => void;
 };
@@ -12,12 +13,14 @@ export const ProductCard = ({
     product,
     quantityInCart,
     isHighlighted,
+    isAgentActive,
     onOpen,
     registerRef,
 }: TProductCardProps) => (
     <article
         ref={registerRef}
         className="grocery-product-card"
+        data-agent-active={isAgentActive ? 'true' : 'false'}
         data-highlighted={isHighlighted ? 'true' : 'false'}>
         <div className="grocery-product-card__media">
             <img
@@ -29,14 +32,13 @@ export const ProductCard = ({
         </div>
 
         <div className="grocery-product-card__content">
-            <div className="grocery-product-card__eyebrow">
-                <span>{product.primaryCategoryLabel ?? 'General grocery'}</span>
-                {quantityInCart > 0 ? (
+            {quantityInCart > 0 ? (
+                <div className="grocery-product-card__eyebrow">
                     <span className="grocery-product-card__count">
-                        {quantityInCart} in cart
+                        {quantityInCart}x in cart
                     </span>
-                ) : null}
-            </div>
+                </div>
+            ) : null}
 
             <h3 className="grocery-product-card__title">{product.title}</h3>
             <p className="grocery-product-card__subtitle">{product.subtitle}</p>
@@ -45,16 +47,13 @@ export const ProductCard = ({
                 <strong className="grocery-product-card__price">
                     {formatPrice(product.price)}
                 </strong>
+                <button
+                    type="button"
+                    className="grocery-product-card__secondary"
+                    onClick={onOpen}>
+                    View
+                </button>
             </div>
-        </div>
-
-        <div className="grocery-product-card__actions">
-            <button
-                type="button"
-                className="grocery-product-card__secondary"
-                onClick={onOpen}>
-                View product
-            </button>
         </div>
     </article>
 );

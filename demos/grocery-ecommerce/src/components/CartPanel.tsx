@@ -17,7 +17,13 @@ type TCartPanelProps = {
     readonly cartLines: readonly TCartLine[];
     readonly totalItems: number;
     readonly subtotal: number | null;
-    readonly fabRef?: (node: HTMLButtonElement | null) => void;
+    readonly activeProductId: number | null;
+    readonly isAgentActive: boolean;
+    readonly registerPanelRef: (node: HTMLElement | null) => void;
+    readonly registerLineRef: (
+        productId: number,
+        node: HTMLElement | null,
+    ) => void;
     readonly onAdjustCart: (productId: number, delta: number) => void;
     readonly onOpenProduct: (productId: number) => void;
     readonly onToggle: () => void;
@@ -30,53 +36,63 @@ export const CartPanel = ({
     cartLines,
     totalItems,
     subtotal,
-    fabRef,
+    activeProductId,
+    isAgentActive,
+    registerPanelRef,
+    registerLineRef,
     onAdjustCart,
     onOpenProduct,
     onToggle,
     onClose,
 }: TCartPanelProps) => (
-    <>
+    <aside
+        className="grocery-cart-rail"
+        data-open={isOpen ? 'true' : 'false'}>
         <button
-            ref={fabRef}
             type="button"
             className="grocery-cart-fab"
             data-open={isOpen ? 'true' : 'false'}
             data-pulse={isPulsing ? 'true' : 'false'}
             onClick={onToggle}
+            aria-label={`Cart, ${totalItems} item${totalItems === 1 ? '' : 's'}`}
             aria-expanded={isOpen}
             aria-controls="grocery-cart-drawer">
-            <span className="grocery-cart-fab__icon">Bag</span>
-            <span className="grocery-cart-fab__label">Cart</span>
+            <span className="grocery-cart-fab__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M6 8.5h12l-1 10H7l-1-10Z" />
+                    <path d="M9.25 9V7.75a2.75 2.75 0 0 1 5.5 0V9" />
+                </svg>
+            </span>
             <span className="grocery-cart-fab__count">{totalItems}</span>
         </button>
 
-        <aside
+        <section
             id="grocery-cart-drawer"
             className="grocery-cart-panel"
-            data-open={isOpen ? 'true' : 'false'}>
-            <div className="grocery-cart-panel__header">
-                <div>
-                    <span className="grocery-kicker">Basket</span>
-                    <h2>
+            data-open={isOpen ? 'true' : 'false'}
+            data-agent-active={isAgentActive ? 'true' : 'false'}
+            ref={registerPanelRef}>
+            <div className="grocery-cart-panel__topbar">
+                <div className="grocery-cart-panel__meta">
+                    <span className="grocery-cart-panel__meta-chip">
                         {totalItems} item{totalItems === 1 ? '' : 's'}
-                    </h2>
+                    </span>
+                    <span className="grocery-cart-panel__meta-chip">
+                        {subtotal === null
+                            ? 'Mixed pricing'
+                            : `৳${subtotal.toLocaleString('en-US')}`}
+                    </span>
                 </div>
                 <button
                     type="button"
                     className="grocery-cart-panel__close"
+                    aria-label="Minimize basket"
                     onClick={onClose}>
-                    Close
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                        <path d="M6 12h12" />
+                        <path d="m15 8 4 4-4 4" />
+                    </svg>
                 </button>
-            </div>
-
-            <div className="grocery-cart-panel__summary">
-                <span>Subtotal</span>
-                <strong>
-                    {subtotal === null
-                        ? 'Contains price-on-request items'
-                        : `BDT ${subtotal.toLocaleString('en-US')}`}
-                </strong>
             </div>
 
             <div className="grocery-cart-panel__lines">
@@ -84,7 +100,13 @@ export const CartPanel = ({
                     cartLines.map((line) => (
                         <div
                             key={line.productId}
+                            ref={(node) => {
+                                registerLineRef(line.productId, node);
+                            }}
                             className="grocery-cart-panel__line"
+                            data-agent-active={
+                                activeProductId === line.productId ? 'true' : 'false'
+                            }
                             style={
                                 {
                                     '--line-accent': line.accent,
@@ -103,44 +125,57 @@ export const CartPanel = ({
                             </button>
 
                             <div className="grocery-cart-panel__line-copy">
-                                <button
-                                    type="button"
-                                    className="grocery-cart-panel__line-title"
-                                    onClick={() => onOpenProduct(line.productId)}>
-                                    {line.title}
-                                </button>
-                                <p>
-                                    {line.lineTotal === null
-                                        ? `${line.quantity} x price on request`
-                                        : `BDT ${line.lineTotal.toLocaleString('en-US')}`}
-                                </p>
-                            </div>
+                                <div className="grocery-cart-panel__line-top">
+                                    <button
+                                        type="button"
+                                        className="grocery-cart-panel__line-title"
+                                        onClick={() => onOpenProduct(line.productId)}>
+                                        {line.title}
+                                    </button>
+                                </div>
 
-                            <div className="grocery-cart-panel__line-controls">
-                                <button
-                                    type="button"
-                                    onClick={() => onAdjustCart(line.productId, -1)}>
-                                    -
-                                </button>
-                                <span>{line.quantity}</span>
-                                <button
-                                    type="button"
-                                    onClick={() => onAdjustCart(line.productId, 1)}>
-                                    +
-                                </button>
+                                <div className="grocery-cart-panel__line-footer">
+                                    <div className="grocery-cart-panel__line-controls">
+                                        <button
+                                            type="button"
+                                            aria-label={`Remove one ${line.title}`}
+                                            onClick={() => onAdjustCart(line.productId, -1)}>
+                                            -
+                                        </button>
+                                        <span>{line.quantity}</span>
+                                        <button
+                                            type="button"
+                                            aria-label={`Add one more ${line.title}`}
+                                            disabled={line.price === null}
+                                            onClick={() =>
+                                                onAdjustCart(line.productId, 1)
+                                            }>
+                                            +
+                                        </button>
+                                    </div>
+
+                                    <div className="grocery-cart-panel__line-pricing">
+                                        <span className="grocery-cart-panel__line-each">
+                                            {line.price === null
+                                                ? 'Price on request'
+                                                : `৳${line.price.toLocaleString('en-US')} each`}
+                                        </span>
+                                        <strong className="grocery-cart-panel__line-total">
+                                            {line.lineTotal === null
+                                                ? `${line.quantity} selected`
+                                                : `৳${line.lineTotal.toLocaleString('en-US')}`}
+                                        </strong>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     ))
                 ) : (
                     <div className="grocery-cart-panel__empty">
-                        <p>Your cart is empty.</p>
-                        <span>
-                            Open any product modal to add something and the count
-                            badge will update here.
-                        </span>
+                        <p>Basket is empty.</p>
                     </div>
                 )}
             </div>
-        </aside>
-    </>
+        </section>
+    </aside>
 );

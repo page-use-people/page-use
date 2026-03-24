@@ -1,6 +1,5 @@
 import {
     startTransition,
-    useDeferredValue,
     useEffect,
     useMemo,
     useRef,
@@ -15,20 +14,12 @@ import {ProductCard} from './components/ProductCard.tsx';
 import {
     formatPrice,
     normalizeCatalog,
+    normalizeSearchValue,
     wait,
     type TCatalogData,
     type TCatalogProduct,
     type TRawProductsPayload,
 } from './lib/catalog.ts';
-
-type TVisibleProductCard = {
-    readonly id: number;
-    readonly title: string;
-    readonly subtitle: string;
-    readonly price: number | null;
-    readonly category: string | null;
-    readonly accent: string;
-};
 
 type TFeaturedCategory = {
     readonly key: string;
@@ -63,11 +54,6 @@ type TCartResult = {
     readonly subtotal: number | null;
 };
 
-type TCartDrawerResult = {
-    readonly isOpen: boolean;
-    readonly totalItems: number;
-};
-
 type TCatalogWindow = {
     readonly visibleFrom: number;
     readonly visibleTo: number;
@@ -78,118 +64,137 @@ type TCatalogWindow = {
 };
 
 type TFauxCursorMode = 'browse' | 'search' | 'cart';
+type TRevealPlacement = 'top' | 'center' | 'bottom';
 
 const MAX_VISIBLE_PRODUCTS = 24;
-const MAX_AGENT_VISIBLE_PRODUCTS = MAX_VISIBLE_PRODUCTS;
-const SEARCH_TYPING_BASE_MS = 28;
+const SEARCH_TYPING_BASE_MS = 56;
 
-const visibleProductCardSchema = z.object({
-    id: z.number().describe('catalog product id and image id'),
-    title: z.string().describe('product title'),
-    subtitle: z.string().describe('unit or subtitle'),
-    price: z.number().nullable().describe('price in BDT when known'),
-    category: z.string().nullable().describe('primary category label if present'),
-    accent: z.string().describe('accent color used in the cart or modal'),
-});
+const featuredCategorySchema = z
+    .string()
+    .describe('compact list of category keys available for browsing');
 
-const featuredCategorySchema = z.object({
-    key: z.string().describe('category key'),
-    label: z.string().describe('human-friendly category label'),
-    count: z.number().describe('number of products in the category'),
-});
+const visibleProductCardSchema = z
+    .string()
+    .describe('compact list of addable visible products; each line starts with the product id');
 
-const cartSummaryLineSchema = z.object({
-    productId: z.number().describe('product id'),
-    title: z.string().describe('product title'),
-    quantity: z.number().describe('quantity in cart'),
-    price: z.number().nullable().describe('single-unit price when known'),
-    lineTotal: z.number().nullable().describe('line total when all prices are known'),
-    accent: z.string().describe('accent color used for cart styling'),
-});
+const cartSummarySchema = z
+    .string()
+    .describe('compact basket summary with item ids and quantities');
 
-const cartSummarySchema = z.object({
-    totalItems: z.number().describe('total quantity across the basket'),
-    subtotal: z.number().nullable().describe('basket subtotal in BDT when all prices are known'),
-    lines: z.array(cartSummaryLineSchema).describe('current basket lines'),
-});
+const nullableSpotlightSchema = z
+    .string()
+    .nullable()
+    .describe('compact summary of the product open in the detail modal');
 
-const nullableSpotlightSchema = visibleProductCardSchema
-    .extend({
-        imageUrl: z.string().describe('cdn image url for the open product modal'),
+const catalogWindowSummarySchema = z
+    .string()
+    .describe('compact summary of the current result window');
+
+const animateSearchInputSchema = z
+    .object({
+        query: z.string().describe('query to search for'),
+        categoryKey: z
+            .string()
+            .nullable()
+            .optional()
+            .describe('optional category key to browse before searching'),
     })
-    .nullable();
+    .describe('search the catalog for a product');
 
-const animateSearchInputSchema = z.object({
-    query: z.string().describe('search query to fake type into the storefront search box'),
-    categoryKey: z.string().nullable().optional().describe('optional category key to select before searching'),
-});
+const animateSearchOutputSchema = z
+    .object({
+        resultCount: z.number().describe('number of matching products'),
+        leadingResultId: z.number().nullable().describe('first matching product id if any'),
+        leadingResultTitle: z
+            .string()
+            .nullable()
+            .describe('first matching product title if any'),
+    })
+    .describe('search results after the query is applied');
 
-const animateSearchOutputSchema = z.object({
-    resultCount: z.number().describe('number of matching products'),
-    leadingResultId: z.number().nullable().describe('first matching product id if any'),
-    leadingResultTitle: z.string().nullable().describe('first matching product title if any'),
-});
+const categorySelectionSchema = z
+    .object({
+        categoryKey: z
+            .string()
+            .nullable()
+            .describe('category key to browse, or null to clear category filtering'),
+    })
+    .describe('change the active category filter');
 
-const categorySelectionSchema = z.object({
-    categoryKey: z.string().nullable().describe('category key to browse, or null to clear category filtering'),
-});
+const categorySelectionOutputSchema = z
+    .object({
+        selectedCategory: z.string().nullable().describe('resulting category key'),
+        productCount: z
+            .number()
+            .describe('count of matching products under the current filters'),
+    })
+    .describe('result of changing category or clearing search');
 
-const categorySelectionOutputSchema = z.object({
-    selectedCategory: z.string().nullable().describe('resulting category key'),
-    productCount: z.number().describe('count of matching products under the current filters'),
-});
+const spotlightInputSchema = z
+    .object({
+        productId: z.number().describe('product id to open'),
+    })
+    .describe('open a product detail view');
 
-const spotlightInputSchema = z.object({
-    productId: z.number().describe('product id to open in the product modal'),
-});
+const spotlightOutputSchema = z
+    .object({
+        productId: z.number().describe('opened product id'),
+        productTitle: z.string().describe('opened product title'),
+    })
+    .describe('product now open in the detail view');
 
-const spotlightOutputSchema = z.object({
-    productId: z.number().describe('opened product id'),
-    productTitle: z.string().describe('opened product title'),
-});
+const cartInputSchema = z
+    .object({
+        productId: z.number().describe('product id to add or remove'),
+        quantityDelta: z.number().describe('positive to add, negative to remove'),
+    })
+    .describe('adjust the quantity of a product in the basket');
 
-const cartInputSchema = z.object({
-    productId: z.number().describe('product id to add or remove'),
-    quantityDelta: z.number().describe('positive to add, negative to remove'),
-});
+const cartOutputSchema = z
+    .object({
+        totalItems: z.number().describe('total quantity after mutation'),
+        subtotal: z
+            .number()
+            .nullable()
+            .describe('basket subtotal in BDT when all prices are known'),
+    })
+    .describe('basket totals after the quantity change');
 
-const cartOutputSchema = z.object({
-    totalItems: z.number().describe('total quantity after mutation'),
-    subtotal: z.number().nullable().describe('basket subtotal in BDT when all prices are known'),
-});
+const catalogWindowSchema = z
+    .object({
+        visibleFrom: z
+            .number()
+            .describe('1-based index of the first visible product in the filtered list'),
+        visibleTo: z
+            .number()
+            .describe('1-based index of the last visible product in the filtered list'),
+        visibleCount: z.number().describe('count of currently visible products'),
+        totalMatches: z
+            .number()
+            .describe('total products matching the current search and category'),
+        canScrollNext: z
+            .boolean()
+            .describe('whether more matching products exist after the current page'),
+        canScrollPrevious: z
+            .boolean()
+            .describe('whether earlier matching products exist before the current page'),
+    })
+    .describe('information about the active page of search results');
 
-const cartDrawerInputSchema = z.object({
-    open: z
-        .boolean()
-        .describe('whether the floating cart drawer should be open'),
-});
-
-const cartDrawerOutputSchema = z.object({
-    isOpen: z.boolean().describe('current open state of the cart drawer'),
-    totalItems: z.number().describe('current total quantity in the cart'),
-});
-
-const catalogWindowSchema = z.object({
-    visibleFrom: z.number().describe('1-based index of the first visible product in the filtered list'),
-    visibleTo: z.number().describe('1-based index of the last visible product in the filtered list'),
-    visibleCount: z.number().describe('count of currently visible products'),
-    totalMatches: z.number().describe('total products matching the current search and category'),
-    canScrollNext: z.boolean().describe('whether more matching products exist after the current window'),
-    canScrollPrevious: z.boolean().describe('whether earlier matching products exist before the current window'),
-});
-
-const scrollCatalogInputSchema = z.object({
-    direction: z
-        .enum(['next', 'previous'])
-        .describe('which direction to move through the filtered product window'),
-    pages: z
-        .number()
-        .int()
-        .min(1)
-        .max(6)
-        .optional()
-        .describe('how many product windows to move at once'),
-});
+const scrollCatalogInputSchema = z
+    .object({
+        direction: z
+            .enum(['next', 'previous'])
+            .describe('which direction to move through the result pages'),
+        pages: z
+            .number()
+            .int()
+            .min(1)
+            .max(6)
+            .optional()
+            .describe('how many result pages to move at once'),
+    })
+    .describe('move to a different page of visible results');
 
 const nextFrame = (signal?: AbortSignal) =>
     new Promise<void>((resolve, reject) => {
@@ -214,16 +219,163 @@ const nextFrame = (signal?: AbortSignal) =>
 const easeInOutCubic = (value: number) =>
     value < 0.5 ? 4 * value * value * value : 1 - ((-2 * value + 2) ** 3) / 2;
 
-const matchesFilters = (
+const boundedLevenshtein = (
+    left: string,
+    right: string,
+    maxDistance: number,
+) => {
+    if (left === right) {
+        return 0;
+    }
+
+    if (Math.abs(left.length - right.length) > maxDistance) {
+        return null;
+    }
+
+    let previousRow = Array.from({length: right.length + 1}, (_, index) => index);
+
+    for (let leftIndex = 0; leftIndex < left.length; leftIndex += 1) {
+        const currentRow = [leftIndex + 1];
+        let rowMinimum = currentRow[0];
+
+        for (let rightIndex = 0; rightIndex < right.length; rightIndex += 1) {
+            const substitutionCost =
+                left[leftIndex] === right[rightIndex] ? 0 : 1;
+            const nextValue = Math.min(
+                previousRow[rightIndex + 1]! + 1,
+                currentRow[rightIndex]! + 1,
+                previousRow[rightIndex]! + substitutionCost,
+            );
+
+            currentRow.push(nextValue);
+            rowMinimum = Math.min(rowMinimum, nextValue);
+        }
+
+        if (rowMinimum > maxDistance) {
+            return null;
+        }
+
+        previousRow = currentRow;
+    }
+
+    const distance = previousRow[right.length] ?? maxDistance + 1;
+    return distance <= maxDistance ? distance : null;
+};
+
+const subsequenceScore = (needle: string, haystack: string) => {
+    if (needle.length < 3 || needle.length > haystack.length) {
+        return null;
+    }
+
+    let matched = 0;
+    for (const character of haystack) {
+        if (character === needle[matched]) {
+            matched += 1;
+        }
+
+        if (matched === needle.length) {
+            const lengthPenalty = Math.max(0, haystack.length - needle.length);
+            return 54 - Math.min(lengthPenalty * 2, 16);
+        }
+    }
+
+    return null;
+};
+
+const scoreTokenMatch = (queryToken: string, candidateToken: string) => {
+    if (candidateToken === queryToken) {
+        return 160;
+    }
+
+    if (candidateToken.startsWith(queryToken)) {
+        return 132 - Math.min(candidateToken.length - queryToken.length, 20);
+    }
+
+    if (queryToken.length >= 3 && candidateToken.includes(queryToken)) {
+        return 110 - Math.min(candidateToken.indexOf(queryToken), 12);
+    }
+
+    if (queryToken.startsWith(candidateToken) && candidateToken.length >= 3) {
+        return 94 - Math.min(queryToken.length - candidateToken.length, 18);
+    }
+
+    if (queryToken.length >= 4 && candidateToken.length >= 4) {
+        const distance = boundedLevenshtein(queryToken, candidateToken, 2);
+        if (distance !== null) {
+            return 86 - distance * 18;
+        }
+    }
+
+    return subsequenceScore(queryToken, candidateToken);
+};
+
+const scoreSearchMatch = (
     product: TCatalogProduct,
     selectedCategory: string | null,
-    query: string,
+    normalizedQuery: string,
 ) => {
     const matchesCategory =
         selectedCategory === null || product.categoryKeys.includes(selectedCategory);
-    const matchesSearch =
-        query.length === 0 || product.searchText.includes(query.toLowerCase());
-    return matchesCategory && matchesSearch;
+    if (!matchesCategory) {
+        return null;
+    }
+
+    if (normalizedQuery.length === 0) {
+        return product.order;
+    }
+
+    const queryTokens = normalizedQuery.split(' ').filter(Boolean);
+    const normalizedTitle = normalizeSearchValue(
+        `${product.title} ${product.subtitle}`,
+    );
+
+    let score = 0;
+
+    if (normalizedTitle === normalizedQuery) {
+        score += 1400;
+    } else if (normalizedTitle.startsWith(normalizedQuery)) {
+        score += 1180;
+    } else if (normalizedTitle.includes(normalizedQuery)) {
+        score += 980;
+    } else if (product.searchText.includes(normalizedQuery)) {
+        score += 760;
+    }
+
+    const tokenScores = queryTokens
+        .map((queryToken) => {
+            let bestScore: number | null = null;
+
+            for (const candidateToken of product.searchTokens) {
+                const candidateScore = scoreTokenMatch(queryToken, candidateToken);
+                if (
+                    candidateScore !== null &&
+                    (bestScore === null || candidateScore > bestScore)
+                ) {
+                    bestScore = candidateScore;
+                }
+            }
+
+            return bestScore;
+        })
+        .filter((tokenScore): tokenScore is number => tokenScore !== null);
+
+    const matchedTokenCount = tokenScores.length;
+    if (matchedTokenCount === 0) {
+        return null;
+    }
+
+    const allTokensMatched = matchedTokenCount === queryTokens.length;
+    const coverage = matchedTokenCount / queryTokens.length;
+    if (!allTokensMatched && score < 760 && coverage < 0.6) {
+        return null;
+    }
+
+    score += tokenScores.reduce((sum, tokenScore) => sum + tokenScore, 0);
+    score += matchedTokenCount * 85;
+    score += allTokensMatched ? 120 : 0;
+    score -= Math.max(0, product.searchTokens.length - queryTokens.length) * 1.5;
+
+    return score;
 };
 
 const getFilteredProducts = (
@@ -235,10 +387,34 @@ const getFilteredProducts = (
         return [];
     }
 
-    const normalizedQuery = query.trim().toLowerCase();
-    return catalog.products.filter((product) =>
-        matchesFilters(product, selectedCategory, normalizedQuery),
-    );
+    const normalizedQuery = normalizeSearchValue(query);
+    if (normalizedQuery.length === 0) {
+        return catalog.products.filter(
+            (product) =>
+                selectedCategory === null ||
+                product.categoryKeys.includes(selectedCategory),
+        );
+    }
+
+    return catalog.products
+        .map((product) => ({
+            product,
+            score: scoreSearchMatch(product, selectedCategory, normalizedQuery),
+        }))
+        .filter(
+            (
+                scoredProduct,
+            ): scoredProduct is {product: TCatalogProduct; score: number} =>
+                scoredProduct.score !== null,
+        )
+        .sort((left, right) => {
+            if (right.score !== left.score) {
+                return right.score - left.score;
+            }
+
+            return left.product.order - right.product.order;
+        })
+        .map(({product}) => product);
 };
 
 const clampWindowStart = (start: number, totalMatches: number) =>
@@ -298,35 +474,49 @@ const App = () => {
     const [loadError, setLoadError] = useState<string | null>(null);
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [searchText, setSearchText] = useState('');
+    const [searchDraft, setSearchDraft] = useState('');
     const [modalProductId, setModalProductId] = useState<number | null>(null);
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [visibleStartIndex, setVisibleStartIndex] = useState(0);
     const [cartQuantities, setCartQuantities] = useState<Record<number, number>>({});
+    const [cartActivity, setCartActivity] = useState<Record<number, number>>({});
     const [cartIsPulsing, setCartIsPulsing] = useState(false);
     const [searchIsAnimating, setSearchIsAnimating] = useState(false);
     const [highlightedProductId, setHighlightedProductId] = useState<number | null>(
         null,
     );
+    const [agentAction, setAgentAction] = useState<{
+        readonly mode: TFauxCursorMode;
+        readonly label: string;
+    } | null>(null);
+    const [activeUiTarget, setActiveUiTarget] = useState<string | null>(null);
 
-    const deferredSearchText = useDeferredValue(searchText);
     const selectedCategoryRef = useRef<string | null>(selectedCategory);
     const searchTextRef = useRef(searchText);
+    const searchDraftRef = useRef(searchDraft);
     const visibleStartIndexRef = useRef(visibleStartIndex);
-    const modalProductIdRef = useRef<number | null>(modalProductId);
     const isCartOpenRef = useRef(isCartOpen);
+    const modalProductIdRef = useRef<number | null>(modalProductId);
     const cartQuantitiesRef = useRef(cartQuantities);
+    const cartActivityRef = useRef(cartActivity);
+    const cartActivityCounterRef = useRef(0);
     const highlightTimerRef = useRef<number | null>(null);
     const cartPulseTimerRef = useRef<number | null>(null);
 
     const searchInputRef = useRef<HTMLInputElement | null>(null);
+    const searchSubmitButtonRef = useRef<HTMLButtonElement | null>(null);
+    const searchClearButtonRef = useRef<HTMLButtonElement | null>(null);
+    const searchPanelRef = useRef<HTMLDivElement | null>(null);
     const allCategoryButtonRef = useRef<HTMLButtonElement | null>(null);
     const categoryButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
     const productCardRefs = useRef<Map<number, HTMLElement>>(new Map());
     const gridSectionRef = useRef<HTMLElement | null>(null);
+    const gridHeadingRef = useRef<HTMLDivElement | null>(null);
+    const gridWindowNavRef = useRef<HTMLDivElement | null>(null);
     const previousWindowButtonRef = useRef<HTMLButtonElement | null>(null);
     const nextWindowButtonRef = useRef<HTMLButtonElement | null>(null);
-    const cartFabButtonRef = useRef<HTMLButtonElement | null>(null);
-    const modalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+    const cartPanelRef = useRef<HTMLElement | null>(null);
+    const cartLineRefs = useRef<Map<number, HTMLElement>>(new Map());
     const modalAddButtonRef = useRef<HTMLButtonElement | null>(null);
     const cursorRef = useRef<HTMLDivElement | null>(null);
     const cursorLabelRef = useRef<HTMLDivElement | null>(null);
@@ -341,20 +531,28 @@ const App = () => {
     }, [searchText]);
 
     useEffect(() => {
-        visibleStartIndexRef.current = visibleStartIndex;
-    }, [visibleStartIndex]);
+        searchDraftRef.current = searchDraft;
+    }, [searchDraft]);
 
     useEffect(() => {
-        modalProductIdRef.current = modalProductId;
-    }, [modalProductId]);
+        visibleStartIndexRef.current = visibleStartIndex;
+    }, [visibleStartIndex]);
 
     useEffect(() => {
         isCartOpenRef.current = isCartOpen;
     }, [isCartOpen]);
 
     useEffect(() => {
+        modalProductIdRef.current = modalProductId;
+    }, [modalProductId]);
+
+    useEffect(() => {
         cartQuantitiesRef.current = cartQuantities;
     }, [cartQuantities]);
+
+    useEffect(() => {
+        cartActivityRef.current = cartActivity;
+    }, [cartActivity]);
 
     useEffect(() => {
         void loadCatalog()
@@ -422,8 +620,8 @@ const App = () => {
     );
 
     const filteredProducts = useMemo(
-        () => getFilteredProducts(catalog, selectedCategory, deferredSearchText),
-        [catalog, deferredSearchText, selectedCategory],
+        () => getFilteredProducts(catalog, selectedCategory, searchText),
+        [catalog, searchText, selectedCategory],
     );
 
     useEffect(() => {
@@ -489,8 +687,17 @@ const App = () => {
                 } satisfies TCartLine;
             })
             .filter((line): line is TCartLine => line !== null)
-            .sort((left, right) => left.productId - right.productId);
-    }, [catalog, cartQuantities]);
+            .sort((left, right) => {
+                const rightActivity = cartActivity[right.productId] ?? 0;
+                const leftActivity = cartActivity[left.productId] ?? 0;
+
+                if (rightActivity !== leftActivity) {
+                    return rightActivity - leftActivity;
+                }
+
+                return 0;
+            });
+    }, [catalog, cartActivity, cartQuantities]);
 
     const cartSummary = useMemo<TCartSummary>(() => {
         const totalItems = cartLines.reduce(
@@ -508,34 +715,59 @@ const App = () => {
         };
     }, [cartLines]);
 
-    const visibleAgentCards = useMemo<readonly TVisibleProductCard[]>(
+    const featuredCategorySummary = useMemo(
         () =>
-            visibleProducts.slice(0, MAX_AGENT_VISIBLE_PRODUCTS).map((product) => ({
-                id: product.id,
-                title: product.title,
-                subtitle: product.subtitle,
-                price: product.price,
-                category: product.primaryCategoryLabel,
-                accent: product.theme.accent,
-            })),
+            featuredCategories.length > 0
+                ? featuredCategories
+                      .map((category) => `${category.key}: ${category.label}`)
+                      .join(' | ')
+                : 'none',
+        [featuredCategories],
+    );
+
+    const visibleAgentCards = useMemo(
+        () =>
+            visibleProducts
+                .filter((product) => product.price !== null)
+                .map((product) => `#${product.id} ${product.title}`)
+                .join('\n') || 'none',
         [visibleProducts],
     );
 
+    const catalogWindowSummary = useMemo(() => {
+        if (catalogWindow.totalMatches === 0) {
+            return '0 results';
+        }
+
+        return `${catalogWindow.visibleFrom}-${catalogWindow.visibleTo} of ${catalogWindow.totalMatches}; previous ${catalogWindow.canScrollPrevious ? 'yes' : 'no'}; next ${catalogWindow.canScrollNext ? 'yes' : 'no'}`;
+    }, [catalogWindow]);
+
     const modalAgentCard = modalProduct
-        ? {
-              id: modalProduct.id,
-              title: modalProduct.title,
-              subtitle: modalProduct.subtitle,
-              price: modalProduct.price,
-              category: modalProduct.primaryCategoryLabel,
-              accent: modalProduct.theme.accent,
-              imageUrl: modalProduct.imageUrl,
-          }
+        ? `#${modalProduct.id} ${modalProduct.title}${modalProduct.subtitle ? ` — ${modalProduct.subtitle}` : ''}${modalProduct.price === null ? '' : ` — ৳${modalProduct.price.toLocaleString('en-US')}`}`
         : null;
+
+    const cartSummaryText = useMemo(() => {
+        if (cartLines.length === 0) {
+            return 'empty';
+        }
+
+        const subtotalText =
+            cartSummary.subtotal === null
+                ? 'mixed pricing'
+                : `৳${cartSummary.subtotal.toLocaleString('en-US')}`;
+        const lineSummary = cartLines
+            .slice(0, 8)
+            .map((line) => `#${line.productId} ${line.title} x${line.quantity}`)
+            .join(' | ');
+        const remainder =
+            cartLines.length > 8 ? ` | +${cartLines.length - 8} more` : '';
+
+        return `${cartSummary.totalItems} items, subtotal ${subtotalText}. ${lineSummary}${remainder}`;
+    }, [cartLines, cartSummary.subtotal, cartSummary.totalItems]);
 
     const selectedCategoryLabel = selectedCategory
         ? catalog?.categoryMap.get(selectedCategory)?.label ?? 'Selected aisle'
-        : 'All aisles';
+        : 'Products';
 
     const modalStyle = modalProduct
         ? ({
@@ -550,8 +782,233 @@ const App = () => {
           } as CSSProperties)
         : undefined;
 
+    const waitForUi = async (signal?: AbortSignal, delay = 180) => {
+        await nextFrame(signal);
+        await wait(delay, signal);
+        await nextFrame(signal);
+    };
+
+    const revealElement = async (
+        element: Element | null,
+        placement: TRevealPlacement = 'center',
+        signal?: AbortSignal,
+        behavior: ScrollBehavior = 'smooth',
+    ) => {
+        if (!element) {
+            return;
+        }
+
+        const rect = element.getBoundingClientRect();
+        const absoluteTop = window.scrollY + rect.top;
+        const padding = 20;
+        const topSafeZone = placement === 'top' ? 18 : 72;
+        const bottomSafeZone = placement === 'bottom' ? 18 : 96;
+        const isAlreadyVisible =
+            rect.top >= topSafeZone &&
+            rect.bottom <= window.innerHeight - bottomSafeZone;
+        const maxScrollTop = Math.max(
+            0,
+            document.documentElement.scrollHeight - window.innerHeight,
+        );
+
+        if (isAlreadyVisible) {
+            await nextFrame(signal);
+            return;
+        }
+
+        let targetTop = window.scrollY;
+        if (placement === 'top') {
+            targetTop = absoluteTop - padding;
+        } else if (placement === 'bottom') {
+            targetTop = absoluteTop - window.innerHeight + rect.height + padding;
+        } else {
+            targetTop = absoluteTop - (window.innerHeight - rect.height) / 2;
+        }
+
+        const clampedTargetTop = Math.max(
+            0,
+            Math.min(Math.round(targetTop), maxScrollTop),
+        );
+
+        if (Math.abs(clampedTargetTop - window.scrollY) < 12) {
+            await nextFrame(signal);
+            return;
+        }
+
+        window.scrollTo({
+            top: clampedTargetTop,
+            behavior,
+        });
+
+        await wait(180, signal);
+        await nextFrame(signal);
+        await nextFrame(signal);
+    };
+
+    const scrollSearchAreaIntoView = async (
+        signal?: AbortSignal,
+        behavior: ScrollBehavior = 'smooth',
+    ) => {
+        await revealElement(searchPanelRef.current, 'top', signal, behavior);
+    };
+
+    const revealCategoryButton = async (
+        button: HTMLButtonElement | null,
+        signal?: AbortSignal,
+    ) => {
+        await revealElement(searchPanelRef.current, 'top', signal);
+        button?.scrollIntoView({
+            behavior: 'smooth',
+            inline: 'center',
+            block: 'nearest',
+        });
+        await wait(180, signal);
+        await nextFrame(signal);
+    };
+
+    const revealCatalogResults = async (signal?: AbortSignal) => {
+        await revealElement(gridHeadingRef.current ?? gridSectionRef.current, 'top', signal);
+    };
+
+    const revealCatalogFooter = async (signal?: AbortSignal) => {
+        await revealElement(
+            gridWindowNavRef.current ?? gridSectionRef.current,
+            'bottom',
+            signal,
+        );
+    };
+
+    const revealCartPanel = async (
+        signal?: AbortSignal,
+        options?: {
+            readonly openIfNeeded?: boolean;
+        },
+    ) => {
+        if (options?.openIfNeeded && !isCartOpenRef.current) {
+            isCartOpenRef.current = true;
+            startTransition(() => {
+                setIsCartOpen(true);
+            });
+            await waitForUi(signal, 80);
+            return;
+        }
+
+        await nextFrame(signal);
+    };
+
+    const revealCartLine = async (
+        productId: number,
+        signal?: AbortSignal,
+        options?: {
+            readonly openIfNeeded?: boolean;
+        },
+    ) => {
+        await revealCartPanel(signal, options);
+        const line = cartLineRefs.current.get(productId) ?? null;
+        line?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+            inline: 'nearest',
+        });
+        await wait(90, signal);
+        await nextFrame(signal);
+    };
+
+    const clearSearchState = async (
+        signal?: AbortSignal,
+        options?: {
+            readonly animate?: boolean;
+        },
+    ): Promise<TCategoryResult> => {
+        if (options?.animate) {
+            setActiveUiTarget('search-panel');
+            setCursorMode('search', 'show search');
+            await scrollSearchAreaIntoView(signal);
+
+            setActiveUiTarget('search-clear');
+            setCursorMode('search', 'clear search');
+            await moveCursorToElement(searchClearButtonRef.current, signal, 320);
+            await pulseCursor(signal);
+        }
+
+        searchDraftRef.current = '';
+        searchTextRef.current = '';
+        visibleStartIndexRef.current = 0;
+        startTransition(() => {
+            setSearchDraft('');
+            setSearchText('');
+            setVisibleStartIndex(0);
+        });
+
+        await waitForUi(signal, 180);
+
+        return {
+            selectedCategory: selectedCategoryRef.current,
+            productCount: getFilteredProducts(
+                catalog,
+                selectedCategoryRef.current,
+                '',
+            ).length,
+        };
+    };
+
+    const commitSearchQuery = async (
+        nextQuery: string,
+        signal?: AbortSignal,
+        options?: {
+            readonly animateButton?: boolean;
+        },
+    ): Promise<TAnimateSearchResult> => {
+        const committedQuery = nextQuery.trim();
+
+        if (options?.animateButton) {
+            setActiveUiTarget('search-submit');
+            setCursorMode('search', 'run search');
+            await moveCursorToElement(searchSubmitButtonRef.current, signal, 280);
+            await pulseCursor(signal);
+        }
+
+        searchDraftRef.current = committedQuery;
+        searchTextRef.current = committedQuery;
+        visibleStartIndexRef.current = 0;
+        startTransition(() => {
+            setSearchDraft(committedQuery);
+            setSearchText(committedQuery);
+            setVisibleStartIndex(0);
+        });
+
+        await waitForUi(signal, 220);
+
+        const matches = getFilteredProducts(
+            catalog,
+            selectedCategoryRef.current,
+            committedQuery,
+        );
+        const pricedMatches = matches.filter((product) => product.price !== null);
+        const leading = pricedMatches[0] ?? null;
+
+        return {
+            resultCount: pricedMatches.length,
+            leadingResultId: leading?.id ?? null,
+            leadingResultTitle: leading?.title ?? null,
+        };
+    };
+
+    const runManualSearch = () => {
+        void (async () => {
+            await scrollSearchAreaIntoView(undefined);
+            await commitSearchQuery(searchDraftRef.current);
+        })();
+    };
+
+    const runManualClear = () => {
+        void (async () => {
+            await scrollSearchAreaIntoView(undefined);
+            await clearSearchState(undefined);
+        })();
+    };
+
     const openProductModal = (productId: number) => {
-        setIsCartOpen(false);
         modalProductIdRef.current = productId;
         setModalProductId(productId);
         flashProduct(productId);
@@ -584,6 +1041,7 @@ const App = () => {
     const setCursorMode = (mode: TFauxCursorMode, label: string) => {
         const cursor = cursorRef.current;
         const labelNode = cursorLabelRef.current;
+        setAgentAction({mode, label});
         if (!cursor || !labelNode) {
             return;
         }
@@ -596,6 +1054,8 @@ const App = () => {
     const hideCursor = () => {
         const cursor = cursorRef.current;
         const labelNode = cursorLabelRef.current;
+        setAgentAction(null);
+        setActiveUiTarget(null);
         if (!cursor || !labelNode) {
             return;
         }
@@ -689,117 +1149,122 @@ const App = () => {
         pages = 1,
         signal?: AbortSignal,
     ): Promise<TCatalogWindow> => {
-        const currentFiltered = getFilteredProducts(
-            catalog,
-            selectedCategoryRef.current,
-            searchTextRef.current,
-        );
-        let currentStart = visibleStartIndexRef.current;
-        const stepCount = Math.max(1, pages);
-
-        for (let page = 0; page < stepCount; page += 1) {
-            const nextStart = clampWindowStart(
-                currentStart +
-                    (direction === 'next'
-                        ? MAX_VISIBLE_PRODUCTS
-                        : -MAX_VISIBLE_PRODUCTS),
-                currentFiltered.length,
+        try {
+            const currentFiltered = getFilteredProducts(
+                catalog,
+                selectedCategoryRef.current,
+                searchTextRef.current,
             );
+            let currentStart = visibleStartIndexRef.current;
+            const stepCount = Math.max(1, pages);
 
-            if (nextStart === currentStart) {
-                break;
+            for (let page = 0; page < stepCount; page += 1) {
+                const nextStart = clampWindowStart(
+                    currentStart +
+                        (direction === 'next'
+                            ? MAX_VISIBLE_PRODUCTS
+                            : -MAX_VISIBLE_PRODUCTS),
+                    currentFiltered.length,
+                );
+
+                if (nextStart === currentStart) {
+                    break;
+                }
+
+                const button =
+                    direction === 'next'
+                        ? nextWindowButtonRef.current
+                        : previousWindowButtonRef.current;
+
+                setActiveUiTarget(`window:${direction}`);
+                setCursorMode(
+                    'browse',
+                    direction === 'next' ? 'next page' : 'previous page',
+                );
+                await revealCatalogFooter(signal);
+                await moveCursorToElement(
+                    button ?? gridWindowNavRef.current ?? gridSectionRef.current,
+                    signal,
+                    340,
+                );
+                await pulseCursor(signal);
+
+                currentStart = nextStart;
+                visibleStartIndexRef.current = nextStart;
+
+                startTransition(() => {
+                    setVisibleStartIndex(nextStart);
+                });
+
+                await waitForUi(signal, 180);
+                await revealCatalogResults(signal);
             }
 
-            const button =
-                direction === 'next'
-                    ? nextWindowButtonRef.current
-                    : previousWindowButtonRef.current;
-
-            setCursorMode(
-                'browse',
-                direction === 'next' ? 'scroll forward' : 'scroll back',
-            );
-            await moveCursorToElement(button ?? gridSectionRef.current, signal, 340);
-            await pulseCursor(signal);
-
-            currentStart = nextStart;
-            visibleStartIndexRef.current = nextStart;
-
-            startTransition(() => {
-                setVisibleStartIndex(nextStart);
-            });
-
-            await nextFrame(signal);
-            gridSectionRef.current?.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start',
-                inline: 'nearest',
-            });
-            await wait(180, signal);
+            return buildCatalogWindow(currentFiltered, currentStart);
+        } finally {
+            hideCursor();
         }
-
-        hideCursor();
-
-        return buildCatalogWindow(currentFiltered, currentStart);
     };
 
     const applyCategorySelection = async (
         categoryKey: string | null,
         signal?: AbortSignal,
     ): Promise<TCategoryResult> => {
-        const nextCount = getFilteredProducts(
-            catalog,
-            categoryKey,
-            searchTextRef.current,
-        ).length;
+        try {
+            const nextCount = getFilteredProducts(
+                catalog,
+                categoryKey,
+                searchTextRef.current,
+            ).length;
 
-        const button =
-            categoryKey === null
-                ? allCategoryButtonRef.current
-                : categoryButtonRefs.current.get(categoryKey) ?? null;
+            const button =
+                categoryKey === null
+                    ? allCategoryButtonRef.current
+                    : categoryButtonRefs.current.get(categoryKey) ?? null;
 
-        setCursorMode('browse', categoryKey === null ? 'show all' : 'browse aisle');
-        await moveCursorToElement(button, signal, 360);
-        button?.scrollIntoView({
-            behavior: 'smooth',
-            inline: 'center',
-            block: 'nearest',
-        });
-        await pulseCursor(signal);
+            setActiveUiTarget(
+                categoryKey === null ? 'category:all' : `category:${categoryKey}`,
+            );
+            setCursorMode(
+                'browse',
+                categoryKey === null ? 'show all' : 'browse aisle',
+            );
+            await revealCategoryButton(button, signal);
+            await moveCursorToElement(button, signal, 360);
+            await pulseCursor(signal);
 
-        selectedCategoryRef.current = categoryKey;
-        visibleStartIndexRef.current = 0;
-        startTransition(() => {
-            setSelectedCategory(categoryKey);
-            setVisibleStartIndex(0);
-        });
+            selectedCategoryRef.current = categoryKey;
+            visibleStartIndexRef.current = 0;
+            startTransition(() => {
+                setSelectedCategory(categoryKey);
+                setVisibleStartIndex(0);
+            });
 
-        await wait(180, signal);
-        hideCursor();
+            await waitForUi(signal);
 
-        return {
-            selectedCategory: categoryKey,
-            productCount: nextCount,
-        };
+            return {
+                selectedCategory: categoryKey,
+                productCount: nextCount,
+            };
+        } finally {
+            hideCursor();
+        }
     };
 
     const ensureProductVisible = async (
         product: TCatalogProduct,
         signal?: AbortSignal,
     ) => {
-        const currentQuery = searchTextRef.current.trim().toLowerCase();
+        const currentQuery = normalizeSearchValue(searchTextRef.current);
         const matchesSearch =
-            currentQuery.length === 0 || product.searchText.includes(currentQuery);
+            currentQuery.length === 0 ||
+            scoreSearchMatch(product, null, currentQuery) !== null;
         const matchesCategory =
             selectedCategoryRef.current === null ||
             product.categoryKeys.includes(selectedCategoryRef.current);
 
         if (!matchesSearch) {
-            searchTextRef.current = '';
-            startTransition(() => {
-                setSearchText('');
-            });
-            await wait(140, signal);
+            await clearSearchState(signal, {animate: true});
         }
 
         if (!matchesCategory) {
@@ -846,40 +1311,39 @@ const App = () => {
         productId: number,
         signal?: AbortSignal,
     ): Promise<TSpotlightResult> => {
-        const product = catalog?.productMap.get(productId);
-        if (!catalog || !product) {
-            throw new Error(`Unknown product id: ${productId}`);
-        }
+        try {
+            const product = catalog?.productMap.get(productId);
+            if (!catalog || !product) {
+                throw new Error(`Unknown product id: ${productId}`);
+            }
 
-        await ensureProductVisible(product, signal);
+            await ensureProductVisible(product, signal);
 
-        const productCard = productCardRefs.current.get(product.id) ?? null;
-        if (productCard) {
-            setCursorMode('browse', 'view details');
-            await moveCursorToElement(productCard, signal, 400);
-            productCard.scrollIntoView({
-                behavior: 'smooth',
-                block: 'center',
-                inline: 'nearest',
+            const productCard = productCardRefs.current.get(product.id) ?? null;
+            if (productCard) {
+                setActiveUiTarget(`product:${product.id}`);
+                setCursorMode('browse', 'view details');
+                await revealElement(productCard, 'center', signal);
+                await moveCursorToElement(productCard, signal, 400);
+                await pulseCursor(signal);
+                flashProduct(product.id);
+            }
+
+            modalProductIdRef.current = product.id;
+            startTransition(() => {
+                setModalProductId(product.id);
             });
-            await pulseCursor(signal);
-            flashProduct(product.id);
+
+            await nextFrame(signal);
+            await wait(120, signal);
+
+            return {
+                productId: product.id,
+                productTitle: product.title,
+            };
+        } finally {
+            hideCursor();
         }
-
-        modalProductIdRef.current = product.id;
-        startTransition(() => {
-            setModalProductId(product.id);
-            setIsCartOpen(false);
-        });
-
-        await nextFrame(signal);
-        await wait(120, signal);
-        hideCursor();
-
-        return {
-            productId: product.id,
-            productTitle: product.title,
-        };
     };
 
     const animateSearch = async (
@@ -904,57 +1368,43 @@ const App = () => {
                 await applyCategorySelection(input.categoryKey ?? null, signal);
             }
 
+            setActiveUiTarget('search-panel');
+            setCursorMode('search', 'show search');
+            await scrollSearchAreaIntoView(signal);
+
             const inputNode = searchInputRef.current;
+            setActiveUiTarget('search-panel');
             setCursorMode('search', 'compose query');
             await moveCursorToElement(inputNode, signal, 420);
             inputNode?.focus();
             await pulseCursor(signal);
 
-            let draft = searchTextRef.current;
+            let draft = searchDraftRef.current;
             while (draft.length > 0) {
                 draft = draft.slice(0, -1);
-                searchTextRef.current = draft;
-                startTransition(() => setSearchText(draft));
-                await wait(18, signal);
+                searchDraftRef.current = draft;
+                startTransition(() => setSearchDraft(draft));
+                await wait(28, signal);
             }
 
             draft = '';
             for (const character of input.query) {
                 draft += character;
-                searchTextRef.current = draft;
-                startTransition(() => setSearchText(draft));
+                searchDraftRef.current = draft;
+                startTransition(() => setSearchDraft(draft));
                 await wait(SEARCH_TYPING_BASE_MS, signal);
             }
 
             await wait(220, signal);
 
-            const matches = getFilteredProducts(
-                catalog,
-                selectedCategoryRef.current,
-                input.query,
-            );
-            const leading = matches[0] ?? null;
+            const result = await commitSearchQuery(draft, signal, {
+                animateButton: true,
+            });
 
-            if (leading) {
-                await nextFrame(signal);
-                const productCard = productCardRefs.current.get(leading.id) ?? null;
-                productCard?.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'center',
-                    inline: 'nearest',
-                });
-                flashProduct(leading.id);
-            }
-
-            hideCursor();
-
-            return {
-                resultCount: matches.length,
-                leadingResultId: leading?.id ?? null,
-                leadingResultTitle: leading?.title ?? null,
-            };
+            return result;
         } finally {
             setSearchIsAnimating(false);
+            hideCursor();
         }
     };
 
@@ -962,46 +1412,46 @@ const App = () => {
         _input: void,
         signal?: AbortSignal,
     ): Promise<TCategoryResult> => {
-        setCursorMode('search', 'clear search');
-        await moveCursorToElement(searchInputRef.current, signal, 320);
-        await pulseCursor(signal);
-
-        let draft = searchTextRef.current;
-        while (draft.length > 0) {
-            draft = draft.slice(0, -1);
-            searchTextRef.current = draft;
-            startTransition(() => setSearchText(draft));
-            await wait(18, signal);
+        try {
+            return await clearSearchState(signal, {animate: true});
+        } finally {
+            hideCursor();
         }
-
-        hideCursor();
-
-        return {
-            selectedCategory: selectedCategoryRef.current,
-            productCount: getFilteredProducts(
-                catalog,
-                selectedCategoryRef.current,
-                '',
-            ).length,
-        };
     };
 
     const mutateCart = (
         productId: number,
         quantityDelta: number,
     ): TCartSummary => {
-        const nextCart = structuredClone(cartQuantitiesRef.current);
+        const product = catalog?.productMap.get(productId);
+        if (quantityDelta > 0 && product?.price === null) {
+            return cartSummary;
+        }
+
+        const nextCart = {...cartQuantitiesRef.current};
+        const nextCartActivity = {...cartActivityRef.current};
         const currentQuantity = nextCart[productId] ?? 0;
         const nextQuantity = Math.max(0, currentQuantity + quantityDelta);
 
         if (nextQuantity === 0) {
             delete nextCart[productId];
+            delete nextCartActivity[productId];
         } else {
             nextCart[productId] = nextQuantity;
+            if (nextCartActivity[productId] === undefined) {
+                cartActivityCounterRef.current += 1;
+                nextCartActivity[productId] = cartActivityCounterRef.current;
+            }
         }
 
         cartQuantitiesRef.current = nextCart;
+        cartActivityRef.current = nextCartActivity;
         setCartQuantities(nextCart);
+        setCartActivity(nextCartActivity);
+        if (quantityDelta > 0) {
+            isCartOpenRef.current = true;
+            setIsCartOpen(true);
+        }
         pulseCartFab();
 
         const nextLines = Object.entries(nextCart)
@@ -1037,94 +1487,138 @@ const App = () => {
     const runCartMutation = async (
         input: z.infer<typeof cartInputSchema>,
         signal?: AbortSignal,
-        options?: {
-            readonly revealCart?: boolean;
-        },
     ): Promise<TCartResult> => {
-        if (!catalog) {
-            return {totalItems: 0, subtotal: null};
-        }
-
-        const product = catalog.productMap.get(input.productId);
-        if (!product) {
-            throw new Error(`Unknown product id: ${input.productId}`);
-        }
-
-        if (input.quantityDelta > 0) {
-            if (modalProductIdRef.current !== product.id) {
-                await runSpotlight(product.id, signal);
+        try {
+            if (!catalog) {
+                return {totalItems: 0, subtotal: null};
             }
 
-            const addButton = modalAddButtonRef.current;
-            setCursorMode('cart', 'add to cart');
-            await moveCursorToElement(addButton, signal, 340);
-            await pulseCursor(signal);
-            flashProduct(product.id);
-        } else {
-            await ensureProductVisible(product, signal);
-            await nextFrame(signal);
+            const product = catalog.productMap.get(input.productId);
+            if (!product) {
+                throw new Error(`Unknown product id: ${input.productId}`);
+            }
 
-            const target =
-                productCardRefs.current.get(product.id) ?? searchInputRef.current ?? null;
+            if (input.quantityDelta > 0 && product.price === null) {
+                return {
+                    totalItems: cartSummary.totalItems,
+                    subtotal: cartSummary.subtotal,
+                };
+            }
 
-            setCursorMode('cart', 'edit cart');
-            await moveCursorToElement(target, signal, 360);
-            target?.scrollIntoView?.({
-                behavior: 'smooth',
-                block: 'center',
-                inline: 'nearest',
-            });
-            await pulseCursor(signal);
-            flashProduct(product.id);
-        }
+            if (input.quantityDelta > 0) {
+                if (modalProductIdRef.current !== product.id) {
+                    await runSpotlight(product.id, signal);
+                }
 
-        const nextSummary = mutateCart(product.id, input.quantityDelta);
-        if (input.quantityDelta > 0 && modalProductIdRef.current === product.id) {
-            modalProductIdRef.current = null;
-            startTransition(() => {
-                setModalProductId(null);
-            });
-        }
+                const addButton = modalAddButtonRef.current;
+                setActiveUiTarget('modal:add');
+                setCursorMode('cart', 'add to cart');
+                await moveCursorToElement(addButton, signal, 340);
+                await pulseCursor(signal);
+                flashProduct(product.id);
+            } else {
+                const quantityInCart = cartQuantitiesRef.current[product.id] ?? 0;
+                const cartLine = cartLineRefs.current.get(product.id) ?? null;
 
-        if (options?.revealCart ?? false) {
-            setIsCartOpen(true);
-        }
-        hideCursor();
+                if (quantityInCart > 0 && cartLine) {
+                    setCursorMode('cart', 'trim basket');
+                    setActiveUiTarget(`cart:line:${product.id}`);
+                    await revealCartLine(product.id, signal, {openIfNeeded: true});
+                    await moveCursorToElement(cartLine, signal, 360);
+                } else {
+                    await ensureProductVisible(product, signal);
+                    await nextFrame(signal);
 
-        return {
-            totalItems: nextSummary.totalItems,
-            subtotal: nextSummary.subtotal,
-        };
-    };
+                    const target =
+                        productCardRefs.current.get(product.id) ??
+                        searchInputRef.current ??
+                        null;
 
-    const setCartVisibility = async (
-        input: z.infer<typeof cartDrawerInputSchema>,
-        signal?: AbortSignal,
-    ): Promise<TCartDrawerResult> => {
-        if (isCartOpenRef.current !== input.open) {
-            setCursorMode('cart', input.open ? 'show cart' : 'hide cart');
-            await moveCursorToElement(cartFabButtonRef.current, signal, 320);
-            await pulseCursor(signal);
-            startTransition(() => {
-                setIsCartOpen(input.open);
-            });
-            await wait(140, signal);
+                    setCursorMode('cart', 'edit cart');
+                    setActiveUiTarget(`product:${product.id}`);
+                    await revealElement(
+                        target,
+                        target === searchInputRef.current ? 'top' : 'center',
+                        signal,
+                    );
+                    await moveCursorToElement(target, signal, 360);
+                }
+                await pulseCursor(signal);
+                flashProduct(product.id);
+            }
+
+            const nextSummary = mutateCart(product.id, input.quantityDelta);
+            if (input.quantityDelta > 0 && modalProductIdRef.current === product.id) {
+                modalProductIdRef.current = null;
+                startTransition(() => {
+                    setModalProductId(null);
+                });
+            }
+
+            await waitForUi(signal, 80);
+            if (input.quantityDelta > 0) {
+                setActiveUiTarget(`cart:line:${product.id}`);
+                setCursorMode('cart', 'review basket');
+                await revealCartPanel(signal, {openIfNeeded: true});
+                await moveCursorToElement(
+                    cartLineRefs.current.get(product.id) ?? cartPanelRef.current,
+                    signal,
+                    240,
+                );
+            }
+
+            return {
+                totalItems: nextSummary.totalItems,
+                subtotal: nextSummary.subtotal,
+            };
+        } finally {
             hideCursor();
         }
+    };
 
-        hideCursor();
+    const runManualPageChange = (direction: 'next' | 'previous') => {
+        const nextStart = clampWindowStart(
+            visibleStartIndexRef.current +
+                (direction === 'next'
+                    ? MAX_VISIBLE_PRODUCTS
+                    : -MAX_VISIBLE_PRODUCTS),
+            filteredProducts.length,
+        );
 
-        return {
-            isOpen: input.open,
-            totalItems: Object.values(cartQuantitiesRef.current).reduce(
-                (sum, quantity) => sum + quantity,
-                0,
-            ),
-        };
+        if (nextStart === visibleStartIndexRef.current) {
+            return;
+        }
+
+        visibleStartIndexRef.current = nextStart;
+        startTransition(() => {
+            setVisibleStartIndex(nextStart);
+        });
+
+        void (async () => {
+            await waitForUi(undefined, 180);
+            await revealCatalogResults(undefined);
+        })();
+    };
+
+    const runManualAddToCart = (productId: number) => {
+        const product = catalog?.productMap.get(productId);
+        if (!product || product.price === null) {
+            return;
+        }
+
+        mutateCart(productId, 1);
+        modalProductIdRef.current = null;
+        setModalProductId(null);
+        flashProduct(productId);
+
+        void (async () => {
+            await waitForUi(undefined, 80);
+            await revealCartPanel(undefined, {openIfNeeded: true});
+        })();
     };
 
     useAgentVariable('search_text', {
-        schema: z.string().describe('current search text in the storefront search box'),
+        schema: z.string().describe('current submitted search text in the storefront'),
         value: searchText,
     });
 
@@ -1134,41 +1628,28 @@ const App = () => {
     });
 
     useAgentVariable('featured_categories', {
-        schema: z
-            .array(featuredCategorySchema)
-            .describe('top categories available for browsing'),
-        value: featuredCategories,
+        schema: featuredCategorySchema,
+        value: featuredCategorySummary,
     });
 
     useAgentVariable('visible_products', {
-        schema: z
-            .array(visibleProductCardSchema)
-            .describe('current top visible products in the storefront window'),
+        schema: visibleProductCardSchema,
         value: visibleAgentCards,
     });
 
     useAgentVariable('catalog_window', {
-        schema: catalogWindowSchema.describe(
-            'information about the current visible window of products inside the filtered catalog',
-        ),
-        value: catalogWindow,
+        schema: catalogWindowSummarySchema,
+        value: catalogWindowSummary,
     });
 
     useAgentVariable('spotlight_product', {
-        schema: nullableSpotlightSchema.describe(
-            'currently open product modal and image if a product detail view is visible',
-        ),
+        schema: nullableSpotlightSchema,
         value: modalAgentCard,
     });
 
     useAgentVariable('cart_summary', {
-        schema: cartSummarySchema.describe('current basket totals and lines'),
-        value: cartSummary,
-    });
-
-    useAgentVariable('cart_open', {
-        schema: z.boolean().describe('whether the floating cart drawer is open'),
-        value: isCartOpen,
+        schema: cartSummarySchema,
+        value: cartSummaryText,
     });
 
     useAgentFunction('animateSearch', {
@@ -1211,6 +1692,7 @@ const App = () => {
         outputSchema: cartOutputSchema,
         mutates: [
             'cart_summary',
+            'spotlight_product',
             'selected_category',
             'search_text',
             'visible_products',
@@ -1220,16 +1702,6 @@ const App = () => {
             input: z.infer<typeof cartInputSchema>,
             signal?: AbortSignal,
         ) => await runCartMutation(input, signal),
-    });
-
-    useAgentFunction('setCartOpen', {
-        inputSchema: cartDrawerInputSchema,
-        outputSchema: cartDrawerOutputSchema,
-        mutates: ['cart_open'],
-        func: async (
-            input: z.infer<typeof cartDrawerInputSchema>,
-            signal?: AbortSignal,
-        ) => await setCartVisibility(input, signal),
     });
 
     useAgentFunction('clearSearch', {
@@ -1250,23 +1722,26 @@ const App = () => {
     });
 
     const systemPrompt = `
-        You are the concierge for a simple, stylish grocery storefront.
+        You are the concierge for a simple grocery storefront.
 
-        Use page functions instead of assuming the catalog is fully visible.
-        - visible_products only shows the current window of products.
-        - catalog_window tells you whether more matches exist above or below.
-        - For meal or cooking requests, decide a short ingredient list yourself from the user's goal.
-        - Let search results steer your decisions. Search one ingredient at a time, inspect visible_products, keep scrolling until you find a convincing match, open the modal, add it, then clear the search and continue.
-        - Do not rely on a hardcoded meal plan or assume the first visible result is correct.
-        - Use the lower-level functions when the user asks for a specific product, wants a correction, or you need manual control.
-        - When shopping for food, avoid household or personal-care products unless the user explicitly asks for them.
-        - If a convincing plain ingredient is already visible, use it instead of scrolling toward weaker processed matches.
-        - For proteins and main ingredients, prefer plain cuts or raw ingredients over cutlets, nuggets, rolls, sausages, snacks, instant noodles, stocks, or seasoning mixes unless the user asks for those specifically.
-        - Prefer product categories like meat, fish, vegetables, fruits, dairy, or general grocery staples over frozen snacks or processed meat when the user is asking for core cooking ingredients.
-        - Use more specific ingredient searches when needed, such as whole chicken, chicken breast, maida, soyabean oil, black pepper, or breadcrumbs.
-        - If results look weak, refine the search term and try again before adding anything.
+        Page functions already handle scrolling, reveals, and motion.
+        - visible_products is a compact line list of addable results, and each line starts with the product id.
+        - featured_categories is a compact key: label list for category browsing.
+        - Clean vague user wording into likely product search terms before searching.
+        - Search is the main way to find products.
+        - For meal, recipe, ingredient-list, or grocery-list requests, handle one product at a time: search, inspect results, refine or paginate if needed, open the best match, add it, then move on.
+        - When searching, inspect up to 3 result pages before changing strategy.
+        - If results are weak or mismatched, try different search terms before giving up. Prefer obvious variants and more specific product wording, such as liquid milk instead of milk.
+        - If search is still noisy, use category selection to narrow the result set and then search again.
+        - Never cycle through the full catalog or keep paging indefinitely.
+        - If targeted searches and category narrowing still do not surface a convincing match, ask the user a short clarifying question instead of scanning the whole catalog.
+        - Skip price-on-request items because they cannot be added to cart.
+        - For vague user requests, choose the best fit from the visible options, not just the first relevant result.
+        - Prefer practical formats and cuts that match likely intent: for example, larger cooking-oil bottles over tiny ones when the user asks for oil, and cut chicken pieces, drumsticks, or full chicken over boneless chicken when the user asks for fried chicken unless they ask otherwise.
+        - Prefer plain ingredients over processed substitutes unless the user asks for the processed version.
+        - Avoid household or personal-care items unless the user asks for them.
 
-        Keep suggestions brief, practical, and easy to follow.
+        Keep suggestions brief and practical.
     `;
 
     const chatTheme = {
@@ -1279,19 +1754,30 @@ const App = () => {
         '--pu-shadow': '0 30px 90px rgba(39, 24, 16, 0.24)',
     } as const;
 
+    const activeCartProductId = activeUiTarget?.startsWith('cart:line:')
+        ? Number(activeUiTarget.slice('cart:line:'.length))
+        : null;
+
     return (
         <>
             <SystemPrompt>{systemPrompt}</SystemPrompt>
 
             <div className="grocery-app-shell">
+                <div
+                    className="grocery-agent-status"
+                    data-visible={agentAction ? 'true' : 'false'}
+                    data-mode={agentAction?.mode ?? 'browse'}
+                    aria-live="polite">
+                    <span className="grocery-agent-status__eyebrow">
+                        <i aria-hidden="true" />
+                        Assistant action
+                    </span>
+                    <strong>{agentAction?.label ?? 'Idle'}</strong>
+                </div>
+
                 <header className="grocery-header">
                     <div className="grocery-brand">
-                        <span className="grocery-kicker">Page Use Demo</span>
                         <h1>Atelier Basket</h1>
-                        <p>
-                            Simple grocery browsing with a floating cart, quick
-                            category hops, and animated search.
-                        </p>
                     </div>
                 </header>
 
@@ -1303,225 +1789,274 @@ const App = () => {
                 ) : !catalog ? (
                     <main className="grocery-loading-shell">
                         <div className="grocery-loading-shell__marquee" />
-                        <p className="grocery-kicker">Syncing local snapshot</p>
-                        <h2>Loading the grocery catalog.</h2>
+                        <h2>Loading products.</h2>
                     </main>
                 ) : (
                     <main className="grocery-main">
-                        <section className="grocery-browser">
-                            <section className="grocery-controls">
-                                <div className="grocery-search-panel">
-                                    <label
-                                        htmlFor="catalog-search"
-                                        className="grocery-search-label">
-                                        Search products
-                                    </label>
+                        <div
+                            className="grocery-main-layout"
+                            data-cart-open={isCartOpen ? 'true' : 'false'}>
+                            <section className="grocery-browser">
+                                <section className="grocery-controls">
+                                    <div
+                                        ref={searchPanelRef}
+                                        className="grocery-search-panel"
+                                        data-agent-active={
+                                            activeUiTarget === 'search-panel'
+                                                ? 'true'
+                                                : 'false'
+                                        }>
+                                        <label
+                                            htmlFor="catalog-search"
+                                            className="grocery-search-label">
+                                            Search products
+                                        </label>
 
-                                    <div className="grocery-search-row">
-                                        <input
-                                            id="catalog-search"
-                                            ref={searchInputRef}
-                                            value={searchText}
-                                            onChange={(event) => {
-                                                const nextValue = event.target.value;
-                                                searchTextRef.current = nextValue;
-                                                startTransition(() => setSearchText(nextValue));
-                                            }}
-                                            className="grocery-search-input"
-                                            data-animating={searchIsAnimating ? 'true' : 'false'}
-                                            placeholder="Search milk, juice, butter, noodles..."
-                                        />
-
-                                        <button
-                                            type="button"
-                                            className="grocery-search-reset"
-                                            onClick={() => {
-                                                searchTextRef.current = '';
-                                                startTransition(() => setSearchText(''));
+                                        <form
+                                            className="grocery-search-row"
+                                            onSubmit={(event) => {
+                                                event.preventDefault();
+                                                runManualSearch();
                                             }}>
-                                            {searchText.length > 0 ? 'Clear' : 'Reset'}
-                                        </button>
+                                            <input
+                                                id="catalog-search"
+                                                ref={searchInputRef}
+                                                value={searchDraft}
+                                                onChange={(event) => {
+                                                    const nextValue = event.target.value;
+                                                    searchDraftRef.current = nextValue;
+                                                    startTransition(() => setSearchDraft(nextValue));
+                                                }}
+                                                className="grocery-search-input"
+                                                data-animating={searchIsAnimating ? 'true' : 'false'}
+                                                data-agent-active={
+                                                    activeUiTarget === 'search-panel'
+                                                        ? 'true'
+                                                        : 'false'
+                                                }
+                                                placeholder="Search milk, juice, butter, noodles..."
+                                            />
+
+                                            <div className="grocery-search-actions">
+                                                <button
+                                                    ref={searchSubmitButtonRef}
+                                                    type="submit"
+                                                    className="grocery-search-submit"
+                                                    data-agent-active={
+                                                        activeUiTarget === 'search-submit'
+                                                            ? 'true'
+                                                            : 'false'
+                                                    }>
+                                                    Search
+                                                </button>
+
+                                                <button
+                                                    ref={searchClearButtonRef}
+                                                    type="button"
+                                                    className="grocery-search-reset"
+                                                    data-agent-active={
+                                                        activeUiTarget === 'search-clear'
+                                                            ? 'true'
+                                                            : 'false'
+                                                    }
+                                                    onClick={runManualClear}>
+                                                    Clear
+                                                </button>
+                                            </div>
+                                        </form>
                                     </div>
 
-                                    <p className="grocery-search-helper">
-                                        Browse {selectedCategoryLabel.toLowerCase()} with a
-                                        clean product grid and a cart tucked behind the
-                                        floating bag button.
-                                    </p>
-                                </div>
-
-                                <nav
-                                    className="grocery-category-nav"
-                                    aria-label="Browse product categories">
-                                    <button
-                                        ref={allCategoryButtonRef}
-                                        type="button"
-                                        data-active={selectedCategory === null ? 'true' : 'false'}
-                                        className="grocery-category-pill"
-                                        onClick={() => {
-                                            startTransition(() => setSelectedCategory(null));
-                                        }}>
-                                        <span>All aisles</span>
-                                        <small>{catalog.products.length}</small>
-                                    </button>
-
-                                    {featuredCategories.map((category) => (
+                                    <nav
+                                        className="grocery-category-nav"
+                                        aria-label="Browse product categories">
                                         <button
-                                            key={category.key}
-                                            ref={(node) => {
-                                                if (node) {
-                                                    categoryButtonRefs.current.set(
-                                                        category.key,
-                                                        node,
-                                                    );
-                                                } else {
-                                                    categoryButtonRefs.current.delete(
-                                                        category.key,
-                                                    );
-                                                }
-                                            }}
+                                            ref={allCategoryButtonRef}
                                             type="button"
-                                            data-active={
-                                                selectedCategory === category.key
+                                            data-active={selectedCategory === null ? 'true' : 'false'}
+                                            data-agent-active={
+                                                activeUiTarget === 'category:all'
                                                     ? 'true'
                                                     : 'false'
                                             }
                                             className="grocery-category-pill"
                                             onClick={() => {
-                                                startTransition(() => {
-                                                    setSelectedCategory(category.key);
-                                                });
+                                                startTransition(() => setSelectedCategory(null));
                                             }}>
-                                            <span>{category.label}</span>
-                                            <small>{category.count}</small>
+                                            <span>All aisles</span>
                                         </button>
-                                    ))}
-                                </nav>
-                            </section>
 
-                            <section
-                                ref={gridSectionRef}
-                                className="grocery-grid-shell">
-                                <div className="grocery-grid-heading">
-                                    <div>
-                                        <span className="grocery-kicker">Easy browse</span>
-                                        <h2>{selectedCategoryLabel}</h2>
-                                    </div>
-                                </div>
-
-                                <div className="grocery-grid-window-nav">
-                                    <div className="grocery-grid-window-nav__copy">
-                                        <span className="grocery-kicker">Catalog Window</span>
-                                        <p>
-                                            {catalogWindow.visibleCount > 0
-                                                ? `Showing ${catalogWindow.visibleFrom}-${catalogWindow.visibleTo} of ${catalogWindow.totalMatches}`
-                                                : 'No matching products in this window'}
-                                        </p>
-                                    </div>
-
-                                    <div className="grocery-grid-window-nav__actions">
-                                        <button
-                                            ref={previousWindowButtonRef}
-                                            type="button"
-                                            className="grocery-grid-window-nav__button"
-                                            disabled={!catalogWindow.canScrollPrevious}
-                                            onClick={() => {
-                                                startTransition(() => {
-                                                    setVisibleStartIndex((current) =>
-                                                        clampWindowStart(
-                                                            current -
-                                                                MAX_VISIBLE_PRODUCTS,
-                                                            filteredProducts.length,
-                                                        ),
-                                                    );
-                                                });
-                                            }}>
-                                            Previous
-                                        </button>
-                                        <button
-                                            ref={nextWindowButtonRef}
-                                            type="button"
-                                            className="grocery-grid-window-nav__button"
-                                            disabled={!catalogWindow.canScrollNext}
-                                            onClick={() => {
-                                                startTransition(() => {
-                                                    setVisibleStartIndex((current) =>
-                                                        clampWindowStart(
-                                                            current +
-                                                                MAX_VISIBLE_PRODUCTS,
-                                                            filteredProducts.length,
-                                                        ),
-                                                    );
-                                                });
-                                            }}>
-                                            Next
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {visibleProducts.length > 0 ? (
-                                    <div className="grocery-product-grid">
-                                        {visibleProducts.map((product) => (
-                                            <ProductCard
-                                                key={product.id}
-                                                product={product}
-                                                quantityInCart={cartQuantities[product.id] ?? 0}
-                                                isHighlighted={
-                                                    highlightedProductId === product.id
-                                                }
-                                                onOpen={() => {
-                                                    openProductModal(product.id);
-                                                }}
-                                                registerRef={(node) => {
+                                        {featuredCategories.map((category) => (
+                                            <button
+                                                key={category.key}
+                                                ref={(node) => {
                                                     if (node) {
-                                                        productCardRefs.current.set(
-                                                            product.id,
+                                                        categoryButtonRefs.current.set(
+                                                            category.key,
                                                             node,
                                                         );
                                                     } else {
-                                                        productCardRefs.current.delete(
-                                                            product.id,
+                                                        categoryButtonRefs.current.delete(
+                                                            category.key,
                                                         );
                                                     }
                                                 }}
-                                            />
+                                                type="button"
+                                                data-active={
+                                                    selectedCategory === category.key
+                                                        ? 'true'
+                                                        : 'false'
+                                                }
+                                                data-agent-active={
+                                                    activeUiTarget ===
+                                                    `category:${category.key}`
+                                                        ? 'true'
+                                                        : 'false'
+                                                }
+                                                className="grocery-category-pill"
+                                                onClick={() => {
+                                                    startTransition(() => {
+                                                        setSelectedCategory(category.key);
+                                                    });
+                                                }}>
+                                                <span>{category.label}</span>
+                                            </button>
                                         ))}
-                                    </div>
-                                ) : (
-                                    <div className="grocery-empty-state">
-                                        <span className="grocery-kicker">No matches</span>
-                                        <h3>Try a broader search or switch aisles.</h3>
-                                        <p>
-                                            Reset the search or hop categories to find a
-                                            cleaner set of results.
-                                        </p>
-                                    </div>
-                                )}
-                            </section>
-                        </section>
+                                    </nav>
+                                </section>
 
-                        <CartPanel
-                            isOpen={isCartOpen}
-                            isPulsing={cartIsPulsing}
-                            cartLines={cartLines}
-                            totalItems={cartSummary.totalItems}
-                            subtotal={cartSummary.subtotal}
-                            fabRef={(node) => {
-                                cartFabButtonRef.current = node;
-                            }}
-                            onAdjustCart={(productId, delta) => {
-                                mutateCart(productId, delta);
-                            }}
-                            onOpenProduct={(productId) => {
-                                openProductModal(productId);
-                            }}
-                            onToggle={() => {
-                                setIsCartOpen((current) => !current);
-                            }}
-                            onClose={() => {
-                                setIsCartOpen(false);
-                            }}
-                        />
+                                <section
+                                    ref={gridSectionRef}
+                                    className="grocery-grid-shell">
+                                    <div
+                                        ref={gridHeadingRef}
+                                        className="grocery-grid-heading">
+                                        <div className="grocery-grid-heading__copy">
+                                            <h2>{selectedCategoryLabel}</h2>
+                                            <p className="grocery-grid-heading__meta">
+                                                {catalogWindow.totalMatches > 0
+                                                    ? `${catalogWindow.totalMatches} curated matches`
+                                                    : 'No matching products yet'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {visibleProducts.length > 0 ? (
+                                        <div className="grocery-product-grid">
+                                            {visibleProducts.map((product) => (
+                                                <ProductCard
+                                                    key={product.id}
+                                                    product={product}
+                                                    quantityInCart={cartQuantities[product.id] ?? 0}
+                                                    isHighlighted={
+                                                        highlightedProductId === product.id
+                                                    }
+                                                    isAgentActive={
+                                                        activeUiTarget ===
+                                                        `product:${product.id}`
+                                                    }
+                                                    onOpen={() => {
+                                                        openProductModal(product.id);
+                                                    }}
+                                                    registerRef={(node) => {
+                                                        if (node) {
+                                                            productCardRefs.current.set(
+                                                                product.id,
+                                                                node,
+                                                            );
+                                                        } else {
+                                                            productCardRefs.current.delete(
+                                                                product.id,
+                                                            );
+                                                        }
+                                                    }}
+                                                />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="grocery-empty-state">
+                                            <h3>No products found</h3>
+                                        </div>
+                                    )}
+
+                                    <div
+                                        ref={gridWindowNavRef}
+                                        className="grocery-grid-window-nav">
+                                        <p className="grocery-grid-window-nav__status">
+                                            {catalogWindow.visibleCount > 0
+                                                ? `${catalogWindow.visibleFrom}-${catalogWindow.visibleTo} of ${catalogWindow.totalMatches}`
+                                                : 'No matching products'}
+                                        </p>
+
+                                        <div className="grocery-grid-window-nav__actions">
+                                            <button
+                                                ref={previousWindowButtonRef}
+                                                type="button"
+                                                className="grocery-grid-window-nav__button"
+                                                data-agent-active={
+                                                    activeUiTarget === 'window:previous'
+                                                        ? 'true'
+                                                        : 'false'
+                                                }
+                                                disabled={!catalogWindow.canScrollPrevious}
+                                                onClick={() => {
+                                                    runManualPageChange('previous');
+                                                }}>
+                                                Previous
+                                            </button>
+                                            <button
+                                                ref={nextWindowButtonRef}
+                                                type="button"
+                                                className="grocery-grid-window-nav__button"
+                                                data-agent-active={
+                                                    activeUiTarget === 'window:next'
+                                                        ? 'true'
+                                                        : 'false'
+                                                }
+                                                disabled={!catalogWindow.canScrollNext}
+                                                onClick={() => {
+                                                    runManualPageChange('next');
+                                                }}>
+                                                Next
+                                            </button>
+                                        </div>
+                                    </div>
+                                </section>
+                            </section>
+
+                            <CartPanel
+                                isOpen={isCartOpen}
+                                isPulsing={cartIsPulsing}
+                                cartLines={cartLines}
+                                totalItems={cartSummary.totalItems}
+                                subtotal={cartSummary.subtotal}
+                                activeProductId={activeCartProductId}
+                                isAgentActive={activeUiTarget?.startsWith('cart:') ?? false}
+                                registerPanelRef={(node) => {
+                                    cartPanelRef.current = node;
+                                }}
+                                registerLineRef={(productId, node) => {
+                                    if (node) {
+                                        cartLineRefs.current.set(productId, node);
+                                    } else {
+                                        cartLineRefs.current.delete(productId);
+                                    }
+                                }}
+                                onAdjustCart={(productId, delta) => {
+                                    mutateCart(productId, delta);
+                                }}
+                                onOpenProduct={(productId) => {
+                                    openProductModal(productId);
+                                }}
+                                onToggle={() => {
+                                    isCartOpenRef.current = !isCartOpenRef.current;
+                                    setIsCartOpen((current) => !current);
+                                }}
+                                onClose={() => {
+                                    isCartOpenRef.current = false;
+                                    setIsCartOpen(false);
+                                }}
+                            />
+                        </div>
                     </main>
                 )}
 
@@ -1535,16 +2070,19 @@ const App = () => {
                         }}>
                         <div
                             className="grocery-modal"
+                            data-agent-active={
+                                activeUiTarget === 'modal:add' ? 'true' : 'false'
+                            }
                             onClick={(event) => event.stopPropagation()}>
                             <button
-                                ref={modalCloseButtonRef}
                                 type="button"
                                 className="grocery-modal__close"
+                                aria-label="Close product"
                                 onClick={() => {
                                     modalProductIdRef.current = null;
                                     setModalProductId(null);
                                 }}>
-                                Close
+                                ×
                             </button>
 
                             <div className="grocery-modal__media">
@@ -1566,11 +2104,6 @@ const App = () => {
                                 <strong className="grocery-modal__price">
                                     {formatPrice(modalProduct.price)}
                                 </strong>
-                                <p className="grocery-modal__copy">
-                                    Palette accents stay tucked into the modal and the
-                                    cart, while the main catalog stays calm and easy to
-                                    browse.
-                                </p>
 
                                 <div className="grocery-modal__swatches">
                                     <i style={{backgroundColor: modalProduct.theme.accent}} />
@@ -1582,24 +2115,20 @@ const App = () => {
                                 <div className="grocery-modal__actions">
                                     <button
                                         type="button"
-                                        className="grocery-modal__secondary"
-                                        onClick={() => {
-                                            modalProductIdRef.current = null;
-                                            setModalProductId(null);
-                                        }}>
-                                        Keep browsing
-                                    </button>
-                                    <button
-                                        type="button"
                                         className="grocery-modal__primary"
                                         ref={modalAddButtonRef}
+                                        disabled={modalProduct.price === null}
+                                        data-agent-active={
+                                            activeUiTarget === 'modal:add'
+                                                ? 'true'
+                                                : 'false'
+                                        }
                                         onClick={() => {
-                                            mutateCart(modalProduct.id, 1);
-                                            modalProductIdRef.current = null;
-                                            setModalProductId(null);
-                                            flashProduct(modalProduct.id);
+                                            runManualAddToCart(modalProduct.id);
                                         }}>
-                                        Add to cart
+                                        {modalProduct.price === null
+                                            ? 'Ask for price'
+                                            : 'Add to cart'}
                                     </button>
                                 </div>
                             </div>
@@ -1612,12 +2141,12 @@ const App = () => {
 
             <PageUseChat
                 title="ATELIER CONCIERGE"
-                greeting="Tell me what you're making and I will build a simple basket from the catalog."
-                placeholder="Tell me what you're making"
+                greeting="Ask for a specific item, a short shopping list, a recipe basket, or help finding the closest match in the catalog."
+                placeholder="Find, add, or build any grocery basket"
                 suggestions={[
                     "I'm making fried chicken tonight.",
-                    "Help me shop for a pasta dinner.",
-                    "Build me a breakfast spread.",
+                    'Add Greek yogurt, granola, and blueberries.',
+                    'Find a good salted butter and add it.',
                 ]}
                 theme="dark"
                 roundedness="lg"
