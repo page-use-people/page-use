@@ -29,9 +29,13 @@ pnpm add @page-use/react @page-use/client
 ```
 
 ```tsx
+import {configure} from '@page-use/client';
 import {SystemPrompt, useAgentVariable, useAgentFunction} from '@page-use/react';
 import {PageUseChat} from '@page-use/react/ui/chat';
 import {z} from '@page-use/react';
+
+// point at your server (defaults to http://localhost:12001/trpc)
+configure({serverURL: 'https://my-server.com/trpc'});
 
 const itemsSchema = z.array(z.object({id: z.string(), text: z.string(), completed: z.boolean()}));
 
