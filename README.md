@@ -4,6 +4,7 @@
     <br/>
     <br/>
     <a href="https://github.com/page-use-people/page-use"><img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/page-use-people/page-use"></a>
+    <a href="https://github.com/page-use-people/page-use/issues"><img alt="GitHub Issues or Pull Requests" src="https://img.shields.io/github/issues/page-use-people/page-use"></a>
     <a href="https://npmjs.com/package/@page-use/react"><img src="https://img.shields.io/npm/v/@page-use/react.svg" alt="npm package"></a>
     <a href="https://hub.docker.com/r/pageuse/core"><img alt="Docker Image Size" src="https://img.shields.io/docker/image-size/pageuse/core"></a>
     <a href="https://github.com/page-use-people/page-use/blob/main/.github/workflows/release.yml"><img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/page-use-people/page-use/release.yml"></a>
