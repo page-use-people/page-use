@@ -1,6 +1,20 @@
-<img src="./docs/logo.svg" width="300" />
 
-An open-source SDK to add AI agents into any webapp.
+<p align="center">
+    <img src="./docs/logo.svg" width="400" />
+    <br/>
+    <br/>
+    <a href="https://github.com/page-use-people/page-use"><img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/page-use-people/page-use"></a>
+    <a href="https://npmjs.com/package/@page-use/react"><img src="https://img.shields.io/npm/v/@page-use/react.svg" alt="npm package"></a>
+    <a href="https://hub.docker.com/r/pageuse/core"><img alt="Docker Image Size" src="https://img.shields.io/docker/image-size/pageuse/core"></a>
+    <a href="https://github.com/page-use-people/page-use/blob/main/.github/workflows/release.yml"><img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/page-use-people/page-use/release.yml"></a>
+    <br/>
+    <br/>
+    An open-source SDK to add AI agents into any webapp.
+</p>
+
+<br/>
+
+# page-use 📄 🤖
 
 > **Beta** — the API is still unstable. Use in production at your own risk.
 
