@@ -44,6 +44,7 @@ export type TCatalogProduct = {
     readonly imageUrl: string;
     readonly slug: string;
     readonly searchText: string;
+    readonly searchTokens: readonly string[];
     readonly categoryKeys: readonly string[];
     readonly primaryCategoryKey: string | null;
     readonly primaryCategoryLabel: string | null;
@@ -78,6 +79,18 @@ const slugify = (value: string) =>
         .toLowerCase()
         .replaceAll(/[^a-z0-9]+/g, '-')
         .replaceAll(/^-+|-+$/g, '');
+
+export const normalizeSearchValue = (value: string) =>
+    value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+export const tokenizeSearchValue = (value: string) =>
+    normalizeSearchValue(value)
+        .split(/\s+/)
+        .filter(Boolean);
 
 const hexToRgb = (hex: string) => {
     const normalized = hex.replace('#', '');
@@ -200,6 +213,12 @@ export const normalizeCatalog = (
         const theme = normalizeTheme(palettes[index] ?? []);
         const title = product.title.trim();
         const subtitle = product.subtitle.trim();
+        const categorySearchText = categoryKeys
+            .map((categoryKey) => categoryMap.get(categoryKey)?.label ?? categoryKey)
+            .join(' ');
+        const searchText = normalizeSearchValue(
+            `${title} ${subtitle} ${categorySearchText}`,
+        );
 
         return {
             id,
@@ -209,7 +228,8 @@ export const normalizeCatalog = (
             price: product.price,
             imageUrl: `${IMAGE_BASE_URL}/${id}.png`,
             slug: slugify(`${id}-${title}`),
-            searchText: `${title} ${subtitle} ${categoryKeys.join(' ')}`.toLowerCase(),
+            searchText,
+            searchTokens: tokenizeSearchValue(searchText),
             categoryKeys,
             primaryCategoryKey,
             primaryCategoryLabel,
