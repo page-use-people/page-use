@@ -4,197 +4,64 @@ import {
     useMemo,
     useRef,
     useState,
-    type CSSProperties,
 } from 'react';
 import {PageUseChat} from '@page-use/react/ui/chat';
 import {SystemPrompt, useAgentFunction, useAgentVariable, z} from '@page-use/react';
-import {CartPanel, type TCartLine} from './components/CartPanel.tsx';
-import {FauxCursor} from './components/FauxCursor.tsx';
-import {ProductCard} from './components/ProductCard.tsx';
 import {
-    formatPrice,
-    normalizeCatalog,
+    CatalogBrowser,
+    type TCatalogBrowserCategory,
+} from './components/CatalogBrowser.tsx';
+import {CartPanel} from './components/CartPanel.tsx';
+import {FauxCursor} from './components/FauxCursor.tsx';
+import {ProductModal} from './components/ProductModal.tsx';
+import {
     normalizeSearchValue,
     wait,
     type TCatalogData,
     type TCatalogProduct,
-    type TRawProductsPayload,
 } from './lib/catalog.ts';
-
-type TFeaturedCategory = {
-    readonly key: string;
-    readonly label: string;
-    readonly count: number;
-};
-
-type TCartSummary = {
-    readonly totalItems: number;
-    readonly subtotal: number | null;
-    readonly lines: readonly TCartLine[];
-};
-
-type TAnimateSearchResult = {
-    readonly resultCount: number;
-    readonly leadingResultId: number | null;
-    readonly leadingResultTitle: string | null;
-};
-
-type TCategoryResult = {
-    readonly selectedCategory: string | null;
-    readonly productCount: number;
-};
-
-type TSpotlightResult = {
-    readonly productId: number;
-    readonly productTitle: string;
-};
-
-type TCartResult = {
-    readonly totalItems: number;
-    readonly subtotal: number | null;
-};
-
-type TCatalogWindow = {
-    readonly visibleFrom: number;
-    readonly visibleTo: number;
-    readonly visibleCount: number;
-    readonly totalMatches: number;
-    readonly canScrollNext: boolean;
-    readonly canScrollPrevious: boolean;
-};
+import {
+    MAX_VISIBLE_PRODUCTS,
+    SEARCH_TYPING_BASE_MS,
+    buildCatalogWindow,
+    clampWindowStart,
+    getFilteredProducts,
+    loadCatalog,
+    scoreSearchMatch,
+    type TAnimateSearchResult,
+    type TCatalogWindow,
+    type TCategoryResult,
+} from './lib/catalog-browser.ts';
+import {
+    buildCartLines,
+    mutateCartState,
+    summarizeCartLines,
+    type TCartSummary,
+} from './lib/cart.ts';
+import {
+    animateSearchInputSchema,
+    animateSearchOutputSchema,
+    cartInputSchema,
+    cartOutputSchema,
+    cartSummarySchema,
+    catalogWindowSchema,
+    catalogWindowSummarySchema,
+    categorySelectionOutputSchema,
+    categorySelectionSchema,
+    chatTheme,
+    featuredCategorySchema,
+    nullableSpotlightSchema,
+    scrollCatalogInputSchema,
+    spotlightInputSchema,
+    spotlightOutputSchema,
+    systemPrompt,
+    visibleProductCardSchema,
+    type TCartResult,
+    type TSpotlightResult,
+} from './lib/assistant.ts';
 
 type TFauxCursorMode = 'browse' | 'search' | 'cart';
 type TRevealPlacement = 'top' | 'center' | 'bottom';
-
-const MAX_VISIBLE_PRODUCTS = 24;
-const SEARCH_TYPING_BASE_MS = 56;
-
-const featuredCategorySchema = z
-    .string()
-    .describe('compact list of category keys available for browsing');
-
-const visibleProductCardSchema = z
-    .string()
-    .describe('compact list of addable visible products; each line starts with the product id');
-
-const cartSummarySchema = z
-    .string()
-    .describe('compact basket summary with item ids and quantities');
-
-const nullableSpotlightSchema = z
-    .string()
-    .nullable()
-    .describe('compact summary of the product open in the detail modal');
-
-const catalogWindowSummarySchema = z
-    .string()
-    .describe('compact summary of the current result window');
-
-const animateSearchInputSchema = z
-    .object({
-        query: z.string().describe('query to search for'),
-        categoryKey: z
-            .string()
-            .nullable()
-            .optional()
-            .describe('optional category key to browse before searching'),
-    })
-    .describe('search the catalog for a product');
-
-const animateSearchOutputSchema = z
-    .object({
-        resultCount: z.number().describe('number of matching products'),
-        leadingResultId: z.number().nullable().describe('first matching product id if any'),
-        leadingResultTitle: z
-            .string()
-            .nullable()
-            .describe('first matching product title if any'),
-    })
-    .describe('search results after the query is applied');
-
-const categorySelectionSchema = z
-    .object({
-        categoryKey: z
-            .string()
-            .nullable()
-            .describe('category key to browse, or null to clear category filtering'),
-    })
-    .describe('change the active category filter');
-
-const categorySelectionOutputSchema = z
-    .object({
-        selectedCategory: z.string().nullable().describe('resulting category key'),
-        productCount: z
-            .number()
-            .describe('count of matching products under the current filters'),
-    })
-    .describe('result of changing category or clearing search');
-
-const spotlightInputSchema = z
-    .object({
-        productId: z.number().describe('product id to open'),
-    })
-    .describe('open a product detail view');
-
-const spotlightOutputSchema = z
-    .object({
-        productId: z.number().describe('opened product id'),
-        productTitle: z.string().describe('opened product title'),
-    })
-    .describe('product now open in the detail view');
-
-const cartInputSchema = z
-    .object({
-        productId: z.number().describe('product id to add or remove'),
-        quantityDelta: z.number().describe('positive to add, negative to remove'),
-    })
-    .describe('adjust the quantity of a product in the basket');
-
-const cartOutputSchema = z
-    .object({
-        totalItems: z.number().describe('total quantity after mutation'),
-        subtotal: z
-            .number()
-            .nullable()
-            .describe('basket subtotal in BDT when all prices are known'),
-    })
-    .describe('basket totals after the quantity change');
-
-const catalogWindowSchema = z
-    .object({
-        visibleFrom: z
-            .number()
-            .describe('1-based index of the first visible product in the filtered list'),
-        visibleTo: z
-            .number()
-            .describe('1-based index of the last visible product in the filtered list'),
-        visibleCount: z.number().describe('count of currently visible products'),
-        totalMatches: z
-            .number()
-            .describe('total products matching the current search and category'),
-        canScrollNext: z
-            .boolean()
-            .describe('whether more matching products exist after the current page'),
-        canScrollPrevious: z
-            .boolean()
-            .describe('whether earlier matching products exist before the current page'),
-    })
-    .describe('information about the active page of search results');
-
-const scrollCatalogInputSchema = z
-    .object({
-        direction: z
-            .enum(['next', 'previous'])
-            .describe('which direction to move through the result pages'),
-        pages: z
-            .number()
-            .int()
-            .min(1)
-            .max(6)
-            .optional()
-            .describe('how many result pages to move at once'),
-    })
-    .describe('move to a different page of visible results');
 
 const nextFrame = (signal?: AbortSignal) =>
     new Promise<void>((resolve, reject) => {
@@ -218,256 +85,6 @@ const nextFrame = (signal?: AbortSignal) =>
 
 const easeInOutCubic = (value: number) =>
     value < 0.5 ? 4 * value * value * value : 1 - ((-2 * value + 2) ** 3) / 2;
-
-const boundedLevenshtein = (
-    left: string,
-    right: string,
-    maxDistance: number,
-) => {
-    if (left === right) {
-        return 0;
-    }
-
-    if (Math.abs(left.length - right.length) > maxDistance) {
-        return null;
-    }
-
-    let previousRow = Array.from({length: right.length + 1}, (_, index) => index);
-
-    for (let leftIndex = 0; leftIndex < left.length; leftIndex += 1) {
-        const currentRow = [leftIndex + 1];
-        let rowMinimum = currentRow[0];
-
-        for (let rightIndex = 0; rightIndex < right.length; rightIndex += 1) {
-            const substitutionCost =
-                left[leftIndex] === right[rightIndex] ? 0 : 1;
-            const nextValue = Math.min(
-                previousRow[rightIndex + 1]! + 1,
-                currentRow[rightIndex]! + 1,
-                previousRow[rightIndex]! + substitutionCost,
-            );
-
-            currentRow.push(nextValue);
-            rowMinimum = Math.min(rowMinimum, nextValue);
-        }
-
-        if (rowMinimum > maxDistance) {
-            return null;
-        }
-
-        previousRow = currentRow;
-    }
-
-    const distance = previousRow[right.length] ?? maxDistance + 1;
-    return distance <= maxDistance ? distance : null;
-};
-
-const subsequenceScore = (needle: string, haystack: string) => {
-    if (needle.length < 3 || needle.length > haystack.length) {
-        return null;
-    }
-
-    let matched = 0;
-    for (const character of haystack) {
-        if (character === needle[matched]) {
-            matched += 1;
-        }
-
-        if (matched === needle.length) {
-            const lengthPenalty = Math.max(0, haystack.length - needle.length);
-            return 54 - Math.min(lengthPenalty * 2, 16);
-        }
-    }
-
-    return null;
-};
-
-const scoreTokenMatch = (queryToken: string, candidateToken: string) => {
-    if (candidateToken === queryToken) {
-        return 160;
-    }
-
-    if (candidateToken.startsWith(queryToken)) {
-        return 132 - Math.min(candidateToken.length - queryToken.length, 20);
-    }
-
-    if (queryToken.length >= 3 && candidateToken.includes(queryToken)) {
-        return 110 - Math.min(candidateToken.indexOf(queryToken), 12);
-    }
-
-    if (queryToken.startsWith(candidateToken) && candidateToken.length >= 3) {
-        return 94 - Math.min(queryToken.length - candidateToken.length, 18);
-    }
-
-    if (queryToken.length >= 4 && candidateToken.length >= 4) {
-        const distance = boundedLevenshtein(queryToken, candidateToken, 2);
-        if (distance !== null) {
-            return 86 - distance * 18;
-        }
-    }
-
-    return subsequenceScore(queryToken, candidateToken);
-};
-
-const scoreSearchMatch = (
-    product: TCatalogProduct,
-    selectedCategory: string | null,
-    normalizedQuery: string,
-) => {
-    const matchesCategory =
-        selectedCategory === null || product.categoryKeys.includes(selectedCategory);
-    if (!matchesCategory) {
-        return null;
-    }
-
-    if (normalizedQuery.length === 0) {
-        return product.order;
-    }
-
-    const queryTokens = normalizedQuery.split(' ').filter(Boolean);
-    const normalizedTitle = normalizeSearchValue(
-        `${product.title} ${product.subtitle}`,
-    );
-
-    let score = 0;
-
-    if (normalizedTitle === normalizedQuery) {
-        score += 1400;
-    } else if (normalizedTitle.startsWith(normalizedQuery)) {
-        score += 1180;
-    } else if (normalizedTitle.includes(normalizedQuery)) {
-        score += 980;
-    } else if (product.searchText.includes(normalizedQuery)) {
-        score += 760;
-    }
-
-    const tokenScores = queryTokens
-        .map((queryToken) => {
-            let bestScore: number | null = null;
-
-            for (const candidateToken of product.searchTokens) {
-                const candidateScore = scoreTokenMatch(queryToken, candidateToken);
-                if (
-                    candidateScore !== null &&
-                    (bestScore === null || candidateScore > bestScore)
-                ) {
-                    bestScore = candidateScore;
-                }
-            }
-
-            return bestScore;
-        })
-        .filter((tokenScore): tokenScore is number => tokenScore !== null);
-
-    const matchedTokenCount = tokenScores.length;
-    if (matchedTokenCount === 0) {
-        return null;
-    }
-
-    const allTokensMatched = matchedTokenCount === queryTokens.length;
-    const coverage = matchedTokenCount / queryTokens.length;
-    if (!allTokensMatched && score < 760 && coverage < 0.6) {
-        return null;
-    }
-
-    score += tokenScores.reduce((sum, tokenScore) => sum + tokenScore, 0);
-    score += matchedTokenCount * 85;
-    score += allTokensMatched ? 120 : 0;
-    score -= Math.max(0, product.searchTokens.length - queryTokens.length) * 1.5;
-
-    return score;
-};
-
-const getFilteredProducts = (
-    catalog: TCatalogData | null,
-    selectedCategory: string | null,
-    query: string,
-) => {
-    if (!catalog) {
-        return [];
-    }
-
-    const normalizedQuery = normalizeSearchValue(query);
-    if (normalizedQuery.length === 0) {
-        return catalog.products.filter(
-            (product) =>
-                selectedCategory === null ||
-                product.categoryKeys.includes(selectedCategory),
-        );
-    }
-
-    return catalog.products
-        .map((product) => ({
-            product,
-            score: scoreSearchMatch(product, selectedCategory, normalizedQuery),
-        }))
-        .filter(
-            (
-                scoredProduct,
-            ): scoredProduct is {product: TCatalogProduct; score: number} =>
-                scoredProduct.score !== null,
-        )
-        .sort((left, right) => {
-            if (right.score !== left.score) {
-                return right.score - left.score;
-            }
-
-            return left.product.order - right.product.order;
-        })
-        .map(({product}) => product);
-};
-
-const clampWindowStart = (start: number, totalMatches: number) =>
-    Math.max(0, Math.min(start, Math.max(0, totalMatches - MAX_VISIBLE_PRODUCTS)));
-
-const buildCatalogWindow = (
-    products: readonly TCatalogProduct[],
-    start: number,
-): TCatalogWindow => {
-    if (products.length === 0) {
-        return {
-            visibleFrom: 0,
-            visibleTo: 0,
-            visibleCount: 0,
-            totalMatches: 0,
-            canScrollNext: false,
-            canScrollPrevious: false,
-        };
-    }
-
-    const clampedStart = clampWindowStart(start, products.length);
-    const visibleFrom = clampedStart + 1;
-    const visibleTo = Math.min(products.length, clampedStart + MAX_VISIBLE_PRODUCTS);
-
-    return {
-        visibleFrom,
-        visibleTo,
-        visibleCount: visibleTo - visibleFrom + 1,
-        totalMatches: products.length,
-        canScrollNext: visibleTo < products.length,
-        canScrollPrevious: clampedStart > 0,
-    };
-};
-
-const loadCatalog = async (): Promise<TCatalogData> => {
-    const [productsResponse, palettesResponse] = await Promise.all([
-        fetch('/data/products.json'),
-        fetch('/data/image-palettes.json'),
-    ]);
-
-    if (!productsResponse.ok || !palettesResponse.ok) {
-        throw new Error('Failed to load local grocery demo data.');
-    }
-
-    const [productsPayload, palettes] = await Promise.all([
-        productsResponse.json() as Promise<TRawProductsPayload>,
-        palettesResponse.json() as Promise<
-            readonly (readonly (string | null)[])[]
-        >,
-    ]);
-
-    return normalizeCatalog(productsPayload, palettes);
-};
 
 const App = () => {
     const [catalog, setCatalog] = useState<TCatalogData | null>(null);
@@ -609,7 +226,7 @@ const App = () => {
         };
     }, [modalProductId]);
 
-    const featuredCategories = useMemo<readonly TFeaturedCategory[]>(
+    const featuredCategories = useMemo<readonly TCatalogBrowserCategory[]>(
         () =>
             (catalog?.categories ?? []).slice(0, 10).map((category) => ({
                 key: category.key,
@@ -661,59 +278,18 @@ const App = () => {
         return catalog.productMap.get(modalProductId) ?? null;
     }, [catalog, modalProductId]);
 
-    const cartLines = useMemo<readonly TCartLine[]>(() => {
-        if (!catalog) {
-            return [];
-        }
+    const cartLines = useMemo(
+        () =>
+            catalog
+                ? buildCartLines(catalog.productMap, cartQuantities, cartActivity)
+                : [],
+        [catalog, cartActivity, cartQuantities],
+    );
 
-        return Object.entries(cartQuantities)
-            .map(([productIdKey, quantity]) => {
-                const productId = Number(productIdKey);
-                const product = catalog.productMap.get(productId);
-                if (!product || quantity <= 0) {
-                    return null;
-                }
-
-                return {
-                    productId,
-                    title: product.title,
-                    quantity,
-                    price: product.price,
-                    lineTotal:
-                        product.price === null ? null : product.price * quantity,
-                    accent: product.theme.accent,
-                    shell: product.theme.shell,
-                    imageUrl: product.imageUrl,
-                } satisfies TCartLine;
-            })
-            .filter((line): line is TCartLine => line !== null)
-            .sort((left, right) => {
-                const rightActivity = cartActivity[right.productId] ?? 0;
-                const leftActivity = cartActivity[left.productId] ?? 0;
-
-                if (rightActivity !== leftActivity) {
-                    return rightActivity - leftActivity;
-                }
-
-                return 0;
-            });
-    }, [catalog, cartActivity, cartQuantities]);
-
-    const cartSummary = useMemo<TCartSummary>(() => {
-        const totalItems = cartLines.reduce(
-            (sum, line) => sum + line.quantity,
-            0,
-        );
-        const subtotal = cartLines.some((line) => line.lineTotal === null)
-            ? null
-            : cartLines.reduce((sum, line) => sum + (line.lineTotal ?? 0), 0);
-
-        return {
-            totalItems,
-            subtotal,
-            lines: cartLines,
-        };
-    }, [cartLines]);
+    const cartSummary = useMemo<TCartSummary>(
+        () => summarizeCartLines(cartLines),
+        [cartLines],
+    );
 
     const featuredCategorySummary = useMemo(
         () =>
@@ -768,19 +344,6 @@ const App = () => {
     const selectedCategoryLabel = selectedCategory
         ? catalog?.categoryMap.get(selectedCategory)?.label ?? 'Selected aisle'
         : 'Products';
-
-    const modalStyle = modalProduct
-        ? ({
-              '--modal-accent': modalProduct.theme.accent,
-              '--modal-support': modalProduct.theme.support,
-              '--modal-deep': modalProduct.theme.deep,
-              '--modal-soft': modalProduct.theme.soft,
-              '--modal-shell': modalProduct.theme.shell,
-              '--modal-glow': modalProduct.theme.glow,
-              '--modal-foreground-accent': modalProduct.theme.foregroundOnAccent,
-              '--modal-foreground-soft': modalProduct.theme.foregroundOnSoft,
-          } as CSSProperties)
-        : undefined;
 
     const waitForUi = async (signal?: AbortSignal, delay = 180) => {
         await nextFrame(signal);
@@ -1423,65 +986,33 @@ const App = () => {
         productId: number,
         quantityDelta: number,
     ): TCartSummary => {
-        const product = catalog?.productMap.get(productId);
-        if (quantityDelta > 0 && product?.price === null) {
+        if (!catalog) {
             return cartSummary;
         }
 
-        const nextCart = {...cartQuantitiesRef.current};
-        const nextCartActivity = {...cartActivityRef.current};
-        const currentQuantity = nextCart[productId] ?? 0;
-        const nextQuantity = Math.max(0, currentQuantity + quantityDelta);
+        const mutationResult = mutateCartState(
+            catalog.productMap,
+            {
+                quantities: cartQuantitiesRef.current,
+                activity: cartActivityRef.current,
+                activityCounter: cartActivityCounterRef.current,
+            },
+            productId,
+            quantityDelta,
+        );
 
-        if (nextQuantity === 0) {
-            delete nextCart[productId];
-            delete nextCartActivity[productId];
-        } else {
-            nextCart[productId] = nextQuantity;
-            if (nextCartActivity[productId] === undefined) {
-                cartActivityCounterRef.current += 1;
-                nextCartActivity[productId] = cartActivityCounterRef.current;
-            }
-        }
-
-        cartQuantitiesRef.current = nextCart;
-        cartActivityRef.current = nextCartActivity;
-        setCartQuantities(nextCart);
-        setCartActivity(nextCartActivity);
+        cartQuantitiesRef.current = mutationResult.state.quantities;
+        cartActivityRef.current = mutationResult.state.activity;
+        cartActivityCounterRef.current = mutationResult.state.activityCounter;
+        setCartQuantities(mutationResult.state.quantities);
+        setCartActivity(mutationResult.state.activity);
         if (quantityDelta > 0) {
             isCartOpenRef.current = true;
             setIsCartOpen(true);
         }
         pulseCartFab();
 
-        const nextLines = Object.entries(nextCart)
-            .map(([productIdKey, quantity]) => {
-                const product = catalog?.productMap.get(Number(productIdKey));
-                if (!product) {
-                    return null;
-                }
-
-                return {
-                    productId: Number(productIdKey),
-                    title: product.title,
-                    quantity,
-                    price: product.price,
-                    lineTotal:
-                        product.price === null ? null : product.price * quantity,
-                    accent: product.theme.accent,
-                    shell: product.theme.shell,
-                    imageUrl: product.imageUrl,
-                } satisfies TCartLine;
-            })
-            .filter((line): line is TCartLine => line !== null);
-
-        return {
-            totalItems: nextLines.reduce((sum, line) => sum + line.quantity, 0),
-            subtotal: nextLines.some((line) => line.lineTotal === null)
-                ? null
-                : nextLines.reduce((sum, line) => sum + (line.lineTotal ?? 0), 0),
-            lines: nextLines,
-        };
+        return mutationResult.summary;
     };
 
     const runCartMutation = async (
@@ -1721,38 +1252,129 @@ const App = () => {
         ) => await scrollCatalogWindow(input.direction, input.pages ?? 1, signal),
     });
 
-    const systemPrompt = `
-        You are the concierge for a simple grocery storefront.
+    const handleSearchDraftChange = (nextValue: string) => {
+        searchDraftRef.current = nextValue;
+        startTransition(() => {
+            setSearchDraft(nextValue);
+        });
+    };
 
-        Page functions already handle scrolling, reveals, and motion.
-        - visible_products is a compact line list of addable results, and each line starts with the product id.
-        - featured_categories is a compact key: label list for category browsing.
-        - Clean vague user wording into likely product search terms before searching.
-        - Search is the main way to find products.
-        - For meal, recipe, ingredient-list, or grocery-list requests, handle one product at a time: search, inspect results, refine or paginate if needed, open the best match, add it, then move on.
-        - When searching, inspect up to 3 result pages before changing strategy.
-        - If results are weak or mismatched, try different search terms before giving up. Prefer obvious variants and more specific product wording, such as liquid milk instead of milk.
-        - If search is still noisy, use category selection to narrow the result set and then search again.
-        - Never cycle through the full catalog or keep paging indefinitely.
-        - If targeted searches and category narrowing still do not surface a convincing match, ask the user a short clarifying question instead of scanning the whole catalog.
-        - Skip price-on-request items because they cannot be added to cart.
-        - For vague user requests, choose the best fit from the visible options, not just the first relevant result.
-        - Prefer practical formats and cuts that match likely intent: for example, larger cooking-oil bottles over tiny ones when the user asks for oil, and cut chicken pieces, drumsticks, or full chicken over boneless chicken when the user asks for fried chicken unless they ask otherwise.
-        - Prefer plain ingredients over processed substitutes unless the user asks for the processed version.
-        - Avoid household or personal-care items unless the user asks for them.
+    const handleSelectAllAisles = () => {
+        startTransition(() => {
+            setSelectedCategory(null);
+        });
+    };
 
-        Keep suggestions brief and practical.
-    `;
+    const handleSelectCategory = (categoryKey: string) => {
+        startTransition(() => {
+            setSelectedCategory(categoryKey);
+        });
+    };
 
-    const chatTheme = {
-        '--pu-bg': '#18130f',
-        '--pu-fg': '#f7f0e8',
-        '--pu-surface': 'rgba(255,255,255,0.08)',
-        '--pu-muted': 'rgba(247,240,232,0.48)',
-        '--pu-divider': 'rgba(247,240,232,0.12)',
-        '--pu-accent': '#d06b34',
-        '--pu-shadow': '0 30px 90px rgba(39, 24, 16, 0.24)',
-    } as const;
+    const closeModal = () => {
+        modalProductIdRef.current = null;
+        setModalProductId(null);
+    };
+
+    const goToPreviousPage = () => {
+        runManualPageChange('previous');
+    };
+
+    const goToNextPage = () => {
+        runManualPageChange('next');
+    };
+
+    const toggleCart = () => {
+        isCartOpenRef.current = !isCartOpenRef.current;
+        setIsCartOpen((current) => !current);
+    };
+
+    const closeCart = () => {
+        isCartOpenRef.current = false;
+        setIsCartOpen(false);
+    };
+
+    const registerSearchPanelRef = (node: HTMLDivElement | null) => {
+        searchPanelRef.current = node;
+    };
+
+    const registerSearchInputRef = (node: HTMLInputElement | null) => {
+        searchInputRef.current = node;
+    };
+
+    const registerSearchSubmitButtonRef = (node: HTMLButtonElement | null) => {
+        searchSubmitButtonRef.current = node;
+    };
+
+    const registerSearchClearButtonRef = (node: HTMLButtonElement | null) => {
+        searchClearButtonRef.current = node;
+    };
+
+    const registerAllCategoryButtonRef = (node: HTMLButtonElement | null) => {
+        allCategoryButtonRef.current = node;
+    };
+
+    const registerCategoryButtonRef = (
+        categoryKey: string,
+        node: HTMLButtonElement | null,
+    ) => {
+        if (node) {
+            categoryButtonRefs.current.set(categoryKey, node);
+        } else {
+            categoryButtonRefs.current.delete(categoryKey);
+        }
+    };
+
+    const registerGridSectionRef = (node: HTMLElement | null) => {
+        gridSectionRef.current = node;
+    };
+
+    const registerGridHeadingRef = (node: HTMLDivElement | null) => {
+        gridHeadingRef.current = node;
+    };
+
+    const registerGridWindowNavRef = (node: HTMLDivElement | null) => {
+        gridWindowNavRef.current = node;
+    };
+
+    const registerPreviousWindowButtonRef = (node: HTMLButtonElement | null) => {
+        previousWindowButtonRef.current = node;
+    };
+
+    const registerNextWindowButtonRef = (node: HTMLButtonElement | null) => {
+        nextWindowButtonRef.current = node;
+    };
+
+    const registerProductCardRef = (productId: number, node: HTMLElement | null) => {
+        if (node) {
+            productCardRefs.current.set(productId, node);
+        } else {
+            productCardRefs.current.delete(productId);
+        }
+    };
+
+    const registerCartPanelRef = (node: HTMLElement | null) => {
+        cartPanelRef.current = node;
+    };
+
+    const registerCartLineRef = (productId: number, node: HTMLElement | null) => {
+        if (node) {
+            cartLineRefs.current.set(productId, node);
+        } else {
+            cartLineRefs.current.delete(productId);
+        }
+    };
+
+    const registerModalAddButtonRef = (node: HTMLButtonElement | null) => {
+        modalAddButtonRef.current = node;
+    };
+
+    const activeBrowserTarget =
+        activeUiTarget === null ||
+        activeUiTarget === 'modal:add' ||
+        activeUiTarget.startsWith('cart:')
+            ? null
+            : activeUiTarget;
 
     const activeCartProductId = activeUiTarget?.startsWith('cart:line:')
         ? Number(activeUiTarget.slice('cart:line:'.length))
@@ -1796,232 +1418,42 @@ const App = () => {
                         <div
                             className="grocery-main-layout"
                             data-cart-open={isCartOpen ? 'true' : 'false'}>
-                            <section className="grocery-browser">
-                                <section className="grocery-controls">
-                                    <div
-                                        ref={searchPanelRef}
-                                        className="grocery-search-panel"
-                                        data-agent-active={
-                                            activeUiTarget === 'search-panel'
-                                                ? 'true'
-                                                : 'false'
-                                        }>
-                                        <label
-                                            htmlFor="catalog-search"
-                                            className="grocery-search-label">
-                                            Search products
-                                        </label>
-
-                                        <form
-                                            className="grocery-search-row"
-                                            onSubmit={(event) => {
-                                                event.preventDefault();
-                                                runManualSearch();
-                                            }}>
-                                            <input
-                                                id="catalog-search"
-                                                ref={searchInputRef}
-                                                value={searchDraft}
-                                                onChange={(event) => {
-                                                    const nextValue = event.target.value;
-                                                    searchDraftRef.current = nextValue;
-                                                    startTransition(() => setSearchDraft(nextValue));
-                                                }}
-                                                className="grocery-search-input"
-                                                data-animating={searchIsAnimating ? 'true' : 'false'}
-                                                data-agent-active={
-                                                    activeUiTarget === 'search-panel'
-                                                        ? 'true'
-                                                        : 'false'
-                                                }
-                                                placeholder="Search milk, juice, butter, noodles..."
-                                            />
-
-                                            <div className="grocery-search-actions">
-                                                <button
-                                                    ref={searchSubmitButtonRef}
-                                                    type="submit"
-                                                    className="grocery-search-submit"
-                                                    data-agent-active={
-                                                        activeUiTarget === 'search-submit'
-                                                            ? 'true'
-                                                            : 'false'
-                                                    }>
-                                                    Search
-                                                </button>
-
-                                                <button
-                                                    ref={searchClearButtonRef}
-                                                    type="button"
-                                                    className="grocery-search-reset"
-                                                    data-agent-active={
-                                                        activeUiTarget === 'search-clear'
-                                                            ? 'true'
-                                                            : 'false'
-                                                    }
-                                                    onClick={runManualClear}>
-                                                    Clear
-                                                </button>
-                                            </div>
-                                        </form>
-                                    </div>
-
-                                    <nav
-                                        className="grocery-category-nav"
-                                        aria-label="Browse product categories">
-                                        <button
-                                            ref={allCategoryButtonRef}
-                                            type="button"
-                                            data-active={selectedCategory === null ? 'true' : 'false'}
-                                            data-agent-active={
-                                                activeUiTarget === 'category:all'
-                                                    ? 'true'
-                                                    : 'false'
-                                            }
-                                            className="grocery-category-pill"
-                                            onClick={() => {
-                                                startTransition(() => setSelectedCategory(null));
-                                            }}>
-                                            <span>All aisles</span>
-                                        </button>
-
-                                        {featuredCategories.map((category) => (
-                                            <button
-                                                key={category.key}
-                                                ref={(node) => {
-                                                    if (node) {
-                                                        categoryButtonRefs.current.set(
-                                                            category.key,
-                                                            node,
-                                                        );
-                                                    } else {
-                                                        categoryButtonRefs.current.delete(
-                                                            category.key,
-                                                        );
-                                                    }
-                                                }}
-                                                type="button"
-                                                data-active={
-                                                    selectedCategory === category.key
-                                                        ? 'true'
-                                                        : 'false'
-                                                }
-                                                data-agent-active={
-                                                    activeUiTarget ===
-                                                    `category:${category.key}`
-                                                        ? 'true'
-                                                        : 'false'
-                                                }
-                                                className="grocery-category-pill"
-                                                onClick={() => {
-                                                    startTransition(() => {
-                                                        setSelectedCategory(category.key);
-                                                    });
-                                                }}>
-                                                <span>{category.label}</span>
-                                            </button>
-                                        ))}
-                                    </nav>
-                                </section>
-
-                                <section
-                                    ref={gridSectionRef}
-                                    className="grocery-grid-shell">
-                                    <div
-                                        ref={gridHeadingRef}
-                                        className="grocery-grid-heading">
-                                        <div className="grocery-grid-heading__copy">
-                                            <h2>{selectedCategoryLabel}</h2>
-                                            <p className="grocery-grid-heading__meta">
-                                                {catalogWindow.totalMatches > 0
-                                                    ? `${catalogWindow.totalMatches} curated matches`
-                                                    : 'No matching products yet'}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    {visibleProducts.length > 0 ? (
-                                        <div className="grocery-product-grid">
-                                            {visibleProducts.map((product) => (
-                                                <ProductCard
-                                                    key={product.id}
-                                                    product={product}
-                                                    quantityInCart={cartQuantities[product.id] ?? 0}
-                                                    isHighlighted={
-                                                        highlightedProductId === product.id
-                                                    }
-                                                    isAgentActive={
-                                                        activeUiTarget ===
-                                                        `product:${product.id}`
-                                                    }
-                                                    onOpen={() => {
-                                                        openProductModal(product.id);
-                                                    }}
-                                                    registerRef={(node) => {
-                                                        if (node) {
-                                                            productCardRefs.current.set(
-                                                                product.id,
-                                                                node,
-                                                            );
-                                                        } else {
-                                                            productCardRefs.current.delete(
-                                                                product.id,
-                                                            );
-                                                        }
-                                                    }}
-                                                />
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="grocery-empty-state">
-                                            <h3>No products found</h3>
-                                        </div>
-                                    )}
-
-                                    <div
-                                        ref={gridWindowNavRef}
-                                        className="grocery-grid-window-nav">
-                                        <p className="grocery-grid-window-nav__status">
-                                            {catalogWindow.visibleCount > 0
-                                                ? `${catalogWindow.visibleFrom}-${catalogWindow.visibleTo} of ${catalogWindow.totalMatches}`
-                                                : 'No matching products'}
-                                        </p>
-
-                                        <div className="grocery-grid-window-nav__actions">
-                                            <button
-                                                ref={previousWindowButtonRef}
-                                                type="button"
-                                                className="grocery-grid-window-nav__button"
-                                                data-agent-active={
-                                                    activeUiTarget === 'window:previous'
-                                                        ? 'true'
-                                                        : 'false'
-                                                }
-                                                disabled={!catalogWindow.canScrollPrevious}
-                                                onClick={() => {
-                                                    runManualPageChange('previous');
-                                                }}>
-                                                Previous
-                                            </button>
-                                            <button
-                                                ref={nextWindowButtonRef}
-                                                type="button"
-                                                className="grocery-grid-window-nav__button"
-                                                data-agent-active={
-                                                    activeUiTarget === 'window:next'
-                                                        ? 'true'
-                                                        : 'false'
-                                                }
-                                                disabled={!catalogWindow.canScrollNext}
-                                                onClick={() => {
-                                                    runManualPageChange('next');
-                                                }}>
-                                                Next
-                                            </button>
-                                        </div>
-                                    </div>
-                                </section>
-                            </section>
+                            <CatalogBrowser
+                                searchDraft={searchDraft}
+                                searchIsAnimating={searchIsAnimating}
+                                activeUiTarget={activeBrowserTarget}
+                                selectedCategory={selectedCategory}
+                                selectedCategoryLabel={selectedCategoryLabel}
+                                featuredCategories={featuredCategories}
+                                visibleProducts={visibleProducts}
+                                catalogWindow={catalogWindow}
+                                cartQuantities={cartQuantities}
+                                highlightedProductId={highlightedProductId}
+                                registerSearchPanelRef={registerSearchPanelRef}
+                                registerSearchInputRef={registerSearchInputRef}
+                                registerSearchSubmitButtonRef={
+                                    registerSearchSubmitButtonRef
+                                }
+                                registerSearchClearButtonRef={registerSearchClearButtonRef}
+                                registerAllCategoryButtonRef={registerAllCategoryButtonRef}
+                                registerCategoryButtonRef={registerCategoryButtonRef}
+                                registerGridSectionRef={registerGridSectionRef}
+                                registerGridHeadingRef={registerGridHeadingRef}
+                                registerGridWindowNavRef={registerGridWindowNavRef}
+                                registerPreviousWindowButtonRef={
+                                    registerPreviousWindowButtonRef
+                                }
+                                registerNextWindowButtonRef={registerNextWindowButtonRef}
+                                registerProductCardRef={registerProductCardRef}
+                                onSearchDraftChange={handleSearchDraftChange}
+                                onSearchSubmit={runManualSearch}
+                                onSearchClear={runManualClear}
+                                onSelectAllAisles={handleSelectAllAisles}
+                                onSelectCategory={handleSelectCategory}
+                                onOpenProduct={openProductModal}
+                                onPreviousPage={goToPreviousPage}
+                                onNextPage={goToNextPage}
+                            />
 
                             <CartPanel
                                 isOpen={isCartOpen}
@@ -2031,110 +1463,29 @@ const App = () => {
                                 subtotal={cartSummary.subtotal}
                                 activeProductId={activeCartProductId}
                                 isAgentActive={activeUiTarget?.startsWith('cart:') ?? false}
-                                registerPanelRef={(node) => {
-                                    cartPanelRef.current = node;
-                                }}
-                                registerLineRef={(productId, node) => {
-                                    if (node) {
-                                        cartLineRefs.current.set(productId, node);
-                                    } else {
-                                        cartLineRefs.current.delete(productId);
-                                    }
-                                }}
-                                onAdjustCart={(productId, delta) => {
-                                    mutateCart(productId, delta);
-                                }}
-                                onOpenProduct={(productId) => {
-                                    openProductModal(productId);
-                                }}
-                                onToggle={() => {
-                                    isCartOpenRef.current = !isCartOpenRef.current;
-                                    setIsCartOpen((current) => !current);
-                                }}
-                                onClose={() => {
-                                    isCartOpenRef.current = false;
-                                    setIsCartOpen(false);
-                                }}
+                                registerPanelRef={registerCartPanelRef}
+                                registerLineRef={registerCartLineRef}
+                                onAdjustCart={mutateCart}
+                                onOpenProduct={openProductModal}
+                                onToggle={toggleCart}
+                                onClose={closeCart}
                             />
                         </div>
                     </main>
                 )}
 
-                {modalProduct ? (
-                    <div
-                        className="grocery-modal-backdrop"
-                        style={modalStyle}
-                        onClick={() => {
-                            modalProductIdRef.current = null;
-                            setModalProductId(null);
-                        }}>
-                        <div
-                            className="grocery-modal"
-                            data-agent-active={
-                                activeUiTarget === 'modal:add' ? 'true' : 'false'
-                            }
-                            onClick={(event) => event.stopPropagation()}>
-                            <button
-                                type="button"
-                                className="grocery-modal__close"
-                                aria-label="Close product"
-                                onClick={() => {
-                                    modalProductIdRef.current = null;
-                                    setModalProductId(null);
-                                }}>
-                                ×
-                            </button>
-
-                            <div className="grocery-modal__media">
-                                <img
-                                    src={modalProduct.imageUrl}
-                                    alt={modalProduct.title}
-                                    loading="lazy"
-                                />
-                            </div>
-
-                            <div className="grocery-modal__content">
-                                <span className="grocery-kicker">
-                                    {modalProduct.primaryCategoryLabel ?? 'Product detail'}
-                                </span>
-                                <h2>{modalProduct.title}</h2>
-                                <p className="grocery-modal__subtitle">
-                                    {modalProduct.subtitle}
-                                </p>
-                                <strong className="grocery-modal__price">
-                                    {formatPrice(modalProduct.price)}
-                                </strong>
-
-                                <div className="grocery-modal__swatches">
-                                    <i style={{backgroundColor: modalProduct.theme.accent}} />
-                                    <i style={{backgroundColor: modalProduct.theme.support}} />
-                                    <i style={{backgroundColor: modalProduct.theme.deep}} />
-                                    <i style={{backgroundColor: modalProduct.theme.soft}} />
-                                </div>
-
-                                <div className="grocery-modal__actions">
-                                    <button
-                                        type="button"
-                                        className="grocery-modal__primary"
-                                        ref={modalAddButtonRef}
-                                        disabled={modalProduct.price === null}
-                                        data-agent-active={
-                                            activeUiTarget === 'modal:add'
-                                                ? 'true'
-                                                : 'false'
-                                        }
-                                        onClick={() => {
-                                            runManualAddToCart(modalProduct.id);
-                                        }}>
-                                        {modalProduct.price === null
-                                            ? 'Ask for price'
-                                            : 'Add to cart'}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ) : null}
+                <ProductModal
+                    product={modalProduct}
+                    isAgentActive={activeUiTarget === 'modal:add'}
+                    addButtonRef={registerModalAddButtonRef}
+                    onBackdropClick={closeModal}
+                    onClose={closeModal}
+                    onAddToCart={() => {
+                        if (modalProduct) {
+                            runManualAddToCart(modalProduct.id);
+                        }
+                    }}
+                />
 
                 <FauxCursor ref={cursorRef} labelRef={cursorLabelRef} />
             </div>
