@@ -12,6 +12,7 @@ import {
     getDefaultPosition,
 } from '../lib/constants.js';
 import {tw} from '../lib/twind.js';
+import type {TPageUseChatExpandedPlacement} from '../types.js';
 
 const DRAG_THRESHOLD = 4;
 
@@ -44,6 +45,7 @@ type TDraggablePanelRenderProps = {
 type TDraggablePanelProps = {
     readonly width: number;
     readonly height: number;
+    readonly placement: TPageUseChatExpandedPlacement;
     readonly children: (props: TDraggablePanelRenderProps) => ReactNode;
 };
 
@@ -56,6 +58,7 @@ const createTranslateStyle = ({x, y}: TPosition) =>
 export const DraggablePanel = ({
     width,
     height,
+    placement,
     children,
 }: TDraggablePanelProps) => {
     const rootRef = useRef<HTMLDivElement | null>(null);
@@ -88,7 +91,11 @@ export const DraggablePanel = ({
                   nextBoxSize.width,
                   nextBoxSize.height,
               )
-            : getDefaultPosition(nextBoxSize.width, nextBoxSize.height);
+            : getDefaultPosition(
+                  nextBoxSize.width,
+                  nextBoxSize.height,
+                  placement,
+              );
 
         applyPosition(nextPosition);
     };
@@ -124,7 +131,7 @@ export const DraggablePanel = ({
     useClientLayoutEffect(() => {
         boxSizeRef.current = {width, height};
         syncPositionToViewport();
-    }, [height, width]);
+    }, [height, placement, width]);
 
     useEffect(() => {
         const onResize = () => {

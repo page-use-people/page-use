@@ -32,6 +32,19 @@ export type TCartMutationResult = {
     readonly summary: TCartSummary;
 };
 
+export type TCartMutation = {
+    readonly productId: number;
+    readonly quantityDelta: number;
+};
+
+export type TCartBatchMutationResult = {
+    readonly state: TCartState;
+    readonly summary: TCartSummary;
+    readonly touchedProductIds: readonly number[];
+    readonly addedProductIds: readonly number[];
+    readonly removedProductIds: readonly number[];
+};
+
 const buildCartLine = (
     product: TCatalogProduct,
     quantity: number,
@@ -161,5 +174,74 @@ export const mutateCartState = (
     return {
         state: nextState,
         summary: buildCartSummary(productMap, nextQuantities, nextActivity),
+    };
+};
+
+export const mutateCartStateBatch = (
+    productMap: ReadonlyMap<number, TCatalogProduct>,
+    cartState: TCartState,
+    mutations: readonly TCartMutation[],
+): TCartBatchMutationResult => {
+    const nextQuantities = {...cartState.quantities};
+    const nextActivity = {...cartState.activity};
+    let nextActivityCounter = cartState.activityCounter;
+    const touchedProductIds: number[] = [];
+    const addedProductIds: number[] = [];
+    const removedProductIds: number[] = [];
+
+    for (const mutation of mutations) {
+        const product = productMap.get(mutation.productId);
+        if (!product) {
+            throw new Error(`Unknown product id: ${mutation.productId}`);
+        }
+
+        if (mutation.quantityDelta === 0) {
+            continue;
+        }
+
+        if (mutation.quantityDelta > 0 && product.price === null) {
+            continue;
+        }
+
+        const currentQuantity = nextQuantities[product.id] ?? 0;
+        const nextQuantity = Math.max(0, currentQuantity + mutation.quantityDelta);
+
+        if (nextQuantity === currentQuantity) {
+            continue;
+        }
+
+        touchedProductIds.push(product.id);
+
+        if (nextQuantity > currentQuantity) {
+            addedProductIds.push(product.id);
+        } else {
+            removedProductIds.push(product.id);
+        }
+
+        if (nextQuantity === 0) {
+            delete nextQuantities[product.id];
+            delete nextActivity[product.id];
+            continue;
+        }
+
+        nextQuantities[product.id] = nextQuantity;
+        if (nextActivity[product.id] === undefined) {
+            nextActivityCounter += 1;
+            nextActivity[product.id] = nextActivityCounter;
+        }
+    }
+
+    const nextState: TCartState = {
+        quantities: nextQuantities,
+        activity: nextActivity,
+        activityCounter: nextActivityCounter,
+    };
+
+    return {
+        state: nextState,
+        summary: buildCartSummary(productMap, nextQuantities, nextActivity),
+        touchedProductIds,
+        addedProductIds,
+        removedProductIds,
     };
 };

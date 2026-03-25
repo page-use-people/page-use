@@ -15,7 +15,7 @@ export const ProductModal = memo(
         product,
         isAgentActive,
         addButtonRef,
-        onBackdropClick,
+        onBackdropClick: _onBackdropClick,
         onClose,
         onAddToCart,
     }: TProductModalProps) => {
@@ -34,15 +34,13 @@ export const ProductModal = memo(
             '--modal-foreground-soft': product.theme.foregroundOnSoft,
         } as CSSProperties;
 
+        void _onBackdropClick;
+
         return (
-            <div
-                className="grocery-modal-backdrop"
-                style={modalStyle}
-                onClick={onBackdropClick}>
+            <aside className="grocery-modal-backdrop" style={modalStyle}>
                 <div
                     className="grocery-modal"
-                    data-agent-active={isAgentActive ? 'true' : 'false'}
-                    onClick={(event) => event.stopPropagation()}>
+                    data-agent-active={isAgentActive ? 'true' : 'false'}>
                     <button
                         type="button"
                         className="grocery-modal__close"
@@ -89,7 +87,7 @@ export const ProductModal = memo(
                         </div>
                     </div>
                 </div>
-            </div>
+            </aside>
         );
     },
     (previousProps, nextProps) =>

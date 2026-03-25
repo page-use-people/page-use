@@ -24,9 +24,20 @@ export type TCartLineSummary = {
 };
 
 export type TAnimateSearchResult = {
+    readonly appliedQuery: string;
     readonly resultCount: number;
-    readonly leadingResultId: number | null;
-    readonly leadingResultTitle: string | null;
+    readonly visibleResults: TAnimateSearchVisibleResult[];
+};
+
+export type TAnimateSearchVisibleResult = {
+    readonly productId: number;
+    readonly title: string;
+    readonly subtitle: string | null;
+    readonly price: number;
+    readonly quantityInCart: number;
+    readonly rank: number;
+    readonly primaryCategoryLabel: string | null;
+    readonly normalizedName: string;
 };
 
 export type TCategoryResult = {
@@ -42,6 +53,12 @@ export type TSpotlightResult = {
 export type TCartResult = {
     readonly totalItems: number;
     readonly subtotal: number | null;
+};
+
+export type TCartBatchResult = {
+    readonly totalItems: number;
+    readonly subtotal: number | null;
+    readonly touchedProductIds: number[];
 };
 
 export type TCatalogWindow = {
@@ -61,8 +78,66 @@ export const featuredCategorySchema = z
     .describe('compact list of category keys available for browsing');
 
 export const visibleProductCardSchema = z
+    .array(
+        z.object({
+            productId: z.number().describe('visible product id'),
+            title: z.string().describe('visible product title'),
+            subtitle: z
+                .string()
+                .nullable()
+                .describe('visible product subtitle if shown on the card'),
+            price: z.number().describe('visible product price in BDT'),
+            quantityInCart: z
+                .number()
+                .describe('current basket quantity for this product'),
+            rank: z
+                .number()
+                .describe('1-based position in the settled visible result list'),
+            primaryCategoryLabel: z
+                .string()
+                .nullable()
+                .describe('primary category label for the visible product'),
+            normalizedName: z
+                .string()
+                .describe('normalized searchable name for the visible product'),
+        }),
+    )
+    .describe('structured settled visible products for the current shelf');
+
+export const animateSearchVisibleResultSchema = z
+    .array(
+        z.object({
+            productId: z.number().describe('visible product id'),
+            title: z.string().describe('visible product title'),
+            subtitle: z
+                .string()
+                .nullable()
+                .describe('visible product subtitle if shown on the card'),
+            price: z.number().describe('visible product price in BDT'),
+            quantityInCart: z
+                .number()
+                .describe('current basket quantity for this product'),
+            rank: z
+                .number()
+                .describe('1-based position in the settled visible result list'),
+            primaryCategoryLabel: z
+                .string()
+                .nullable()
+                .describe('primary category label for the visible product'),
+            normalizedName: z
+                .string()
+                .describe('normalized searchable name for the visible product'),
+        }),
+    )
+    .describe(
+        'addable visible product cards after the search settles; this matches the settled visible_products data',
+    );
+
+export const searchStatusSchema = z
     .string()
-    .describe('compact list of addable visible products; each line starts with the product id');
+    .describe(
+        'search lifecycle status including draft_query, settled_query, and category_key; loading means visible_products and catalog_window still describe the settled shelf',
+    );
 
 export const cartSummarySchema = z
     .string()
@@ -71,11 +146,11 @@ export const cartSummarySchema = z
 export const nullableSpotlightSchema = z
     .string()
     .nullable()
-    .describe('compact summary of the product open in the detail modal');
+    .describe('compact summary of the currently highlighted product card');
 
 export const catalogWindowSummarySchema = z
     .string()
-    .describe('compact summary of the current result window');
+    .describe('compact summary of the settled result window');
 
 export const animateSearchInputSchema = z
     .object({
@@ -90,50 +165,56 @@ export const animateSearchInputSchema = z
 
 export const animateSearchOutputSchema = z
     .object({
-        resultCount: z.number().describe('number of matching products'),
-        leadingResultId: z.number().nullable().describe('first matching product id if any'),
-        leadingResultTitle: z
+        appliedQuery: z
             .string()
-            .nullable()
-            .describe('first matching product title if any'),
+            .describe('query currently applied to the shelf after search settles'),
+        resultCount: z.number().describe('number of matching products'),
+        visibleResults: animateSearchVisibleResultSchema,
     })
-    .describe('search results after the query is applied');
+    .describe('settled search results after the query is fully applied');
 
 export const categorySelectionSchema = z
     .object({
         categoryKey: z
             .string()
             .nullable()
-            .describe('category key to browse, or null to clear category filtering'),
+            .describe(
+                'category key to browse, or null to clear category filtering',
+            ),
     })
     .describe('change the active category filter');
 
 export const categorySelectionOutputSchema = z
     .object({
-        selectedCategory: z.string().nullable().describe('resulting category key'),
+        selectedCategory: z
+            .string()
+            .nullable()
+            .describe('resulting category key'),
         productCount: z
             .number()
             .describe('count of matching products under the current filters'),
     })
-    .describe('result of changing category or clearing search');
+    .describe('result of changing category');
 
 export const spotlightInputSchema = z
     .object({
-        productId: z.number().describe('product id to open'),
+        productId: z.number().describe('product id to focus'),
     })
-    .describe('open a product detail view');
+    .describe('focus a specific product card in the shelf');
 
 export const spotlightOutputSchema = z
     .object({
-        productId: z.number().describe('opened product id'),
-        productTitle: z.string().describe('opened product title'),
+        productId: z.number().describe('focused product id'),
+        productTitle: z.string().describe('focused product title'),
     })
-    .describe('product now open in the detail view');
+    .describe('product card now highlighted in the shelf');
 
 export const cartInputSchema = z
     .object({
         productId: z.number().describe('product id to add or remove'),
-        quantityDelta: z.number().describe('positive to add, negative to remove'),
+        quantityDelta: z
+            .number()
+            .describe('positive to add, negative to remove'),
     })
     .describe('adjust the quantity of a product in the basket');
 
@@ -147,24 +228,68 @@ export const cartOutputSchema = z
     })
     .describe('basket totals after the quantity change');
 
+export const cartBatchInputSchema = z
+    .object({
+        mutations: z
+            .array(
+                z.object({
+                    productId: z
+                        .number()
+                        .describe('product id to add or remove'),
+                    quantityDelta: z
+                        .number()
+                        .describe('positive to add, negative to remove'),
+                }),
+            )
+            .min(1)
+            .max(12)
+            .describe('cart changes to apply in one request'),
+    })
+    .describe('apply multiple basket changes in one request');
+
+export const cartBatchOutputSchema = z
+    .object({
+        totalItems: z.number().describe('total quantity after all changes'),
+        subtotal: z
+            .number()
+            .nullable()
+            .describe('basket subtotal in BDT when all prices are known'),
+        touchedProductIds: z
+            .array(z.number())
+            .describe('product ids whose basket quantities changed'),
+    })
+    .describe('basket totals after the batch of quantity changes');
+
 export const catalogWindowSchema = z
     .object({
         visibleFrom: z
             .number()
-            .describe('1-based index of the first visible product in the filtered list'),
+            .describe(
+                '1-based index of the first visible product in the filtered list',
+            ),
         visibleTo: z
             .number()
-            .describe('1-based index of the last visible product in the filtered list'),
-        visibleCount: z.number().describe('count of currently visible products'),
+            .describe(
+                '1-based index of the last visible product in the filtered list',
+            ),
+        visibleCount: z
+            .number()
+            .describe('count of currently visible products'),
         totalMatches: z
             .number()
-            .describe('total products matching the current search and category'),
+            .describe(
+                'total products matching the current search and category',
+            ),
         canScrollNext: z
             .boolean()
-            .describe('whether more matching products exist after the current page'),
+            .describe(
+                'whether more matching products exist after the current page',
+            ),
         canScrollPrevious: z
             .boolean()
-            .describe('whether earlier matching products exist before the current page'),
+            .describe(
+                'whether earlier matching products exist before the current page',
+            ),
     })
     .describe('information about the active page of search results');
 
@@ -184,36 +309,45 @@ export const scrollCatalogInputSchema = z
     .describe('move to a different page of visible results');
 
 export const systemPrompt = `
-        You are the concierge for a simple grocery storefront.
+        You are the concierge for a Bangladesh grocery storefront.
 
-        Page functions already handle scrolling, reveals, and motion.
-        - visible_products is a compact line list of addable results, and each line starts with the product id.
-        - featured_categories is a compact key: label list for category browsing.
-        - Clean vague user wording into likely product search terms before searching.
-        - Search is the main way to find products.
-        - For meal, recipe, ingredient-list, or grocery-list requests, handle one product at a time: search, inspect results, refine or paginate if needed, open the best match, add it, then move on.
-        - When searching, inspect up to 3 result pages before changing strategy.
-        - If results are weak or mismatched, try different search terms before giving up. Prefer obvious variants and more specific product wording, such as liquid milk instead of milk.
-        - If search is still noisy, use category selection to narrow the result set and then search again.
-        - Never cycle through the full catalog or keep paging indefinitely.
-        - If targeted searches and category narrowing still do not surface a convincing match, ask the user a short clarifying question instead of scanning the whole catalog.
+        You can read:
+        - search_status: includes draft_query, settled_query, and category_key.
+        - visible_products: structured JSON for the currently visible addable products.
+        - catalog_window: the current page of the settled shelf.
+        - featured_categories: compact key and label pairs for browsing.
+        - cart_summary: what is already in the basket.
+
+        You can act with:
+        - animateSearch(query, categoryKey?)
+        - setCategory(categoryKey | null)
+        - scrollCatalog(direction, pages?)
+        - updateCart(productId, quantityDelta)
+
+        Rules:
+        - When search_status is loading, visible_products and catalog_window still describe the settled_query and category_key, not the newer draft_query.
+        - When search_status is idle, visible_products and catalog_window describe the current settled shelf. animateSearch.visibleResults matches that same settled data.
+        - Read the settled results you already have before searching again.
+        - If a good match is already visible anywhere in visible_products, use that product id directly even if it is not the first result.
+        - If the current results are promising but incomplete, use scrollCatalog. If they are noisy or off-target, refine the search term or category.
+        - Use setCategory for broad aisle-level narrowing, not as a substitute for reading the visible results.
+        - updateCart changes one product at a time. If an item is already in the basket, update it directly instead of searching again.
+        - Local names such as atta, maida, suji, musur dal, moogh dal, chinigura, borhani, and kasundi are product types.
+        - Prefixes such as Teer, ACI, Fresh, Pran, Aarong, Radhuni, and Ispahani are usually brands. Unless the user asks for a brand, judge the match mainly by the underlying product type, name, and pack size.
         - Skip price-on-request items because they cannot be added to cart.
-        - For vague user requests, choose the best fit from the visible options, not just the first relevant result.
-        - Prefer practical formats and cuts that match likely intent: for example, larger cooking-oil bottles over tiny ones when the user asks for oil, and cut chicken pieces, drumsticks, or full chicken over boneless chicken when the user asks for fried chicken unless they ask otherwise.
-        - Prefer plain ingredients over processed substitutes unless the user asks for the processed version.
-        - Avoid household or personal-care items unless the user asks for them.
+        - Ask a short clarifying question only if the settled results and a few more pages still do not show a convincing match.
 
         Keep suggestions brief and practical.
     `;
 
 export const chatTheme = {
-    '--pu-bg': '#18130f',
-    '--pu-fg': '#f7f0e8',
-    '--pu-surface': 'rgba(255,255,255,0.08)',
-    '--pu-muted': 'rgba(247,240,232,0.48)',
-    '--pu-divider': 'rgba(247,240,232,0.12)',
-    '--pu-accent': '#d06b34',
-    '--pu-shadow': '0 30px 90px rgba(39, 24, 16, 0.24)',
+    '--pu-bg': '#f8fcf5',
+    '--pu-fg': '#173428',
+    '--pu-surface': '#eef5ef',
+    '--pu-muted': '#5e786a',
+    '--pu-divider': '#9eb7a9',
+    '--pu-accent': '#2f7a56',
+    '--pu-shadow': '0 24px 70px rgba(31, 73, 55, 0.16)',
 } as const;
 
 export const assistantConfig = {
@@ -222,15 +356,14 @@ export const assistantConfig = {
     schemas: {
         featuredCategorySchema,
         visibleProductCardSchema,
+        animateSearchVisibleResultSchema,
+        searchStatusSchema,
         cartSummarySchema,
-        nullableSpotlightSchema,
         catalogWindowSummarySchema,
         animateSearchInputSchema,
         animateSearchOutputSchema,
         categorySelectionSchema,
         categorySelectionOutputSchema,
-        spotlightInputSchema,
-        spotlightOutputSchema,
         cartInputSchema,
         cartOutputSchema,
         catalogWindowSchema,

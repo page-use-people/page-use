@@ -19,9 +19,14 @@ import {
     ROUNDEDNESS_SCALES,
     THEME_PALETTES,
 } from './lib/constants.js';
-import type {TPageUseChatProps, TPageUseChatSubmitCallbacks} from './types.js';
+import type {
+    TPageUseChatExpandedPlacement,
+    TPageUseChatProps,
+    TPageUseChatSubmitCallbacks,
+} from './types.js';
 
 export type {
+    TPageUseChatExpandedPlacement,
     TPageUseChatProps,
     TPageUseChatRoundedness,
     TPageUseChatSubmitCallbacks,
@@ -67,15 +72,20 @@ const ChatWidgetBody = observer(
         title,
         width,
         height,
+        placement,
     }: {
         readonly title: string;
         readonly width: number;
         readonly height: number;
+        readonly placement: TPageUseChatExpandedPlacement;
     }) => {
         const {ui} = useChatWidget();
 
         return ui.isPanelExpanded ? (
-            <DraggablePanel width={width} height={height}>
+            <DraggablePanel
+                width={width}
+                height={height}
+                placement={placement}>
                 {({panelDragHandleProps}) => (
                     <ConversationPanel
                         title={title}
@@ -102,6 +112,7 @@ export const PageUseChat = ({
     height = DEFAULT_HEIGHT,
     theme = 'dark',
     roundedness = 'none',
+    expandedPlacement = 'bottom-right',
     cssVariables,
     devMode,
     disablePageUseBanner,
@@ -147,7 +158,12 @@ export const PageUseChat = ({
     return (
         <ChatWidgetProvider value={contextValue}>
             <ShadowContainer cssVariables={vars} icon={icon}>
-                <ChatWidgetBody title={title} width={width} height={height} />
+                <ChatWidgetBody
+                    title={title}
+                    width={width}
+                    height={height}
+                    placement={expandedPlacement}
+                />
             </ShadowContainer>
         </ChatWidgetProvider>
     );

@@ -1,4 +1,8 @@
-import type {TPageUseChatRoundedness, TPageUseChatTheme} from '../types.js';
+import type {
+    TPageUseChatExpandedPlacement,
+    TPageUseChatRoundedness,
+    TPageUseChatTheme,
+} from '../types.js';
 
 export const PANEL_GAP = 24;
 export const LAUNCHER_BAR_MAX_WIDTH = 300;
@@ -76,9 +80,15 @@ export const clampPosition = (
     ),
 });
 
-export const getDefaultPosition = (width: number, height: number) =>
+export const getDefaultPosition = (
+    width: number,
+    height: number,
+    placement: TPageUseChatExpandedPlacement = 'bottom-right',
+) =>
     clampPosition(
-        window.innerWidth - width - PANEL_GAP,
+        placement === 'bottom-left'
+            ? PANEL_GAP
+            : window.innerWidth - width - PANEL_GAP,
         window.innerHeight - height - PANEL_GAP,
         width,
         height,

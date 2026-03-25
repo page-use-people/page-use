@@ -1,41 +1,46 @@
 import {
     startTransition,
     useEffect,
+    useEffectEvent,
     useMemo,
     useRef,
     useState,
 } from 'react';
+import {useQuery} from '@tanstack/react-query';
 import {PageUseChat} from '@page-use/react/ui/chat';
-import {SystemPrompt, useAgentFunction, useAgentVariable, z} from '@page-use/react';
+import {
+    SystemPrompt,
+    useAgentFunction,
+    useAgentVariable,
+    z,
+} from '@page-use/react';
 import {
     CatalogBrowser,
     type TCatalogBrowserCategory,
 } from './components/CatalogBrowser.tsx';
 import {CartPanel} from './components/CartPanel.tsx';
 import {FauxCursor} from './components/FauxCursor.tsx';
-import {ProductModal} from './components/ProductModal.tsx';
 import {
     normalizeSearchValue,
     wait,
-    type TCatalogData,
     type TCatalogProduct,
 } from './lib/catalog.ts';
 import {
     MAX_VISIBLE_PRODUCTS,
     SEARCH_TYPING_BASE_MS,
     buildCatalogWindow,
+    catalogQueryOptions,
     clampWindowStart,
     getFilteredProducts,
-    loadCatalog,
-    scoreSearchMatch,
     type TAnimateSearchResult,
     type TCatalogWindow,
     type TCategoryResult,
 } from './lib/catalog-browser.ts';
 import {
     buildCartLines,
-    mutateCartState,
+    mutateCartStateBatch,
     summarizeCartLines,
+    type TCartMutation,
     type TCartSummary,
 } from './lib/cart.ts';
 import {
@@ -50,18 +55,20 @@ import {
     categorySelectionSchema,
     chatTheme,
     featuredCategorySchema,
-    nullableSpotlightSchema,
     scrollCatalogInputSchema,
-    spotlightInputSchema,
-    spotlightOutputSchema,
+    searchStatusSchema,
     systemPrompt,
     visibleProductCardSchema,
     type TCartResult,
-    type TSpotlightResult,
 } from './lib/assistant.ts';
 
 type TFauxCursorMode = 'browse' | 'search' | 'cart';
 type TRevealPlacement = 'top' | 'center' | 'bottom';
+
+const AGENT_MUTATION_TIMEOUT_MS = 8_000;
+const SEARCH_INPUT_DEBOUNCE_MS = 120;
+const SEARCH_LOADING_MIN_MS = 260;
+const SEARCH_SETTLE_POLL_MS = 24;
 
 const nextFrame = (signal?: AbortSignal) =>
     new Promise<void>((resolve, reject) => {
@@ -70,38 +77,89 @@ const nextFrame = (signal?: AbortSignal) =>
             return;
         }
 
-        const frame = window.requestAnimationFrame(() => {
-            signal?.removeEventListener('abort', onAbort);
-            resolve();
-        });
-
         const onAbort = () => {
             window.cancelAnimationFrame(frame);
             reject(signal?.reason ?? new DOMException('Aborted', 'AbortError'));
         };
 
+        const frame = window.requestAnimationFrame(() => {
+            signal?.removeEventListener('abort', onAbort);
+            resolve();
+        });
+
         signal?.addEventListener('abort', onAbort, {once: true});
     });
 
 const easeInOutCubic = (value: number) =>
-    value < 0.5 ? 4 * value * value * value : 1 - ((-2 * value + 2) ** 3) / 2;
+    value < 0.5 ? 4 * value * value * value : 1 - (-2 * value + 2) ** 3 / 2;
+
+const normalizeCartMutations = (
+    mutations: readonly TCartMutation[],
+): readonly TCartMutation[] => {
+    const mutationMap = new Map<number, number>();
+
+    for (const mutation of mutations) {
+        mutationMap.set(
+            mutation.productId,
+            (mutationMap.get(mutation.productId) ?? 0) + mutation.quantityDelta,
+        );
+    }
+
+    return [...mutationMap.entries()]
+        .map(([productId, quantityDelta]) => ({
+            productId,
+            quantityDelta,
+        }))
+        .filter((mutation) => mutation.quantityDelta !== 0);
+};
+
+const buildVisibleSearchResults = (
+    products: readonly TCatalogProduct[],
+    cartQuantities: Readonly<Record<number, number>>,
+) =>
+    products
+        .filter(
+            (
+                product,
+            ): product is TCatalogProduct & {
+                readonly price: number;
+            } => product.price !== null,
+        )
+        .map((product, index) => ({
+            productId: product.id,
+            title: product.title,
+            subtitle: product.subtitle ?? null,
+            price: product.price,
+            quantityInCart: cartQuantities[product.id] ?? 0,
+            rank: index + 1,
+            primaryCategoryLabel: product.primaryCategoryLabel,
+            normalizedName: normalizeSearchValue(
+                `${product.title} ${product.subtitle}`,
+            ),
+        }));
 
 const App = () => {
-    const [catalog, setCatalog] = useState<TCatalogData | null>(null);
-    const [loadError, setLoadError] = useState<string | null>(null);
-    const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-    const [searchText, setSearchText] = useState('');
-    const [searchDraft, setSearchDraft] = useState('');
-    const [modalProductId, setModalProductId] = useState<number | null>(null);
-    const [isCartOpen, setIsCartOpen] = useState(false);
-    const [visibleStartIndex, setVisibleStartIndex] = useState(0);
-    const [cartQuantities, setCartQuantities] = useState<Record<number, number>>({});
-    const [cartActivity, setCartActivity] = useState<Record<number, number>>({});
-    const [cartIsPulsing, setCartIsPulsing] = useState(false);
-    const [searchIsAnimating, setSearchIsAnimating] = useState(false);
-    const [highlightedProductId, setHighlightedProductId] = useState<number | null>(
+    const [selectedCategory, setSelectedCategory] = useState<string | null>(
         null,
     );
+    const [searchText, setSearchText] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isSearchLoading, setIsSearchLoading] = useState(false);
+    const [isCartOpen, setIsCartOpen] = useState(false);
+    const [visibleStartIndex, setVisibleStartIndex] = useState(0);
+    const [cartQuantities, setCartQuantities] = useState<
+        Record<number, number>
+    >({});
+    const [cartActivity, setCartActivity] = useState<Record<number, number>>(
+        {},
+    );
+    const [cartIsPulsing, setCartIsPulsing] = useState(false);
+    const [searchIsAnimating, setSearchIsAnimating] = useState(false);
+    const [isCategoryNavCollapsed, setIsCategoryNavCollapsed] = useState(false);
+    const [highlightedProductIds, setHighlightedProductIds] = useState<
+        ReadonlySet<number>
+    >(() => new Set());
+    const [, setSpotlightProductId] = useState<number | null>(null);
     const [agentAction, setAgentAction] = useState<{
         readonly mode: TFauxCursorMode;
         readonly label: string;
@@ -110,22 +168,23 @@ const App = () => {
 
     const selectedCategoryRef = useRef<string | null>(selectedCategory);
     const searchTextRef = useRef(searchText);
-    const searchDraftRef = useRef(searchDraft);
+    const searchQueryRef = useRef(searchQuery);
+    const isSearchLoadingRef = useRef(isSearchLoading);
     const visibleStartIndexRef = useRef(visibleStartIndex);
     const isCartOpenRef = useRef(isCartOpen);
-    const modalProductIdRef = useRef<number | null>(modalProductId);
     const cartQuantitiesRef = useRef(cartQuantities);
     const cartActivityRef = useRef(cartActivity);
     const cartActivityCounterRef = useRef(0);
-    const highlightTimerRef = useRef<number | null>(null);
+    const highlightTimersRef = useRef<Map<number, number>>(new Map());
     const cartPulseTimerRef = useRef<number | null>(null);
+    const searchCommitVersionRef = useRef(0);
 
     const searchInputRef = useRef<HTMLInputElement | null>(null);
-    const searchSubmitButtonRef = useRef<HTMLButtonElement | null>(null);
-    const searchClearButtonRef = useRef<HTMLButtonElement | null>(null);
     const searchPanelRef = useRef<HTMLDivElement | null>(null);
     const allCategoryButtonRef = useRef<HTMLButtonElement | null>(null);
-    const categoryButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+    const categoryButtonRefs = useRef<Map<string, HTMLButtonElement>>(
+        new Map(),
+    );
     const productCardRefs = useRef<Map<number, HTMLElement>>(new Map());
     const gridSectionRef = useRef<HTMLElement | null>(null);
     const gridHeadingRef = useRef<HTMLDivElement | null>(null);
@@ -134,7 +193,6 @@ const App = () => {
     const nextWindowButtonRef = useRef<HTMLButtonElement | null>(null);
     const cartPanelRef = useRef<HTMLElement | null>(null);
     const cartLineRefs = useRef<Map<number, HTMLElement>>(new Map());
-    const modalAddButtonRef = useRef<HTMLButtonElement | null>(null);
     const cursorRef = useRef<HTMLDivElement | null>(null);
     const cursorLabelRef = useRef<HTMLDivElement | null>(null);
     const cursorPositionRef = useRef({x: 96, y: 96});
@@ -148,8 +206,12 @@ const App = () => {
     }, [searchText]);
 
     useEffect(() => {
-        searchDraftRef.current = searchDraft;
-    }, [searchDraft]);
+        searchQueryRef.current = searchQuery;
+    }, [searchQuery]);
+
+    useEffect(() => {
+        isSearchLoadingRef.current = isSearchLoading;
+    }, [isSearchLoading]);
 
     useEffect(() => {
         visibleStartIndexRef.current = visibleStartIndex;
@@ -160,10 +222,6 @@ const App = () => {
     }, [isCartOpen]);
 
     useEffect(() => {
-        modalProductIdRef.current = modalProductId;
-    }, [modalProductId]);
-
-    useEffect(() => {
         cartQuantitiesRef.current = cartQuantities;
     }, [cartQuantities]);
 
@@ -171,21 +229,128 @@ const App = () => {
         cartActivityRef.current = cartActivity;
     }, [cartActivity]);
 
+    const {
+        data: catalog = null,
+        error: catalogError,
+        isPending: isCatalogLoading,
+    } = useQuery(catalogQueryOptions());
+    const loadError = catalogError
+        ? catalogError instanceof Error
+            ? catalogError.message
+            : String(catalogError)
+        : null;
+
+    const syncCategoryNavVisibility = useEffectEvent(() => {
+        const gridTop =
+            gridSectionRef.current?.getBoundingClientRect().top ??
+            Number.POSITIVE_INFINITY;
+        const nextCollapsed = gridTop <= 160;
+
+        setIsCategoryNavCollapsed((current) =>
+            current === nextCollapsed ? current : nextCollapsed,
+        );
+    });
+
     useEffect(() => {
-        void loadCatalog()
-            .then((nextCatalog) => {
-                setCatalog(nextCatalog);
-            })
-            .catch((error) => {
-                setLoadError(error instanceof Error ? error.message : String(error));
+        let frame = 0;
+
+        const schedule = () => {
+            if (frame !== 0) {
+                return;
+            }
+
+            frame = window.requestAnimationFrame(() => {
+                frame = 0;
+                syncCategoryNavVisibility();
             });
+        };
+
+        schedule();
+        window.addEventListener('scroll', schedule, {passive: true});
+        window.addEventListener('resize', schedule);
+
+        return () => {
+            if (frame !== 0) {
+                window.cancelAnimationFrame(frame);
+            }
+
+            window.removeEventListener('scroll', schedule);
+            window.removeEventListener('resize', schedule);
+        };
     }, []);
+
+    useEffect(() => {
+        const normalizedDraft = normalizeSearchValue(searchText);
+        const normalizedQuery = normalizeSearchValue(searchQuery);
+
+        if (normalizedDraft === normalizedQuery) {
+            setIsSearchLoading(false);
+            return;
+        }
+
+        const requestVersion = searchCommitVersionRef.current + 1;
+        searchCommitVersionRef.current = requestVersion;
+        setIsSearchLoading(true);
+        const startedAt = performance.now();
+
+        let cancelled = false;
+        let loadingTimer = 0;
+        const debounceTimer = window.setTimeout(() => {
+            const remainingDelay = Math.max(
+                0,
+                SEARCH_LOADING_MIN_MS - (performance.now() - startedAt),
+            );
+
+            const commit = () => {
+                if (
+                    cancelled ||
+                    searchCommitVersionRef.current !== requestVersion
+                ) {
+                    return;
+                }
+
+                searchQueryRef.current = searchText;
+                visibleStartIndexRef.current = 0;
+                startTransition(() => {
+                    setSearchQuery(searchText);
+                    setVisibleStartIndex(0);
+                    setIsSearchLoading(false);
+                });
+            };
+
+            if (remainingDelay > 0) {
+                loadingTimer = window.setTimeout(commit, remainingDelay);
+                return;
+            }
+
+            commit();
+        }, SEARCH_INPUT_DEBOUNCE_MS);
+
+        return () => {
+            cancelled = true;
+            window.clearTimeout(debounceTimer);
+            if (loadingTimer !== 0) {
+                window.clearTimeout(loadingTimer);
+            }
+        };
+    }, [searchQuery, searchText]);
+
+    useEffect(() => {
+        const frame = window.requestAnimationFrame(() => {
+            syncCategoryNavVisibility();
+        });
+
+        return () => {
+            window.cancelAnimationFrame(frame);
+        };
+    }, [catalog, isCartOpen]);
 
     useEffect(
         () => () => {
-            if (highlightTimerRef.current !== null) {
-                window.clearTimeout(highlightTimerRef.current);
+            for (const timer of highlightTimersRef.current.values()) {
+                window.clearTimeout(timer);
             }
+
             if (cartPulseTimerRef.current !== null) {
                 window.clearTimeout(cartPulseTimerRef.current);
             }
@@ -203,29 +368,6 @@ const App = () => {
         cursor.style.transform = `translate(${cursorPositionRef.current.x}px, ${cursorPositionRef.current.y}px)`;
     }, []);
 
-    useEffect(() => {
-        if (modalProductId === null) {
-            return;
-        }
-
-        const previousOverflow = document.body.style.overflow;
-        document.body.style.overflow = 'hidden';
-
-        const onKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                modalProductIdRef.current = null;
-                setModalProductId(null);
-            }
-        };
-
-        window.addEventListener('keydown', onKeyDown);
-
-        return () => {
-            document.body.style.overflow = previousOverflow;
-            window.removeEventListener('keydown', onKeyDown);
-        };
-    }, [modalProductId]);
-
     const featuredCategories = useMemo<readonly TCatalogBrowserCategory[]>(
         () =>
             (catalog?.categories ?? []).slice(0, 10).map((category) => ({
@@ -237,21 +379,19 @@ const App = () => {
     );
 
     const filteredProducts = useMemo(
-        () => getFilteredProducts(catalog, selectedCategory, searchText),
-        [catalog, searchText, selectedCategory],
+        () => getFilteredProducts(catalog, selectedCategory, searchQuery),
+        [catalog, searchQuery, selectedCategory],
     );
 
     useEffect(() => {
-        startTransition(() => {
-            setVisibleStartIndex(0);
-        });
-    }, [selectedCategory, searchText]);
-
-    useEffect(() => {
-        const maxStart = clampWindowStart(visibleStartIndex, filteredProducts.length);
-        if (maxStart !== visibleStartIndex) {
+        const nextStart = clampWindowStart(
+            visibleStartIndex,
+            filteredProducts.length,
+        );
+        if (nextStart !== visibleStartIndex) {
+            visibleStartIndexRef.current = nextStart;
             startTransition(() => {
-                setVisibleStartIndex(maxStart);
+                setVisibleStartIndex(nextStart);
             });
         }
     }, [filteredProducts.length, visibleStartIndex]);
@@ -270,18 +410,14 @@ const App = () => {
         [filteredProducts, visibleStartIndex],
     );
 
-    const modalProduct = useMemo(() => {
-        if (!catalog || modalProductId === null) {
-            return null;
-        }
-
-        return catalog.productMap.get(modalProductId) ?? null;
-    }, [catalog, modalProductId]);
-
     const cartLines = useMemo(
         () =>
             catalog
-                ? buildCartLines(catalog.productMap, cartQuantities, cartActivity)
+                ? buildCartLines(
+                      catalog.productMap,
+                      cartQuantities,
+                      cartActivity,
+                  )
                 : [],
         [catalog, cartActivity, cartQuantities],
     );
@@ -301,26 +437,36 @@ const App = () => {
         [featuredCategories],
     );
 
-    const visibleAgentCards = useMemo(
-        () =>
-            visibleProducts
-                .filter((product) => product.price !== null)
-                .map((product) => `#${product.id} ${product.title}`)
-                .join('\n') || 'none',
-        [visibleProducts],
+    const visibleSearchResults = useMemo(
+        () => buildVisibleSearchResults(visibleProducts, cartQuantities),
+        [cartQuantities, visibleProducts],
     );
 
     const catalogWindowSummary = useMemo(() => {
+        if (isSearchLoading) {
+            const pendingQuery = searchText.trim() || 'all products';
+            return `search loading for "${pendingQuery}" — wait`;
+        }
+
         if (catalogWindow.totalMatches === 0) {
             return '0 results';
         }
 
         return `${catalogWindow.visibleFrom}-${catalogWindow.visibleTo} of ${catalogWindow.totalMatches}; previous ${catalogWindow.canScrollPrevious ? 'yes' : 'no'}; next ${catalogWindow.canScrollNext ? 'yes' : 'no'}`;
-    }, [catalogWindow]);
+    }, [catalogWindow, isSearchLoading, searchText]);
 
-    const modalAgentCard = modalProduct
-        ? `#${modalProduct.id} ${modalProduct.title}${modalProduct.subtitle ? ` — ${modalProduct.subtitle}` : ''}${modalProduct.price === null ? '' : ` — ৳${modalProduct.price.toLocaleString('en-US')}`}`
-        : null;
+    const searchStatusSummary = useMemo(
+        () => {
+            const draftQuery = searchText.trim() || 'all products';
+            const settledQuery = searchQuery.trim() || 'all products';
+            const categoryKey = selectedCategory ?? 'all';
+
+            return isSearchLoading
+                ? `loading: draft_query="${draftQuery}"; settled_query="${settledQuery}"; category_key="${categoryKey}"; visible_products and catalog_window still describe the settled shelf`
+                : `idle: settled_query="${settledQuery}"; category_key="${categoryKey}"; visible_products and catalog_window describe this settled shelf`;
+        },
+        [isSearchLoading, searchQuery, searchText, selectedCategory],
+    );
 
     const cartSummaryText = useMemo(() => {
         if (cartLines.length === 0) {
@@ -342,13 +488,26 @@ const App = () => {
     }, [cartLines, cartSummary.subtotal, cartSummary.totalItems]);
 
     const selectedCategoryLabel = selectedCategory
-        ? catalog?.categoryMap.get(selectedCategory)?.label ?? 'Selected aisle'
+        ? (catalog?.categoryMap.get(selectedCategory)?.label ??
+          'Selected aisle')
         : 'Products';
 
-    const waitForUi = async (signal?: AbortSignal, delay = 180) => {
+    const waitForUi = async (signal?: AbortSignal, delay = 120) => {
         await nextFrame(signal);
         await wait(delay, signal);
         await nextFrame(signal);
+    };
+
+    const waitForSearchToSettle = async (signal?: AbortSignal) => {
+        while (
+            isSearchLoadingRef.current ||
+            normalizeSearchValue(searchTextRef.current) !==
+                normalizeSearchValue(searchQueryRef.current)
+        ) {
+            await wait(SEARCH_SETTLE_POLL_MS, signal);
+        }
+
+        await waitForUi(signal, 60);
     };
 
     const revealElement = async (
@@ -383,7 +542,8 @@ const App = () => {
         if (placement === 'top') {
             targetTop = absoluteTop - padding;
         } else if (placement === 'bottom') {
-            targetTop = absoluteTop - window.innerHeight + rect.height + padding;
+            targetTop =
+                absoluteTop - window.innerHeight + rect.height + padding;
         } else {
             targetTop = absoluteTop - (window.innerHeight - rect.height) / 2;
         }
@@ -425,18 +585,14 @@ const App = () => {
             inline: 'center',
             block: 'nearest',
         });
-        await wait(180, signal);
+        await wait(120, signal);
         await nextFrame(signal);
     };
 
     const revealCatalogResults = async (signal?: AbortSignal) => {
-        await revealElement(gridHeadingRef.current ?? gridSectionRef.current, 'top', signal);
-    };
-
-    const revealCatalogFooter = async (signal?: AbortSignal) => {
         await revealElement(
-            gridWindowNavRef.current ?? gridSectionRef.current,
-            'bottom',
+            gridHeadingRef.current ?? gridSectionRef.current,
+            'top',
             signal,
         );
     };
@@ -452,8 +608,6 @@ const App = () => {
             startTransition(() => {
                 setIsCartOpen(true);
             });
-            await waitForUi(signal, 80);
-            return;
         }
 
         await nextFrame(signal);
@@ -475,130 +629,6 @@ const App = () => {
         });
         await wait(90, signal);
         await nextFrame(signal);
-    };
-
-    const clearSearchState = async (
-        signal?: AbortSignal,
-        options?: {
-            readonly animate?: boolean;
-        },
-    ): Promise<TCategoryResult> => {
-        if (options?.animate) {
-            setActiveUiTarget('search-panel');
-            setCursorMode('search', 'show search');
-            await scrollSearchAreaIntoView(signal);
-
-            setActiveUiTarget('search-clear');
-            setCursorMode('search', 'clear search');
-            await moveCursorToElement(searchClearButtonRef.current, signal, 320);
-            await pulseCursor(signal);
-        }
-
-        searchDraftRef.current = '';
-        searchTextRef.current = '';
-        visibleStartIndexRef.current = 0;
-        startTransition(() => {
-            setSearchDraft('');
-            setSearchText('');
-            setVisibleStartIndex(0);
-        });
-
-        await waitForUi(signal, 180);
-
-        return {
-            selectedCategory: selectedCategoryRef.current,
-            productCount: getFilteredProducts(
-                catalog,
-                selectedCategoryRef.current,
-                '',
-            ).length,
-        };
-    };
-
-    const commitSearchQuery = async (
-        nextQuery: string,
-        signal?: AbortSignal,
-        options?: {
-            readonly animateButton?: boolean;
-        },
-    ): Promise<TAnimateSearchResult> => {
-        const committedQuery = nextQuery.trim();
-
-        if (options?.animateButton) {
-            setActiveUiTarget('search-submit');
-            setCursorMode('search', 'run search');
-            await moveCursorToElement(searchSubmitButtonRef.current, signal, 280);
-            await pulseCursor(signal);
-        }
-
-        searchDraftRef.current = committedQuery;
-        searchTextRef.current = committedQuery;
-        visibleStartIndexRef.current = 0;
-        startTransition(() => {
-            setSearchDraft(committedQuery);
-            setSearchText(committedQuery);
-            setVisibleStartIndex(0);
-        });
-
-        await waitForUi(signal, 220);
-
-        const matches = getFilteredProducts(
-            catalog,
-            selectedCategoryRef.current,
-            committedQuery,
-        );
-        const pricedMatches = matches.filter((product) => product.price !== null);
-        const leading = pricedMatches[0] ?? null;
-
-        return {
-            resultCount: pricedMatches.length,
-            leadingResultId: leading?.id ?? null,
-            leadingResultTitle: leading?.title ?? null,
-        };
-    };
-
-    const runManualSearch = () => {
-        void (async () => {
-            await scrollSearchAreaIntoView(undefined);
-            await commitSearchQuery(searchDraftRef.current);
-        })();
-    };
-
-    const runManualClear = () => {
-        void (async () => {
-            await scrollSearchAreaIntoView(undefined);
-            await clearSearchState(undefined);
-        })();
-    };
-
-    const openProductModal = (productId: number) => {
-        modalProductIdRef.current = productId;
-        setModalProductId(productId);
-        flashProduct(productId);
-    };
-
-    const flashProduct = (productId: number) => {
-        if (highlightTimerRef.current !== null) {
-            window.clearTimeout(highlightTimerRef.current);
-        }
-
-        setHighlightedProductId(productId);
-        highlightTimerRef.current = window.setTimeout(() => {
-            setHighlightedProductId(null);
-            highlightTimerRef.current = null;
-        }, 1100);
-    };
-
-    const pulseCartFab = () => {
-        if (cartPulseTimerRef.current !== null) {
-            window.clearTimeout(cartPulseTimerRef.current);
-        }
-
-        setCartIsPulsing(true);
-        cartPulseTimerRef.current = window.setTimeout(() => {
-            setCartIsPulsing(false);
-            cartPulseTimerRef.current = null;
-        }, 520);
     };
 
     const setCursorMode = (mode: TFauxCursorMode, label: string) => {
@@ -641,7 +671,7 @@ const App = () => {
         targetX: number,
         targetY: number,
         signal?: AbortSignal,
-        duration = 420,
+        duration = 260,
     ) => {
         if (signal?.aborted) {
             throw signal.reason ?? new DOMException('Aborted', 'AbortError');
@@ -654,7 +684,9 @@ const App = () => {
 
             const onAbort = () => {
                 window.cancelAnimationFrame(frame);
-                reject(signal?.reason ?? new DOMException('Aborted', 'AbortError'));
+                reject(
+                    signal?.reason ?? new DOMException('Aborted', 'AbortError'),
+                );
             };
 
             const step = (timestamp: number) => {
@@ -685,14 +717,14 @@ const App = () => {
         }
 
         cursor.dataset.clicking = 'true';
-        await wait(120, signal);
+        await wait(80, signal);
         cursor.dataset.clicking = 'false';
     };
 
     const moveCursorToElement = async (
         element: Element | null,
         signal?: AbortSignal,
-        duration = 420,
+        duration = 220,
     ) => {
         if (!element) {
             return;
@@ -707,206 +739,128 @@ const App = () => {
         );
     };
 
-    const scrollCatalogWindow = async (
-        direction: 'next' | 'previous',
-        pages = 1,
-        signal?: AbortSignal,
-    ): Promise<TCatalogWindow> => {
-        try {
-            const currentFiltered = getFilteredProducts(
-                catalog,
-                selectedCategoryRef.current,
-                searchTextRef.current,
-            );
-            let currentStart = visibleStartIndexRef.current;
-            const stepCount = Math.max(1, pages);
+    const flashProducts = (productIds: readonly number[], duration = 1300) => {
+        if (productIds.length === 0) {
+            return;
+        }
 
-            for (let page = 0; page < stepCount; page += 1) {
-                const nextStart = clampWindowStart(
-                    currentStart +
-                        (direction === 'next'
-                            ? MAX_VISIBLE_PRODUCTS
-                            : -MAX_VISIBLE_PRODUCTS),
-                    currentFiltered.length,
-                );
+        setHighlightedProductIds((current) => {
+            const next = new Set(current);
+            for (const productId of productIds) {
+                next.add(productId);
+            }
+            return next;
+        });
 
-                if (nextStart === currentStart) {
-                    break;
-                }
+        const spotlightId = productIds[productIds.length - 1];
+        if (spotlightId !== undefined) {
+            setSpotlightProductId(spotlightId);
+        }
 
-                const button =
-                    direction === 'next'
-                        ? nextWindowButtonRef.current
-                        : previousWindowButtonRef.current;
-
-                setActiveUiTarget(`window:${direction}`);
-                setCursorMode(
-                    'browse',
-                    direction === 'next' ? 'next page' : 'previous page',
-                );
-                await revealCatalogFooter(signal);
-                await moveCursorToElement(
-                    button ?? gridWindowNavRef.current ?? gridSectionRef.current,
-                    signal,
-                    340,
-                );
-                await pulseCursor(signal);
-
-                currentStart = nextStart;
-                visibleStartIndexRef.current = nextStart;
-
-                startTransition(() => {
-                    setVisibleStartIndex(nextStart);
-                });
-
-                await waitForUi(signal, 180);
-                await revealCatalogResults(signal);
+        for (const productId of productIds) {
+            const existingTimer = highlightTimersRef.current.get(productId);
+            if (existingTimer !== undefined) {
+                window.clearTimeout(existingTimer);
             }
 
-            return buildCatalogWindow(currentFiltered, currentStart);
-        } finally {
-            hideCursor();
+            const timer = window.setTimeout(() => {
+                setHighlightedProductIds((current) => {
+                    if (!current.has(productId)) {
+                        return current;
+                    }
+
+                    const next = new Set(current);
+                    next.delete(productId);
+                    return next;
+                });
+                highlightTimersRef.current.delete(productId);
+            }, duration);
+
+            highlightTimersRef.current.set(productId, timer);
         }
+    };
+
+    const pulseCartFab = () => {
+        if (cartPulseTimerRef.current !== null) {
+            window.clearTimeout(cartPulseTimerRef.current);
+        }
+
+        setCartIsPulsing(true);
+        cartPulseTimerRef.current = window.setTimeout(() => {
+            setCartIsPulsing(false);
+            cartPulseTimerRef.current = null;
+        }, 520);
+    };
+
+    const getCategoryResult = (categoryKey: string | null, query: string) => ({
+        selectedCategory: categoryKey,
+        productCount: getFilteredProducts(catalog, categoryKey, query).length,
+    });
+
+    const applySearchValue = (nextValue: string) => {
+        searchTextRef.current = nextValue;
+        startTransition(() => {
+            setSearchText(nextValue);
+        });
+    };
+
+    const commitSearchQuery = async (
+        nextQuery: string,
+        signal?: AbortSignal,
+    ): Promise<TAnimateSearchResult> => {
+        const committedQuery = nextQuery.trim();
+        applySearchValue(committedQuery);
+        await waitForSearchToSettle(signal);
+
+        const filteredMatches = getFilteredProducts(
+            catalog,
+            selectedCategoryRef.current,
+            searchQueryRef.current,
+        );
+        const visibleResults = buildVisibleSearchResults(
+            filteredMatches.slice(0, MAX_VISIBLE_PRODUCTS),
+            cartQuantitiesRef.current,
+        );
+        const addableMatches = filteredMatches.filter(
+            (product) => product.price !== null,
+        );
+        return {
+            appliedQuery: searchQueryRef.current.trim(),
+            resultCount: addableMatches.length,
+            visibleResults,
+        };
     };
 
     const applyCategorySelection = async (
         categoryKey: string | null,
         signal?: AbortSignal,
     ): Promise<TCategoryResult> => {
-        try {
-            const nextCount = getFilteredProducts(
-                catalog,
-                categoryKey,
-                searchTextRef.current,
-            ).length;
+        const button =
+            categoryKey === null
+                ? allCategoryButtonRef.current
+                : (categoryButtonRefs.current.get(categoryKey) ?? null);
 
-            const button =
-                categoryKey === null
-                    ? allCategoryButtonRef.current
-                    : categoryButtonRefs.current.get(categoryKey) ?? null;
-
-            setActiveUiTarget(
-                categoryKey === null ? 'category:all' : `category:${categoryKey}`,
-            );
-            setCursorMode(
-                'browse',
-                categoryKey === null ? 'show all' : 'browse aisle',
-            );
-            await revealCategoryButton(button, signal);
-            await moveCursorToElement(button, signal, 360);
-            await pulseCursor(signal);
-
-            selectedCategoryRef.current = categoryKey;
-            visibleStartIndexRef.current = 0;
-            startTransition(() => {
-                setSelectedCategory(categoryKey);
-                setVisibleStartIndex(0);
-            });
-
-            await waitForUi(signal);
-
-            return {
-                selectedCategory: categoryKey,
-                productCount: nextCount,
-            };
-        } finally {
-            hideCursor();
-        }
-    };
-
-    const ensureProductVisible = async (
-        product: TCatalogProduct,
-        signal?: AbortSignal,
-    ) => {
-        const currentQuery = normalizeSearchValue(searchTextRef.current);
-        const matchesSearch =
-            currentQuery.length === 0 ||
-            scoreSearchMatch(product, null, currentQuery) !== null;
-        const matchesCategory =
-            selectedCategoryRef.current === null ||
-            product.categoryKeys.includes(selectedCategoryRef.current);
-
-        if (!matchesSearch) {
-            await clearSearchState(signal, {animate: true});
-        }
-
-        if (!matchesCategory) {
-            await applyCategorySelection(product.primaryCategoryKey ?? null, signal);
-        }
-
-        const currentFiltered = getFilteredProducts(
-            catalog,
-            selectedCategoryRef.current,
-            searchTextRef.current,
+        setActiveUiTarget(
+            categoryKey === null ? 'category:all' : `category:${categoryKey}`,
         );
-        const productIndex = currentFiltered.findIndex(
-            (candidate) => candidate.id === product.id,
+        setCursorMode(
+            'browse',
+            categoryKey === null ? 'show all aisles' : 'browse aisle',
         );
+        await revealCategoryButton(button, signal);
+        await moveCursorToElement(button, signal, 220);
+        await pulseCursor(signal);
 
-        if (productIndex === -1) {
-            await nextFrame(signal);
-            return;
-        }
+        selectedCategoryRef.current = categoryKey;
+        visibleStartIndexRef.current = 0;
+        startTransition(() => {
+            setSelectedCategory(categoryKey);
+            setVisibleStartIndex(0);
+        });
 
-        const targetStart = clampWindowStart(
-            Math.floor(productIndex / MAX_VISIBLE_PRODUCTS) * MAX_VISIBLE_PRODUCTS,
-            currentFiltered.length,
-        );
+        await waitForUi(signal, 80);
 
-        if (targetStart !== visibleStartIndexRef.current) {
-            const direction =
-                targetStart > visibleStartIndexRef.current ? 'next' : 'previous';
-            const pageDistance = Math.max(
-                1,
-                Math.ceil(
-                    Math.abs(targetStart - visibleStartIndexRef.current) /
-                        MAX_VISIBLE_PRODUCTS,
-                ),
-            );
-            await scrollCatalogWindow(direction, pageDistance, signal);
-            return;
-        }
-
-        await nextFrame(signal);
-    };
-
-    const runSpotlight = async (
-        productId: number,
-        signal?: AbortSignal,
-    ): Promise<TSpotlightResult> => {
-        try {
-            const product = catalog?.productMap.get(productId);
-            if (!catalog || !product) {
-                throw new Error(`Unknown product id: ${productId}`);
-            }
-
-            await ensureProductVisible(product, signal);
-
-            const productCard = productCardRefs.current.get(product.id) ?? null;
-            if (productCard) {
-                setActiveUiTarget(`product:${product.id}`);
-                setCursorMode('browse', 'view details');
-                await revealElement(productCard, 'center', signal);
-                await moveCursorToElement(productCard, signal, 400);
-                await pulseCursor(signal);
-                flashProduct(product.id);
-            }
-
-            modalProductIdRef.current = product.id;
-            startTransition(() => {
-                setModalProductId(product.id);
-            });
-
-            await nextFrame(signal);
-            await wait(120, signal);
-
-            return {
-                productId: product.id,
-                productTitle: product.title,
-            };
-        } finally {
-            hideCursor();
-        }
+        return getCategoryResult(categoryKey, searchQueryRef.current);
     };
 
     const animateSearch = async (
@@ -915,9 +869,9 @@ const App = () => {
     ): Promise<TAnimateSearchResult> => {
         if (!catalog) {
             return {
+                appliedQuery: '',
                 resultCount: 0,
-                leadingResultId: null,
-                leadingResultTitle: null,
+                visibleResults: [],
             };
         }
 
@@ -932,37 +886,39 @@ const App = () => {
             }
 
             setActiveUiTarget('search-panel');
-            setCursorMode('search', 'show search');
+            setCursorMode('search', 'refine search');
             await scrollSearchAreaIntoView(signal);
-
-            const inputNode = searchInputRef.current;
-            setActiveUiTarget('search-panel');
-            setCursorMode('search', 'compose query');
-            await moveCursorToElement(inputNode, signal, 420);
-            inputNode?.focus();
+            await moveCursorToElement(searchInputRef.current, signal, 160);
+            searchInputRef.current?.focus();
             await pulseCursor(signal);
 
-            let draft = searchDraftRef.current;
+            let draft = searchTextRef.current;
             while (draft.length > 0) {
                 draft = draft.slice(0, -1);
-                searchDraftRef.current = draft;
-                startTransition(() => setSearchDraft(draft));
-                await wait(28, signal);
+                applySearchValue(draft);
+                await wait(Math.max(4, SEARCH_TYPING_BASE_MS - 2), signal);
             }
 
             draft = '';
             for (const character of input.query) {
                 draft += character;
-                searchDraftRef.current = draft;
-                startTransition(() => setSearchDraft(draft));
+                applySearchValue(draft);
                 await wait(SEARCH_TYPING_BASE_MS, signal);
             }
 
-            await wait(220, signal);
-
-            const result = await commitSearchQuery(draft, signal, {
-                animateButton: true,
-            });
+            const result = await commitSearchQuery(draft, signal);
+            const leadingVisibleResult = result.visibleResults[0] ?? null;
+            if (leadingVisibleResult) {
+                await revealCatalogResults(signal);
+                await revealElement(
+                    productCardRefs.current.get(
+                        leadingVisibleResult.productId,
+                    ) ?? null,
+                    'center',
+                    signal,
+                );
+                flashProducts([leadingVisibleResult.productId], 1450);
+            }
 
             return result;
         } finally {
@@ -971,34 +927,111 @@ const App = () => {
         }
     };
 
-    const clearAnimatedSearch = async (
-        _input: void,
+    const isProductInFirstWindow = (
+        productId: number,
+        categoryKey: string | null = selectedCategoryRef.current,
+        query: string = searchQueryRef.current,
+    ) =>
+        getFilteredProducts(catalog, categoryKey, query)
+            .slice(0, MAX_VISIBLE_PRODUCTS)
+            .some((candidate) => candidate.id === productId);
+
+    const ensureProductVisible = async (
+        product: TCatalogProduct,
         signal?: AbortSignal,
-    ): Promise<TCategoryResult> => {
-        try {
-            return await clearSearchState(signal, {animate: true});
-        } finally {
-            hideCursor();
+    ) => {
+        const revealFirstWindow = async () => {
+            if (visibleStartIndexRef.current === 0) {
+                await nextFrame(signal);
+                return;
+            }
+
+            visibleStartIndexRef.current = 0;
+            startTransition(() => {
+                setVisibleStartIndex(0);
+            });
+            await waitForUi(signal, 80);
+        };
+
+        if (isProductInFirstWindow(product.id)) {
+            await revealFirstWindow();
+            return true;
         }
+
+        const searchPlans = [
+            {
+                categoryKey: product.primaryCategoryKey ?? null,
+                query: product.title,
+            },
+            {
+                categoryKey: product.primaryCategoryKey ?? null,
+                query: `${product.title} ${product.subtitle}`.trim(),
+            },
+            {
+                categoryKey: null,
+                query: product.title,
+            },
+            {
+                categoryKey: null,
+                query: `${product.title} ${product.subtitle}`.trim(),
+            },
+        ].filter(
+            (plan, index, allPlans) =>
+                allPlans.findIndex(
+                    (candidate) =>
+                        candidate.categoryKey === plan.categoryKey &&
+                        candidate.query === plan.query,
+                ) === index,
+        );
+
+        for (const plan of searchPlans) {
+            await animateSearch(
+                {
+                    query: plan.query,
+                    categoryKey: plan.categoryKey,
+                },
+                signal,
+            );
+
+            if (
+                isProductInFirstWindow(product.id, plan.categoryKey, plan.query)
+            ) {
+                await revealFirstWindow();
+                return true;
+            }
+        }
+
+        return false;
     };
 
-    const mutateCart = (
-        productId: number,
-        quantityDelta: number,
-    ): TCartSummary => {
+    const applyCartMutations = (mutations: readonly TCartMutation[]) => {
         if (!catalog) {
-            return cartSummary;
+            return {
+                summary: cartSummary,
+                touchedProductIds: [] as readonly number[],
+                addedProductIds: [] as readonly number[],
+                removedProductIds: [] as readonly number[],
+            };
         }
 
-        const mutationResult = mutateCartState(
+        const normalizedMutations = normalizeCartMutations(mutations);
+        if (normalizedMutations.length === 0) {
+            return {
+                summary: cartSummary,
+                touchedProductIds: [] as readonly number[],
+                addedProductIds: [] as readonly number[],
+                removedProductIds: [] as readonly number[],
+            };
+        }
+
+        const mutationResult = mutateCartStateBatch(
             catalog.productMap,
             {
                 quantities: cartQuantitiesRef.current,
                 activity: cartActivityRef.current,
                 activityCounter: cartActivityCounterRef.current,
             },
-            productId,
-            quantityDelta,
+            normalizedMutations,
         );
 
         cartQuantitiesRef.current = mutationResult.state.quantities;
@@ -1006,105 +1039,241 @@ const App = () => {
         cartActivityCounterRef.current = mutationResult.state.activityCounter;
         setCartQuantities(mutationResult.state.quantities);
         setCartActivity(mutationResult.state.activity);
-        if (quantityDelta > 0) {
+
+        if (mutationResult.addedProductIds.length > 0) {
             isCartOpenRef.current = true;
             setIsCartOpen(true);
         }
-        pulseCartFab();
 
-        return mutationResult.summary;
+        if (mutationResult.touchedProductIds.length > 0) {
+            flashProducts(mutationResult.touchedProductIds);
+            pulseCartFab();
+        }
+
+        return {
+            summary: mutationResult.summary,
+            touchedProductIds: mutationResult.touchedProductIds,
+            addedProductIds: mutationResult.addedProductIds,
+            removedProductIds: mutationResult.removedProductIds,
+        };
+    };
+
+    const performCartMutation = async (
+        mutation: TCartMutation,
+        signal?: AbortSignal,
+    ) => {
+        if (!catalog) {
+            return {
+                summary: cartSummary,
+                touchedProductIds: [] as readonly number[],
+            };
+        }
+
+        const product = catalog.productMap.get(mutation.productId);
+        if (!product) {
+            throw new Error(`Unknown product id: ${mutation.productId}`);
+        }
+
+        if (mutation.quantityDelta > 0 && product.price === null) {
+            return {
+                summary: cartSummary,
+                touchedProductIds: [] as readonly number[],
+            };
+        }
+
+        const quantityInCart = cartQuantitiesRef.current[product.id] ?? 0;
+
+        try {
+            if (quantityInCart > 0) {
+                setActiveUiTarget(`cart:line:${product.id}`);
+                setCursorMode(
+                    'cart',
+                    mutation.quantityDelta > 0
+                        ? 'update basket'
+                        : 'trim basket',
+                );
+                await revealCartLine(product.id, signal, {openIfNeeded: true});
+                await moveCursorToElement(
+                    cartLineRefs.current.get(product.id) ??
+                        cartPanelRef.current,
+                    signal,
+                    180,
+                );
+                await pulseCursor(signal);
+
+                const result = applyCartMutations([mutation]);
+                await waitForUi(signal, 60);
+
+                return {
+                    summary: result.summary,
+                    touchedProductIds: result.touchedProductIds,
+                };
+            }
+
+            if (mutation.quantityDelta < 0) {
+                return {
+                    summary: cartSummary,
+                    touchedProductIds: [] as readonly number[],
+                };
+            }
+
+            await ensureProductVisible(product, signal);
+            const productCard = productCardRefs.current.get(product.id) ?? null;
+
+            if (productCard) {
+                setActiveUiTarget(`product:${product.id}`);
+                setCursorMode('cart', 'add from shelf');
+                await revealElement(productCard, 'center', signal);
+                await moveCursorToElement(productCard, signal, 200);
+                await pulseCursor(signal);
+            }
+
+            const result = applyCartMutations([mutation]);
+            await waitForUi(signal, 60);
+
+            if (result.addedProductIds.length > 0) {
+                setActiveUiTarget(`cart:line:${product.id}`);
+                setCursorMode('cart', 'review basket');
+                await revealCartLine(product.id, signal, {openIfNeeded: true});
+                await moveCursorToElement(
+                    cartLineRefs.current.get(product.id) ??
+                        cartPanelRef.current,
+                    signal,
+                    160,
+                );
+            }
+
+            return {
+                summary: result.summary,
+                touchedProductIds: result.touchedProductIds,
+            };
+        } finally {
+            hideCursor();
+        }
     };
 
     const runCartMutation = async (
         input: z.infer<typeof cartInputSchema>,
         signal?: AbortSignal,
     ): Promise<TCartResult> => {
+        const result = await performCartMutation(input, signal);
+
+        return {
+            totalItems: result.summary.totalItems,
+            subtotal: result.summary.subtotal,
+        };
+    };
+
+    const scrollCatalogWindow = async (
+        input: z.infer<typeof scrollCatalogInputSchema>,
+        signal?: AbortSignal,
+    ): Promise<TCatalogWindow> => {
+        if (!catalog) {
+            return buildCatalogWindow([], 0);
+        }
+
+        await waitForSearchToSettle(signal);
+
         try {
-            if (!catalog) {
-                return {totalItems: 0, subtotal: null};
-            }
+            const pageCount = Math.max(1, input.pages ?? 1);
+            let currentStart = visibleStartIndexRef.current;
+            let currentFiltered = getFilteredProducts(
+                catalog,
+                selectedCategoryRef.current,
+                searchQueryRef.current,
+            );
 
-            const product = catalog.productMap.get(input.productId);
-            if (!product) {
-                throw new Error(`Unknown product id: ${input.productId}`);
-            }
+            for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+                const nextStart = clampWindowStart(
+                    currentStart +
+                        (input.direction === 'next'
+                            ? MAX_VISIBLE_PRODUCTS
+                            : -MAX_VISIBLE_PRODUCTS),
+                    currentFiltered.length,
+                );
 
-            if (input.quantityDelta > 0 && product.price === null) {
-                return {
-                    totalItems: cartSummary.totalItems,
-                    subtotal: cartSummary.subtotal,
-                };
-            }
-
-            if (input.quantityDelta > 0) {
-                if (modalProductIdRef.current !== product.id) {
-                    await runSpotlight(product.id, signal);
+                if (nextStart === currentStart) {
+                    break;
                 }
 
-                const addButton = modalAddButtonRef.current;
-                setActiveUiTarget('modal:add');
-                setCursorMode('cart', 'add to cart');
-                await moveCursorToElement(addButton, signal, 340);
-                await pulseCursor(signal);
-                flashProduct(product.id);
-            } else {
-                const quantityInCart = cartQuantitiesRef.current[product.id] ?? 0;
-                const cartLine = cartLineRefs.current.get(product.id) ?? null;
-
-                if (quantityInCart > 0 && cartLine) {
-                    setCursorMode('cart', 'trim basket');
-                    setActiveUiTarget(`cart:line:${product.id}`);
-                    await revealCartLine(product.id, signal, {openIfNeeded: true});
-                    await moveCursorToElement(cartLine, signal, 360);
-                } else {
-                    await ensureProductVisible(product, signal);
-                    await nextFrame(signal);
-
-                    const target =
-                        productCardRefs.current.get(product.id) ??
-                        searchInputRef.current ??
-                        null;
-
-                    setCursorMode('cart', 'edit cart');
-                    setActiveUiTarget(`product:${product.id}`);
-                    await revealElement(
-                        target,
-                        target === searchInputRef.current ? 'top' : 'center',
-                        signal,
-                    );
-                    await moveCursorToElement(target, signal, 360);
-                }
-                await pulseCursor(signal);
-                flashProduct(product.id);
-            }
-
-            const nextSummary = mutateCart(product.id, input.quantityDelta);
-            if (input.quantityDelta > 0 && modalProductIdRef.current === product.id) {
-                modalProductIdRef.current = null;
-                startTransition(() => {
-                    setModalProductId(null);
-                });
-            }
-
-            await waitForUi(signal, 80);
-            if (input.quantityDelta > 0) {
-                setActiveUiTarget(`cart:line:${product.id}`);
-                setCursorMode('cart', 'review basket');
-                await revealCartPanel(signal, {openIfNeeded: true});
-                await moveCursorToElement(
-                    cartLineRefs.current.get(product.id) ?? cartPanelRef.current,
+                setActiveUiTarget(`window:${input.direction}`);
+                setCursorMode(
+                    'browse',
+                    input.direction === 'next'
+                        ? 'next results'
+                        : 'previous results',
+                );
+                await revealElement(
+                    gridWindowNavRef.current ?? gridSectionRef.current,
+                    'bottom',
                     signal,
-                    240,
+                );
+                await moveCursorToElement(
+                    input.direction === 'next'
+                        ? nextWindowButtonRef.current ??
+                              gridWindowNavRef.current ??
+                              gridSectionRef.current
+                        : previousWindowButtonRef.current ??
+                              gridWindowNavRef.current ??
+                              gridSectionRef.current,
+                    signal,
+                    220,
+                );
+                await pulseCursor(signal);
+
+                currentStart = nextStart;
+                visibleStartIndexRef.current = nextStart;
+                startTransition(() => {
+                    setVisibleStartIndex(nextStart);
+                });
+
+                await waitForUi(signal, 90);
+                await revealCatalogResults(signal);
+
+                currentFiltered = getFilteredProducts(
+                    catalog,
+                    selectedCategoryRef.current,
+                    searchQueryRef.current,
                 );
             }
 
-            return {
-                totalItems: nextSummary.totalItems,
-                subtotal: nextSummary.subtotal,
-            };
+            return buildCatalogWindow(currentFiltered, currentStart);
         } finally {
             hideCursor();
         }
+    };
+
+    const handleSearchChange = (nextValue: string) => {
+        applySearchValue(nextValue);
+    };
+
+    const handleSelectAllAisles = () => {
+        selectedCategoryRef.current = null;
+        visibleStartIndexRef.current = 0;
+        startTransition(() => {
+            setSelectedCategory(null);
+            setVisibleStartIndex(0);
+        });
+    };
+
+    const handleSelectCategory = (categoryKey: string) => {
+        selectedCategoryRef.current = categoryKey;
+        visibleStartIndexRef.current = 0;
+        startTransition(() => {
+            setSelectedCategory(categoryKey);
+            setVisibleStartIndex(0);
+        });
+    };
+
+    const handleProductCardAdjust = (productId: number, delta: number) => {
+        const result = applyCartMutations([{productId, quantityDelta: delta}]);
+        if (delta > 0 && result.addedProductIds.length > 0) {
+            void revealCartLine(productId, undefined, {openIfNeeded: true});
+        }
+    };
+
+    const handleCartAdjust = (productId: number, delta: number) => {
+        applyCartMutations([{productId, quantityDelta: delta}]);
     };
 
     const runManualPageChange = (direction: 'next' | 'previous') => {
@@ -1126,154 +1295,9 @@ const App = () => {
         });
 
         void (async () => {
-            await waitForUi(undefined, 180);
+            await waitForUi(undefined, 120);
             await revealCatalogResults(undefined);
         })();
-    };
-
-    const runManualAddToCart = (productId: number) => {
-        const product = catalog?.productMap.get(productId);
-        if (!product || product.price === null) {
-            return;
-        }
-
-        mutateCart(productId, 1);
-        modalProductIdRef.current = null;
-        setModalProductId(null);
-        flashProduct(productId);
-
-        void (async () => {
-            await waitForUi(undefined, 80);
-            await revealCartPanel(undefined, {openIfNeeded: true});
-        })();
-    };
-
-    useAgentVariable('search_text', {
-        schema: z.string().describe('current submitted search text in the storefront'),
-        value: searchText,
-    });
-
-    useAgentVariable('selected_category', {
-        schema: z.string().nullable().describe('current selected category key'),
-        value: selectedCategory,
-    });
-
-    useAgentVariable('featured_categories', {
-        schema: featuredCategorySchema,
-        value: featuredCategorySummary,
-    });
-
-    useAgentVariable('visible_products', {
-        schema: visibleProductCardSchema,
-        value: visibleAgentCards,
-    });
-
-    useAgentVariable('catalog_window', {
-        schema: catalogWindowSummarySchema,
-        value: catalogWindowSummary,
-    });
-
-    useAgentVariable('spotlight_product', {
-        schema: nullableSpotlightSchema,
-        value: modalAgentCard,
-    });
-
-    useAgentVariable('cart_summary', {
-        schema: cartSummarySchema,
-        value: cartSummaryText,
-    });
-
-    useAgentFunction('animateSearch', {
-        inputSchema: animateSearchInputSchema,
-        outputSchema: animateSearchOutputSchema,
-        mutates: ['search_text', 'visible_products', 'selected_category'],
-        func: animateSearch,
-    });
-
-    useAgentFunction('setCategory', {
-        inputSchema: categorySelectionSchema,
-        outputSchema: categorySelectionOutputSchema,
-        mutates: ['selected_category', 'visible_products', 'catalog_window'],
-        func: async (
-            input: z.infer<typeof categorySelectionSchema>,
-            signal?: AbortSignal,
-        ) =>
-            await applyCategorySelection(input.categoryKey, signal),
-    });
-
-    useAgentFunction('spotlightProduct', {
-        inputSchema: spotlightInputSchema,
-        outputSchema: spotlightOutputSchema,
-        mutates: [
-            'spotlight_product',
-            'selected_category',
-            'search_text',
-            'visible_products',
-            'catalog_window',
-        ],
-        func: async (
-            input: z.infer<typeof spotlightInputSchema>,
-            signal?: AbortSignal,
-        ) =>
-            await runSpotlight(input.productId, signal),
-    });
-
-    useAgentFunction('updateCart', {
-        inputSchema: cartInputSchema,
-        outputSchema: cartOutputSchema,
-        mutates: [
-            'cart_summary',
-            'spotlight_product',
-            'selected_category',
-            'search_text',
-            'visible_products',
-            'catalog_window',
-        ],
-        func: async (
-            input: z.infer<typeof cartInputSchema>,
-            signal?: AbortSignal,
-        ) => await runCartMutation(input, signal),
-    });
-
-    useAgentFunction('clearSearch', {
-        inputSchema: z.void(),
-        outputSchema: categorySelectionOutputSchema,
-        mutates: ['search_text', 'visible_products', 'catalog_window'],
-        func: clearAnimatedSearch,
-    });
-
-    useAgentFunction('scrollCatalog', {
-        inputSchema: scrollCatalogInputSchema,
-        outputSchema: catalogWindowSchema,
-        mutates: ['visible_products', 'catalog_window'],
-        func: async (
-            input: z.infer<typeof scrollCatalogInputSchema>,
-            signal?: AbortSignal,
-        ) => await scrollCatalogWindow(input.direction, input.pages ?? 1, signal),
-    });
-
-    const handleSearchDraftChange = (nextValue: string) => {
-        searchDraftRef.current = nextValue;
-        startTransition(() => {
-            setSearchDraft(nextValue);
-        });
-    };
-
-    const handleSelectAllAisles = () => {
-        startTransition(() => {
-            setSelectedCategory(null);
-        });
-    };
-
-    const handleSelectCategory = (categoryKey: string) => {
-        startTransition(() => {
-            setSelectedCategory(categoryKey);
-        });
-    };
-
-    const closeModal = () => {
-        modalProductIdRef.current = null;
-        setModalProductId(null);
     };
 
     const goToPreviousPage = () => {
@@ -1300,14 +1324,6 @@ const App = () => {
 
     const registerSearchInputRef = (node: HTMLInputElement | null) => {
         searchInputRef.current = node;
-    };
-
-    const registerSearchSubmitButtonRef = (node: HTMLButtonElement | null) => {
-        searchSubmitButtonRef.current = node;
-    };
-
-    const registerSearchClearButtonRef = (node: HTMLButtonElement | null) => {
-        searchClearButtonRef.current = node;
     };
 
     const registerAllCategoryButtonRef = (node: HTMLButtonElement | null) => {
@@ -1337,7 +1353,9 @@ const App = () => {
         gridWindowNavRef.current = node;
     };
 
-    const registerPreviousWindowButtonRef = (node: HTMLButtonElement | null) => {
+    const registerPreviousWindowButtonRef = (
+        node: HTMLButtonElement | null,
+    ) => {
         previousWindowButtonRef.current = node;
     };
 
@@ -1345,7 +1363,10 @@ const App = () => {
         nextWindowButtonRef.current = node;
     };
 
-    const registerProductCardRef = (productId: number, node: HTMLElement | null) => {
+    const registerProductCardRef = (
+        productId: number,
+        node: HTMLElement | null,
+    ) => {
         if (node) {
             productCardRefs.current.set(productId, node);
         } else {
@@ -1357,7 +1378,10 @@ const App = () => {
         cartPanelRef.current = node;
     };
 
-    const registerCartLineRef = (productId: number, node: HTMLElement | null) => {
+    const registerCartLineRef = (
+        productId: number,
+        node: HTMLElement | null,
+    ) => {
         if (node) {
             cartLineRefs.current.set(productId, node);
         } else {
@@ -1365,142 +1389,217 @@ const App = () => {
         }
     };
 
-    const registerModalAddButtonRef = (node: HTMLButtonElement | null) => {
-        modalAddButtonRef.current = node;
-    };
-
     const activeBrowserTarget =
-        activeUiTarget === null ||
-        activeUiTarget === 'modal:add' ||
-        activeUiTarget.startsWith('cart:')
+        activeUiTarget === null || activeUiTarget.startsWith('cart:')
             ? null
             : activeUiTarget;
+    const showCategoryNav =
+        !isCategoryNavCollapsed ||
+        (activeBrowserTarget?.startsWith('category:') ?? false);
 
     const activeCartProductId = activeUiTarget?.startsWith('cart:line:')
         ? Number(activeUiTarget.slice('cart:line:'.length))
         : null;
 
+    useAgentVariable('search_status', {
+        schema: searchStatusSchema,
+        value: searchStatusSummary,
+    });
+
+    useAgentVariable('featured_categories', {
+        schema: featuredCategorySchema,
+        value: featuredCategorySummary,
+    });
+
+    useAgentVariable('visible_products', {
+        schema: visibleProductCardSchema,
+        value: visibleSearchResults,
+    });
+
+    useAgentVariable('catalog_window', {
+        schema: catalogWindowSummarySchema,
+        value: catalogWindowSummary,
+    });
+
+    useAgentVariable('cart_summary', {
+        schema: cartSummarySchema,
+        value: cartSummaryText,
+    });
+
+    useAgentFunction('animateSearch', {
+        inputSchema: animateSearchInputSchema,
+        outputSchema: animateSearchOutputSchema,
+        mutationTimeoutMs: AGENT_MUTATION_TIMEOUT_MS,
+        mutates: ['search_status', 'visible_products', 'catalog_window'],
+        func: animateSearch,
+    });
+
+    useAgentFunction('setCategory', {
+        inputSchema: categorySelectionSchema,
+        outputSchema: categorySelectionOutputSchema,
+        mutationTimeoutMs: AGENT_MUTATION_TIMEOUT_MS,
+        mutates: ['search_status', 'visible_products', 'catalog_window'],
+        func: async (
+            input: z.infer<typeof categorySelectionSchema>,
+            signal?: AbortSignal,
+        ) => {
+            try {
+                return await applyCategorySelection(input.categoryKey, signal);
+            } finally {
+                hideCursor();
+            }
+        },
+    });
+
+    useAgentFunction('updateCart', {
+        inputSchema: cartInputSchema,
+        outputSchema: cartOutputSchema,
+        mutationTimeoutMs: AGENT_MUTATION_TIMEOUT_MS,
+        mutates: ['cart_summary', 'visible_products'],
+        func: async (
+            input: z.infer<typeof cartInputSchema>,
+            signal?: AbortSignal,
+        ) => await runCartMutation(input, signal),
+    });
+
+    useAgentFunction('scrollCatalog', {
+        inputSchema: scrollCatalogInputSchema,
+        outputSchema: catalogWindowSchema,
+        mutationTimeoutMs: AGENT_MUTATION_TIMEOUT_MS,
+        mutates: ['visible_products', 'catalog_window'],
+        func: scrollCatalogWindow,
+    });
+
     return (
         <>
             <SystemPrompt>{systemPrompt}</SystemPrompt>
 
-            <div className="grocery-app-shell">
+            <div className="grocery-app-shell min-h-screen bg-[#fbfcfa] px-5 pb-20 pt-5 text-[var(--g-ink)] max-[760px]:px-[0.9rem] max-[760px]:pb-[7.5rem]">
                 <div
-                    className="grocery-agent-status"
+                    className="fixed left-4 top-4 z-[65] grid min-w-[12rem] max-w-[min(22rem,calc(100vw-2rem))] gap-[0.28rem] overflow-hidden rounded-[1.2rem] border border-[var(--g-border)] bg-[rgba(255,255,253,0.97)] px-4 py-[0.82rem] shadow-[0_18px_38px_rgba(31,73,55,0.1),inset_0_1px_rgba(255,255,255,0.92)] opacity-0 backdrop-blur-[16px] transition-[opacity,transform,border-color,box-shadow] duration-[220ms] ease-out -translate-y-2 pointer-events-none data-[visible=true]:translate-y-0 data-[visible=true]:opacity-100 data-[visible=true]:animate-[grocery-agent-status-pulse_1.8s_ease-out_infinite] data-[mode=search]:border-[var(--g-accent-soft)] data-[mode=search]:shadow-[0_22px_44px_rgba(47,122,86,0.14),inset_0_1px_rgba(255,255,255,0.92)] data-[mode=cart]:border-[var(--g-citrus-soft)] data-[mode=cart]:shadow-[0_22px_44px_rgba(216,161,63,0.12),inset_0_1px_rgba(255,255,255,0.92)] max-[760px]:left-[0.9rem] max-[760px]:right-[0.9rem] max-[760px]:top-[5.4rem] max-[760px]:max-w-none"
                     data-visible={agentAction ? 'true' : 'false'}
                     data-mode={agentAction?.mode ?? 'browse'}
                     aria-live="polite">
-                    <span className="grocery-agent-status__eyebrow">
-                        <i aria-hidden="true" />
+                    <span className="inline-flex items-center gap-[0.42rem] text-[0.7rem] font-bold uppercase tracking-[0.16em] text-[var(--g-ink-muted)]">
+                        <i
+                            aria-hidden="true"
+                            className="h-[0.58rem] w-[0.58rem] rounded-full bg-[var(--g-accent)]"
+                        />
                         Assistant action
                     </span>
-                    <strong>{agentAction?.label ?? 'Idle'}</strong>
+                    <strong className="text-[0.98rem] leading-[1.3] text-[var(--g-ink)]">
+                        {agentAction?.label ?? 'Idle'}
+                    </strong>
                 </div>
 
-                <header className="grocery-header">
-                    <div className="grocery-brand">
-                        <h1>Atelier Basket</h1>
+                <header className="relative z-[1] mx-auto mb-4 flex max-w-[1380px] min-w-0 items-start justify-between gap-4 max-[760px]:flex-col max-[760px]:items-start">
+                    <div className="grid min-w-0 gap-[0.45rem]">
+                        <h1 className="font-[var(--font-display)] text-[clamp(2.1rem,3vw,3rem)] font-semibold leading-[0.96] tracking-[-0.03em]">
+                            Atelier Basket
+                        </h1>
                     </div>
                 </header>
 
                 {loadError ? (
-                    <main className="grocery-error-shell">
-                        <p className="grocery-kicker">Catalog unavailable</p>
-                        <h2>{loadError}</h2>
-                    </main>
-                ) : !catalog ? (
-                    <main className="grocery-loading-shell">
-                        <div className="grocery-loading-shell__marquee" />
-                        <h2>Loading products.</h2>
+                    <main className="relative z-[1] mx-auto mt-24 grid max-w-[42rem] min-w-0 place-items-center gap-[0.45rem] px-[1.1rem] py-[2.25rem] text-center">
+                        <p className="inline-flex items-center gap-[0.45rem] text-[0.74rem] font-bold uppercase tracking-[0.22em] text-[var(--g-ink-muted)]">
+                            Catalog unavailable
+                        </p>
+                        <h2 className="max-w-[18ch] font-[var(--font-display)] text-[clamp(2.5rem,7vw,4rem)] font-semibold leading-[0.96] tracking-[-0.03em]">
+                            {loadError}
+                        </h2>
                     </main>
                 ) : (
-                    <main className="grocery-main">
+                    <main className="relative z-[1] mx-auto max-w-[1380px] min-w-0">
                         <div
-                            className="grocery-main-layout"
+                            className="grocery-main-layout block px-[clamp(3rem,4vw,4.75rem)] transition-[padding,max-width] duration-[280ms] ease-out data-[cart-open=true]:pl-[clamp(3.25rem,4.6vw,4.75rem)] data-[cart-open=true]:pr-[clamp(20rem,22vw,22.5rem)] max-[1320px]:data-[cart-open=true]:pr-[clamp(18rem,21vw,20rem)] max-[980px]:px-0 max-[980px]:data-[cart-open=true]:px-0"
                             data-cart-open={isCartOpen ? 'true' : 'false'}>
                             <CatalogBrowser
-                                searchDraft={searchDraft}
+                                searchDraft={searchText}
                                 searchIsAnimating={searchIsAnimating}
+                                loadingState={
+                                    isCatalogLoading
+                                        ? 'catalog'
+                                        : isSearchLoading
+                                          ? 'search'
+                                          : 'idle'
+                                }
+                                searchAppliedQuery={searchQuery}
                                 activeUiTarget={activeBrowserTarget}
+                                showCategoryNav={showCategoryNav}
                                 selectedCategory={selectedCategory}
                                 selectedCategoryLabel={selectedCategoryLabel}
                                 featuredCategories={featuredCategories}
                                 visibleProducts={visibleProducts}
                                 catalogWindow={catalogWindow}
                                 cartQuantities={cartQuantities}
-                                highlightedProductId={highlightedProductId}
+                                highlightedProductIds={highlightedProductIds}
                                 registerSearchPanelRef={registerSearchPanelRef}
                                 registerSearchInputRef={registerSearchInputRef}
-                                registerSearchSubmitButtonRef={
-                                    registerSearchSubmitButtonRef
+                                registerAllCategoryButtonRef={
+                                    registerAllCategoryButtonRef
                                 }
-                                registerSearchClearButtonRef={registerSearchClearButtonRef}
-                                registerAllCategoryButtonRef={registerAllCategoryButtonRef}
-                                registerCategoryButtonRef={registerCategoryButtonRef}
+                                registerCategoryButtonRef={
+                                    registerCategoryButtonRef
+                                }
                                 registerGridSectionRef={registerGridSectionRef}
                                 registerGridHeadingRef={registerGridHeadingRef}
-                                registerGridWindowNavRef={registerGridWindowNavRef}
+                                registerGridWindowNavRef={
+                                    registerGridWindowNavRef
+                                }
                                 registerPreviousWindowButtonRef={
                                     registerPreviousWindowButtonRef
                                 }
-                                registerNextWindowButtonRef={registerNextWindowButtonRef}
+                                registerNextWindowButtonRef={
+                                    registerNextWindowButtonRef
+                                }
                                 registerProductCardRef={registerProductCardRef}
-                                onSearchDraftChange={handleSearchDraftChange}
-                                onSearchSubmit={runManualSearch}
-                                onSearchClear={runManualClear}
+                                onSearchDraftChange={handleSearchChange}
                                 onSelectAllAisles={handleSelectAllAisles}
                                 onSelectCategory={handleSelectCategory}
-                                onOpenProduct={openProductModal}
+                                onAdjustCart={handleProductCardAdjust}
                                 onPreviousPage={goToPreviousPage}
                                 onNextPage={goToNextPage}
                             />
 
-                            <CartPanel
-                                isOpen={isCartOpen}
-                                isPulsing={cartIsPulsing}
-                                cartLines={cartLines}
-                                totalItems={cartSummary.totalItems}
-                                subtotal={cartSummary.subtotal}
-                                activeProductId={activeCartProductId}
-                                isAgentActive={activeUiTarget?.startsWith('cart:') ?? false}
-                                registerPanelRef={registerCartPanelRef}
-                                registerLineRef={registerCartLineRef}
-                                onAdjustCart={mutateCart}
-                                onOpenProduct={openProductModal}
-                                onToggle={toggleCart}
-                                onClose={closeCart}
-                            />
+                            {catalog ? (
+                                <CartPanel
+                                    isOpen={isCartOpen}
+                                    isPulsing={cartIsPulsing}
+                                    cartLines={cartLines}
+                                    totalItems={cartSummary.totalItems}
+                                    subtotal={cartSummary.subtotal}
+                                    activeProductId={activeCartProductId}
+                                    isAgentActive={
+                                        activeUiTarget?.startsWith('cart:') ??
+                                        false
+                                    }
+                                    registerPanelRef={registerCartPanelRef}
+                                    registerLineRef={registerCartLineRef}
+                                    onAdjustCart={handleCartAdjust}
+                                    onToggle={toggleCart}
+                                    onClose={closeCart}
+                                />
+                            ) : null}
                         </div>
                     </main>
                 )}
-
-                <ProductModal
-                    product={modalProduct}
-                    isAgentActive={activeUiTarget === 'modal:add'}
-                    addButtonRef={registerModalAddButtonRef}
-                    onBackdropClick={closeModal}
-                    onClose={closeModal}
-                    onAddToCart={() => {
-                        if (modalProduct) {
-                            runManualAddToCart(modalProduct.id);
-                        }
-                    }}
-                />
 
                 <FauxCursor ref={cursorRef} labelRef={cursorLabelRef} />
             </div>
 
             <PageUseChat
-                title="ATELIER CONCIERGE"
-                greeting="Ask for a specific item, a short shopping list, a recipe basket, or help finding the closest match in the catalog."
-                placeholder="Find, add, or build any grocery basket"
+                title="ATELIER MARKET GUIDE"
+                greeting="Ask for ingredients, Bangladeshi staples, better product matches, or exact items to add to cart."
+                placeholder="Ask for recipe ingredients, compare brands, browse aisles, or add exact items to cart"
                 suggestions={[
                     "I'm making fried chicken tonight.",
                     'Add Greek yogurt, granola, and blueberries.',
                     'Find a good salted butter and add it.',
                 ]}
-                theme="dark"
+                theme="light"
                 roundedness="lg"
+                expandedPlacement="bottom-left"
                 cssVariables={chatTheme}
                 devMode
             />
