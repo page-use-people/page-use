@@ -21,6 +21,31 @@ export const createSessionStore = (config: TSessionStoreConfig) => {
     let disposed = false;
     let currentSubmitPrompt = config.submitPrompt;
 
+    const attachDebugTraceToMessage = (
+        messageId: string | null,
+        debugTrace: readonly string[],
+    ) => {
+        if (!config.devMode || !messageId || debugTrace.length === 0) {
+            return;
+        }
+
+        store.messages = store.messages.map((msg) =>
+            msg.id === messageId && msg.role === 'assistant'
+                ? {...msg, debugTrace}
+                : msg,
+        );
+    };
+
+    const consumePendingDebugTrace = (): readonly string[] => {
+        const debugTrace = [...store.pendingDebugTrace];
+        store.pendingDebugTrace = [];
+        return debugTrace;
+    };
+
+    const clearActiveExecutionSteps = () => {
+        store.activeExecutionSteps = [];
+    };
+
     const finalizeAssistantMessage = () => {
         const messageId = activeAssistantMessageId;
         if (!messageId) {
@@ -78,9 +103,18 @@ export const createSessionStore = (config: TSessionStoreConfig) => {
         finalizeAssistantMessage();
 
         const content = error instanceof Error ? error.message : String(error);
+        const debugTrace = consumePendingDebugTrace();
         store.messages = [
             ...store.messages,
-            {id: createId(), role: 'assistant', content: `[error] ${content}`},
+            {
+                id: createId(),
+                role: 'assistant',
+                content: `[error] ${content}`,
+                debugTrace:
+                    config.devMode && debugTrace.length > 0
+                        ? debugTrace
+                        : undefined,
+            },
         ];
     };
 
@@ -89,7 +123,14 @@ export const createSessionStore = (config: TSessionStoreConfig) => {
             return;
         }
 
-        store.executionSteps = [...store.executionSteps, update.description];
+        store.activeExecutionSteps = [
+            ...store.activeExecutionSteps,
+            update.description,
+        ];
+        store.pendingDebugTrace = [
+            ...store.pendingDebugTrace,
+            update.description,
+        ];
     };
 
     const handleStatusChange = (status: TRunStatus) => {
@@ -103,9 +144,15 @@ export const createSessionStore = (config: TSessionStoreConfig) => {
         }
 
         store.isRunning = false;
-        if (!config.devMode) {
-            store.executionSteps = [];
+        clearActiveExecutionSteps();
+
+        if (status === 'completed' || status === 'aborted') {
+            attachDebugTraceToMessage(
+                activeAssistantMessageId,
+                consumePendingDebugTrace(),
+            );
         }
+
         activeHandle = null;
         finalizeAssistantMessage();
     };
@@ -133,11 +180,8 @@ export const createSessionStore = (config: TSessionStoreConfig) => {
 
             runInAction(() => {
                 store.isRunning = false;
-                if (!config.devMode) {
-                    store.executionSteps = [];
-                }
+                clearActiveExecutionSteps();
                 activeHandle = null;
-                finalizeAssistantMessage();
                 appendErrorMessage(error);
             });
         }
@@ -147,7 +191,8 @@ export const createSessionStore = (config: TSessionStoreConfig) => {
         messages: (config.greeting
             ? [{id: createId(), role: 'assistant' as const, content: config.greeting}]
             : []) as readonly TChatMessage[],
-        executionSteps: [] as readonly string[],
+        activeExecutionSteps: [] as readonly string[],
+        pendingDebugTrace: [] as readonly string[],
         isRunning: false,
         hasInteracted: false,
 
@@ -160,7 +205,8 @@ export const createSessionStore = (config: TSessionStoreConfig) => {
             finalizeAssistantMessage();
             this.isRunning = true;
             this.hasInteracted = true;
-            this.executionSteps = [];
+            this.activeExecutionSteps = [];
+            this.pendingDebugTrace = [];
             this.messages = [
                 ...this.messages,
                 {id: createId(), role: 'user', content: prompt},

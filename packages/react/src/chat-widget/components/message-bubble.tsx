@@ -14,8 +14,18 @@ export {FallbackIcon};
  * User messages are rendered as plain text.
  */
 export const MessageBubble = memo(
-    ({message}: {readonly message: TChatMessage}) => {
+    ({
+        message,
+        devMode,
+    }: {
+        readonly message: TChatMessage;
+        readonly devMode: boolean;
+    }) => {
         const isAssistant = message.role === 'assistant';
+        const showDebugTrace =
+            isAssistant &&
+            devMode &&
+            (message.debugTrace?.length ?? 0) > 0;
 
         return (
             <div
@@ -27,12 +37,37 @@ export const MessageBubble = memo(
                     } ${message.pending ? 'opacity-90' : 'opacity-100'}`,
                 )}>
                 {isAssistant ? (
-                    <div
-                        className="pu-md"
-                        dangerouslySetInnerHTML={{
-                            __html: parseMarkdown(message.content),
-                        }}
-                    />
+                    <div className={tw('flex flex-col gap-3')}>
+                        <div
+                            className="pu-md"
+                            dangerouslySetInnerHTML={{
+                                __html: parseMarkdown(message.content),
+                            }}
+                        />
+                        {showDebugTrace ? (
+                            <details
+                                className={tw(
+                                    'border-t border-[color:var(--pu-muted)] pt-2 text-xs',
+                                )}>
+                                <summary
+                                    className={tw(
+                                        'cursor-pointer select-none text-[color:var(--pu-fg)]/80',
+                                    )}>
+                                    Execution trace
+                                </summary>
+                                <div
+                                    className={tw(
+                                        'mt-2 flex flex-col gap-1 whitespace-pre-wrap font-mono text-[11px] leading-5 text-[color:var(--pu-fg)]/80',
+                                    )}>
+                                    {message.debugTrace?.map((step, stepIndex) => (
+                                        <div key={`${stepIndex}-${step}`}>
+                                            {step}
+                                        </div>
+                                    ))}
+                                </div>
+                            </details>
+                        ) : null}
+                    </div>
                 ) : (
                     message.content
                 )}

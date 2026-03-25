@@ -10,7 +10,7 @@ import {SuggestionChips} from './suggestion-chips.js';
 import {tw} from '../lib/twind.js';
 
 export const MessageList = observer(() => {
-    const {session} = useChatWidget();
+    const {session, config} = useChatWidget();
     const viewportRef = useRef<HTMLDivElement | null>(null);
     const isNearBottomRef = useRef(true);
 
@@ -24,7 +24,7 @@ export const MessageList = observer(() => {
                 return {
                     messageCount: session.messages.length,
                     lastContentLength: lastMessage?.content.length ?? 0,
-                    stepCount: session.executionSteps.length,
+                    stepCount: session.activeExecutionSteps.length,
                 };
             },
             () => {
@@ -75,11 +75,14 @@ export const MessageList = observer(() => {
                 'overflow-y-auto overscroll-contain p-2 flex flex-col gap-3 flex-1',
             )}>
             {session.messages.map((message) => (
-                <MessageBubble key={message.id} message={message} />
+                <MessageBubble
+                    key={message.id}
+                    message={message}
+                    devMode={config.devMode}
+                />
             ))}
             <SuggestionChips />
             <ExecutionStatus />
         </div>
     );
 });
-
