@@ -14,6 +14,7 @@
         "@page-use/client": "workspace:*",
         "@page-use/react": "workspace:*",
         "@tailwindcss/vite": "4.2.1",
+        "@tanstack/react-query": "5.95.2",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
         "tailwindcss": "4.2.1"

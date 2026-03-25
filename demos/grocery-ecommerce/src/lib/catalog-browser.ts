@@ -1,3 +1,4 @@
+import {queryOptions} from '@tanstack/react-query';
 import {
     normalizeCatalog,
     normalizeSearchValue,
@@ -7,12 +8,23 @@ import {
 } from './catalog.ts';
 
 export const MAX_VISIBLE_PRODUCTS = 24;
-export const SEARCH_TYPING_BASE_MS = 56;
+export const SEARCH_TYPING_BASE_MS = 8;
+
+export type TAnimateSearchVisibleResult = {
+    readonly productId: number;
+    readonly title: string;
+    readonly subtitle: string | null;
+    readonly price: number;
+    readonly quantityInCart: number;
+    readonly rank: number;
+    readonly primaryCategoryLabel: string | null;
+    readonly normalizedName: string;
+};
 
 export type TAnimateSearchResult = {
+    readonly appliedQuery: string;
     readonly resultCount: number;
-    readonly leadingResultId: number | null;
-    readonly leadingResultTitle: string | null;
+    readonly visibleResults: TAnimateSearchVisibleResult[];
 };
 
 export type TCategoryResult = {
@@ -29,6 +41,8 @@ export type TCatalogWindow = {
     readonly canScrollPrevious: boolean;
 };
 
+export const catalogQueryKey = ['grocery-demo', 'catalog'] as const;
+
 const boundedLevenshtein = (
     left: string,
     right: string,
@@ -42,7 +56,10 @@ const boundedLevenshtein = (
         return null;
     }
 
-    let previousRow = Array.from({length: right.length + 1}, (_, index) => index);
+    let previousRow = Array.from(
+        {length: right.length + 1},
+        (_, index) => index,
+    );
 
     for (let leftIndex = 0; leftIndex < left.length; leftIndex += 1) {
         const currentRow = [leftIndex + 1];
@@ -128,7 +145,8 @@ export const scoreSearchMatch = (
     normalizedQuery: string,
 ): number | null => {
     const matchesCategory =
-        selectedCategory === null || product.categoryKeys.includes(selectedCategory);
+        selectedCategory === null ||
+        product.categoryKeys.includes(selectedCategory);
     if (!matchesCategory) {
         return null;
     }
@@ -159,7 +177,10 @@ export const scoreSearchMatch = (
             let bestScore: number | null = null;
 
             for (const candidateToken of product.searchTokens) {
-                const candidateScore = scoreTokenMatch(queryToken, candidateToken);
+                const candidateScore = scoreTokenMatch(
+                    queryToken,
+                    candidateToken,
+                );
                 if (
                     candidateScore !== null &&
                     (bestScore === null || candidateScore > bestScore)
@@ -186,7 +207,8 @@ export const scoreSearchMatch = (
     score += tokenScores.reduce((sum, tokenScore) => sum + tokenScore, 0);
     score += matchedTokenCount * 85;
     score += allTokensMatched ? 120 : 0;
-    score -= Math.max(0, product.searchTokens.length - queryTokens.length) * 1.5;
+    score -=
+        Math.max(0, product.searchTokens.length - queryTokens.length) * 1.5;
 
     return score;
 };
@@ -231,7 +253,10 @@ export const getFilteredProducts = (
 };
 
 export const clampWindowStart = (start: number, totalMatches: number): number =>
-    Math.max(0, Math.min(start, Math.max(0, totalMatches - MAX_VISIBLE_PRODUCTS)));
+    Math.max(
+        0,
+        Math.min(start, Math.max(0, totalMatches - MAX_VISIBLE_PRODUCTS)),
+    );
 
 export const buildCatalogWindow = (
     products: readonly TCatalogProduct[],
@@ -250,7 +275,10 @@ export const buildCatalogWindow = (
 
     const clampedStart = clampWindowStart(start, products.length);
     const visibleFrom = clampedStart + 1;
-    const visibleTo = Math.min(products.length, clampedStart + MAX_VISIBLE_PRODUCTS);
+    const visibleTo = Math.min(
+        products.length,
+        clampedStart + MAX_VISIBLE_PRODUCTS,
+    );
 
     return {
         visibleFrom,
@@ -262,20 +290,37 @@ export const buildCatalogWindow = (
     };
 };
 
-export const loadCatalog = async (): Promise<TCatalogData> => {
-    const [productsResponse, palettesResponse] = await Promise.all([
-        fetch('/data/products.json'),
-        fetch('/data/image-palettes.json'),
-    ]);
-
-    if (!productsResponse.ok || !palettesResponse.ok) {
+const loadPalettes = async () => {
+    const response = await fetch('/data/image-palettes.json');
+    if (!response.ok) {
         throw new Error('Failed to load local grocery demo data.');
     }
 
+    return response.json() as Promise<readonly (readonly (string | null)[])[]>;
+};
+
+const loadProductsPayload = async () => {
+    const response = await fetch('/data/products.json');
+    if (!response.ok) {
+        throw new Error('Failed to load local grocery demo data.');
+    }
+
+    return response.json() as Promise<TRawProductsPayload>;
+};
+
+const fetchCatalog = async (): Promise<TCatalogData> => {
     const [productsPayload, palettes] = await Promise.all([
-        productsResponse.json() as Promise<TRawProductsPayload>,
-        palettesResponse.json() as Promise<readonly (readonly (string | null)[])[]>,
+        loadProductsPayload(),
+        loadPalettes(),
     ]);
 
     return normalizeCatalog(productsPayload, palettes);
 };
+
+export const catalogQueryOptions = () =>
+    queryOptions({
+        queryKey: catalogQueryKey,
+        queryFn: fetchCatalog,
+        staleTime: Number.POSITIVE_INFINITY,
+        gcTime: Number.POSITIVE_INFINITY,
+    });

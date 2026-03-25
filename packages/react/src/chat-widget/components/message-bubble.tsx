@@ -32,7 +32,7 @@ export const MessageBubble = memo(
                 className={tw(
                     `max-w-[88%] py-1 px-2 leading-[1.5] text-sm ${
                         isAssistant
-                            ? 'self-start py-2 px-3 border border-[color:var(--pu-surface)] rounded-[var(--pu-radius-md)]'
+                            ? 'self-start py-2 px-3 border border-[color:var(--pu-divider)] rounded-[var(--pu-radius-md)]'
                             : 'self-end whitespace-pre-wrap text-[color:var(--pu-fg)] bg-[color:var(--pu-surface)] rounded-[var(--pu-radius-md)]'
                     } ${message.pending ? 'opacity-90' : 'opacity-100'}`,
                 )}>

@@ -16,6 +16,8 @@ export type TPageUseChatTheme = 'dark' | 'light';
 
 export type TPageUseChatRoundedness = 'none' | 'sm' | 'md' | 'lg' | 'xl';
 
+export type TPageUseChatExpandedPlacement = 'bottom-left' | 'bottom-right';
+
 export type TPageUseCSSVariables = Partial<{
     '--pu-bg': string;
     '--pu-fg': string;
@@ -50,6 +52,7 @@ export type TPageUseChatProps = {
     readonly height?: number;
     readonly theme?: TPageUseChatTheme;
     readonly roundedness?: TPageUseChatRoundedness;
+    readonly expandedPlacement?: TPageUseChatExpandedPlacement;
     readonly cssVariables?: TPageUseCSSVariables;
     readonly devMode?: boolean;
     readonly disablePageUseBanner?: boolean;
