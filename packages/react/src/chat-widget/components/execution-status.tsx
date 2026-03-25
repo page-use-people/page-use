@@ -55,16 +55,14 @@ export const ExecutionStatus = observer(() => {
         [session.isRunning],
     );
 
-    const isVisible =
-        session.isRunning ||
-        (config.devMode && session.executionSteps.length > 0);
-
     const latestStep =
-        session.executionSteps.length > 0
-            ? session.executionSteps[session.executionSteps.length - 1]
+        session.activeExecutionSteps.length > 0
+            ? session.activeExecutionSteps[
+                  session.activeExecutionSteps.length - 1
+              ]
             : loadingPhrase;
 
-    return isVisible ? (
+    return session.isRunning ? (
         <div
             className={tw(
                 'border-y border-[color:var(--pu-muted)] py-2 text-[color:var(--pu-fg)] italic text-xs flex flex-col gap-2',
@@ -78,12 +76,12 @@ export const ExecutionStatus = observer(() => {
                 </div>{' '}
                 {latestStep}{' '}
             </div>
-            {config.devMode && session.executionSteps.length > 0 ? (
+            {config.devMode && session.activeExecutionSteps.length > 0 ? (
                 <div
                     className={tw(
                         'flex flex-col gap-1 not-italic whitespace-pre-wrap',
                     )}>
-                    {session.executionSteps.map((step, stepIndex) => (
+                    {session.activeExecutionSteps.map((step, stepIndex) => (
                         <div key={`${stepIndex}-${step}`}>{step}</div>
                     ))}
                 </div>
@@ -91,4 +89,3 @@ export const ExecutionStatus = observer(() => {
         </div>
     ) : null;
 });
-

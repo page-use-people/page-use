@@ -9,6 +9,7 @@ export type TChatMessage = {
     readonly role: TChatRole;
     readonly content: string;
     readonly pending?: boolean;
+    readonly debugTrace?: readonly string[];
 };
 
 export type TPageUseChatTheme = 'dark' | 'light';
