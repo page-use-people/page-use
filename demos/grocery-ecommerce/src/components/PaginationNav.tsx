@@ -31,7 +31,7 @@ export const PaginationNav = memo(
                     <button
                         ref={registerPreviousWindowButton}
                         type="button"
-                        className="min-h-11 min-w-24 rounded-full border-0 bg-[var(--g-accent-strong)] px-4 font-semibold text-[#f7fcf8] transition-[transform,opacity,background,box-shadow] duration-200 ease-out enabled:hover:-translate-y-px enabled:hover:bg-[var(--g-accent)] disabled:cursor-not-allowed disabled:opacity-35 data-[agent-active=true]:shadow-[0_0_0_0.28rem_rgba(47,122,86,0.16)]"
+                        className="min-h-11 min-w-24 rounded-full border-0 bg-[var(--g-accent-strong)] px-4 font-semibold text-[var(--g-on-accent)] transition-[transform,opacity,background,box-shadow] duration-200 ease-out enabled:hover:-translate-y-px enabled:hover:bg-[var(--g-accent)] disabled:cursor-not-allowed disabled:opacity-35 data-[agent-active=true]:shadow-[0_0_0_0.28rem_var(--g-accent-glow)]"
                         data-agent-active={
                             activeUiTarget === 'window:previous'
                                 ? 'true'
@@ -44,7 +44,7 @@ export const PaginationNav = memo(
                     <button
                         ref={registerNextWindowButton}
                         type="button"
-                        className="min-h-11 min-w-24 rounded-full border-0 bg-[var(--g-accent-strong)] px-4 font-semibold text-[#f7fcf8] transition-[transform,opacity,background,box-shadow] duration-200 ease-out enabled:hover:-translate-y-px enabled:hover:bg-[var(--g-accent)] disabled:cursor-not-allowed disabled:opacity-35 data-[agent-active=true]:shadow-[0_0_0_0.28rem_rgba(47,122,86,0.16)]"
+                        className="min-h-11 min-w-24 rounded-full border-0 bg-[var(--g-accent-strong)] px-4 font-semibold text-[var(--g-on-accent)] transition-[transform,opacity,background,box-shadow] duration-200 ease-out enabled:hover:-translate-y-px enabled:hover:bg-[var(--g-accent)] disabled:cursor-not-allowed disabled:opacity-35 data-[agent-active=true]:shadow-[0_0_0_0.28rem_var(--g-accent-glow)]"
                         data-agent-active={
                             activeUiTarget === 'window:next'
                                 ? 'true'

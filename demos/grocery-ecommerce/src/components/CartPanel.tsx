@@ -1,4 +1,4 @@
-import {memo, useEffect, useRef, useState, type CSSProperties} from 'react';
+import {memo, useEffect, useRef, useState} from 'react';
 import type {TCartLine} from '../lib/cart.ts';
 import {useRegistryCallbacks} from '../contexts/element-registry-context.ts';
 import {useAgentTarget} from '../contexts/agent-target-context.ts';
@@ -101,14 +101,7 @@ export const CartPanel = memo(
                                             ? 'true'
                                             : 'false'
                                     }
-                                    style={
-                                        {
-                                            '--line-accent': line.accent,
-                                            '--line-shell': line.shell,
-                                            backgroundImage:
-                                                'radial-gradient(circle at top left, color-mix(in srgb, var(--line-accent) 24%, rgba(255, 255, 255, 0.97)) 0, color-mix(in srgb, var(--line-accent) 12%, rgba(255, 255, 255, 0.97)) 26%, transparent 62%), linear-gradient(180deg, color-mix(in srgb, var(--line-shell) 56%, white), rgba(255, 255, 255, 0.99)), rgba(255, 255, 255, 0.95)',
-                                        } as CSSProperties
-                                    }>
+>
                                     <div
                                         className="grid h-16 w-16 place-items-center self-stretch overflow-hidden rounded-2xl bg-white"
                                         aria-hidden="true">
@@ -123,15 +116,7 @@ export const CartPanel = memo(
                                     <div className="grid min-w-0 content-start gap-0.5">
                                         <div className="flex min-w-0 items-start justify-between gap-1.5">
                                             <p
-                                                className="m-0 w-full min-w-0 overflow-hidden text-ellipsis text-sm font-bold leading-tight text-[var(--g-ink)]"
-                                                style={
-                                                    {
-                                                        display: '-webkit-box',
-                                                        WebkitBoxOrient:
-                                                            'vertical',
-                                                        WebkitLineClamp: 2,
-                                                    } as CSSProperties
-                                                }>
+                                                className="m-0 w-full min-w-0 line-clamp-2 text-sm font-bold leading-tight text-[var(--g-ink)]">
                                                 {line.title}
                                             </p>
                                         </div>
@@ -140,7 +125,7 @@ export const CartPanel = memo(
                                             <div className="flex items-center gap-1 rounded-full bg-white p-1">
                                                 <button
                                                     type="button"
-                                                    className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--g-accent-strong)] text-sm text-[#f7fcf8] transition-[transform,background,opacity] duration-200 ease-out hover:-translate-y-0.5 hover:bg-[var(--g-accent)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--g-accent)]/40 focus-visible:ring-offset-2"
+                                                    className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--g-accent-strong)] text-sm text-[var(--g-on-accent)] transition-[transform,background,opacity] duration-200 ease-out hover:-translate-y-0.5 hover:bg-[var(--g-accent)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--g-accent)]/40 focus-visible:ring-offset-2"
                                                     aria-label={`Remove one ${line.title}`}
                                                     onClick={() =>
                                                         onAdjustCart(
@@ -155,7 +140,7 @@ export const CartPanel = memo(
                                                 </span>
                                                 <button
                                                     type="button"
-                                                    className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--g-accent-strong)] text-sm text-[#f7fcf8] transition-[transform,background,opacity] duration-200 ease-out hover:-translate-y-0.5 hover:bg-[var(--g-accent)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--g-accent)]/40 focus-visible:ring-offset-2"
+                                                    className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--g-accent-strong)] text-sm text-[var(--g-on-accent)] transition-[transform,background,opacity] duration-200 ease-out hover:-translate-y-0.5 hover:bg-[var(--g-accent)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--g-accent)]/40 focus-visible:ring-offset-2"
                                                     aria-label={`Add one more ${line.title}`}
                                                     disabled={
                                                         line.price === null
@@ -171,7 +156,7 @@ export const CartPanel = memo(
                                             </div>
 
                                             <div className="grid min-w-0 justify-items-end gap-px">
-                                                <span className="whitespace-nowrap text-xs font-bold tracking-wide text-[rgba(95,119,107,0.86)]">
+                                                <span className="whitespace-nowrap text-xs font-bold tracking-wide text-[var(--g-ink-muted)]">
                                                     {line.price === null
                                                         ? 'Price on request'
                                                         : `${line.price.toLocaleString('en-US')} each`}
@@ -188,7 +173,7 @@ export const CartPanel = memo(
                             ))
                         ) : (
                             <div className="flex flex-none items-start gap-1 rounded-2xl bg-white px-4 py-4">
-                                <p className="m-0 text-sm font-medium text-[rgba(95,119,107,0.9)]">
+                                <p className="m-0 text-sm font-medium text-[var(--g-ink-muted)]">
                                     Basket is empty.
                                 </p>
                             </div>

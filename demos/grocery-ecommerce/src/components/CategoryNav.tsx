@@ -28,7 +28,7 @@ export const CategoryNav = memo(
                 <button
                     ref={registerAllCategoryButton}
                     type="button"
-                    className="flex min-h-9 w-full items-center justify-start rounded-xl bg-white px-3.5 py-1.5 text-[var(--g-ink)] transition-[transform,background,color] duration-200 ease-out data-[active=true]:bg-[var(--g-accent-strong)] data-[active=true]:text-[#f7fcf8] data-[agent-active=true]:shadow-[0_0_0_0.28rem_rgba(47,122,86,0.12)]"
+                    className="flex min-h-9 w-full items-center justify-start rounded-xl bg-white px-3.5 py-1.5 text-[var(--g-ink)] transition-[transform,background,color] duration-200 ease-out data-[active=true]:bg-[var(--g-accent-strong)] data-[active=true]:text-[var(--g-on-accent)] data-[agent-active=true]:shadow-[0_0_0_0.28rem_var(--g-accent-glow)]"
                     data-active={
                         selectedCategory === null ? 'true' : 'false'
                     }
@@ -48,7 +48,7 @@ export const CategoryNav = memo(
                             registerCategoryButton(category.key, node);
                         }}
                         type="button"
-                        className="flex min-h-9 w-full items-center justify-start rounded-xl bg-white px-3.5 py-1.5 text-[var(--g-ink)] transition-[transform,background,color] duration-200 ease-out data-[active=true]:bg-[var(--g-accent-strong)] data-[active=true]:text-[#f7fcf8] data-[agent-active=true]:shadow-[0_0_0_0.28rem_rgba(47,122,86,0.12)]"
+                        className="flex min-h-9 w-full items-center justify-start rounded-xl bg-white px-3.5 py-1.5 text-[var(--g-ink)] transition-[transform,background,color] duration-200 ease-out data-[active=true]:bg-[var(--g-accent-strong)] data-[active=true]:text-[var(--g-on-accent)] data-[agent-active=true]:shadow-[0_0_0_0.28rem_var(--g-accent-glow)]"
                         data-active={
                             selectedCategory === category.key
                                 ? 'true'

@@ -6,8 +6,6 @@ export type TCartLine = {
     readonly quantity: number;
     readonly price: number | null;
     readonly lineTotal: number | null;
-    readonly accent: string;
-    readonly shell: string;
     readonly imageUrl: string;
 };
 
@@ -58,8 +56,6 @@ const buildCartLine = (
               price: product.price,
               lineTotal:
                   product.price === null ? null : product.price * quantity,
-              accent: product.theme.accent,
-              shell: product.theme.shell,
               imageUrl: product.imageUrl,
           });
 

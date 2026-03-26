@@ -22,17 +22,12 @@ export type TRawProductsPayload = {
 type TPaletteValue = string | null;
 
 export type TProductTheme = {
-    readonly accent: string;
-    readonly support: string;
-    readonly deep: string;
-    readonly ink: string;
-    readonly soft: string;
-    readonly mist: string;
-    readonly foregroundOnAccent: string;
-    readonly foregroundOnSoft: string;
-    readonly glow: string;
-    readonly shell: string;
-    readonly gradient: string;
+    readonly vibrant: string;
+    readonly muted: string;
+    readonly darkVibrant: string;
+    readonly darkMuted: string;
+    readonly lightVibrant: string;
+    readonly lightMuted: string;
 };
 
 export type TCatalogProduct = {
@@ -92,39 +87,6 @@ export const tokenizeSearchValue = (value: string) =>
         .split(/\s+/)
         .filter(Boolean);
 
-const hexToRgb = (hex: string) => {
-    const normalized = hex.replace('#', '');
-    const int = Number.parseInt(normalized, 16);
-    return {
-        r: (int >> 16) & 255,
-        g: (int >> 8) & 255,
-        b: int & 255,
-    };
-};
-
-const withAlpha = (hex: string, alpha: number) => {
-    const {r, g, b} = hexToRgb(hex);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-};
-
-const relativeLuminance = (hex: string) => {
-    const {r, g, b} = hexToRgb(hex);
-    const channels = [r, g, b].map((channel) => {
-        const normalized = channel / 255;
-        return normalized <= 0.03928
-            ? normalized / 12.92
-            : ((normalized + 0.055) / 1.055) ** 2.4;
-    });
-    return (
-        0.2126 * (channels[0] ?? 0) +
-        0.7152 * (channels[1] ?? 0) +
-        0.0722 * (channels[2] ?? 0)
-    );
-};
-
-const contrastText = (hex: string) =>
-    relativeLuminance(hex) > 0.42 ? '#130f12' : '#fcf7ef';
-
 const isHexColor = (value: unknown): value is string =>
     typeof value === 'string' && /^#?[0-9a-f]{6}$/i.test(value.trim());
 
@@ -135,27 +97,22 @@ const pickPaletteColor = (value: TPaletteValue | undefined, fallback: string) =>
     isHexColor(value) ? normalizeHex(value.trim()) : fallback;
 
 const normalizeTheme = (palette: readonly TPaletteValue[]): TProductTheme => {
-    const [rawAccent, rawSupport, rawDeep, rawInk, rawSoft, rawMist] = palette;
+    const [rawVibrant, rawMuted, rawDarkVibrant, rawDarkMuted, rawLightVibrant, rawLightMuted] = palette;
 
-    const accent = pickPaletteColor(rawAccent, '#dca62d');
-    const support = pickPaletteColor(rawSupport, '#ab8352');
-    const deep = pickPaletteColor(rawDeep, '#5c2c14');
-    const ink = pickPaletteColor(rawInk, '#717439');
-    const soft = pickPaletteColor(rawSoft, '#e0b96a');
-    const mist = pickPaletteColor(rawMist, '#cd9895');
+    const vibrant = pickPaletteColor(rawVibrant, '#dca62d');
+    const muted = pickPaletteColor(rawMuted, '#ab8352');
+    const darkVibrant = pickPaletteColor(rawDarkVibrant, '#5c2c14');
+    const darkMuted = pickPaletteColor(rawDarkMuted, '#717439');
+    const lightVibrant = pickPaletteColor(rawLightVibrant, '#e0b96a');
+    const lightMuted = pickPaletteColor(rawLightMuted, '#cd9895');
 
     return {
-        accent,
-        support,
-        deep,
-        ink,
-        soft,
-        mist,
-        foregroundOnAccent: contrastText(accent),
-        foregroundOnSoft: contrastText(soft),
-        glow: withAlpha(accent, 0.24),
-        shell: withAlpha(mist, 0.18),
-        gradient: `linear-gradient(135deg, ${accent} 0%, ${support} 42%, ${deep} 100%)`,
+        vibrant,
+        muted,
+        darkVibrant,
+        darkMuted,
+        lightVibrant,
+        lightMuted,
     };
 };
 

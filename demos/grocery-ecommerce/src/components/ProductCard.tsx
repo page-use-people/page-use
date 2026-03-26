@@ -1,4 +1,4 @@
-import {memo, useEffect, useMemo, useRef, type CSSProperties} from 'react';
+import {memo, useEffect, useRef} from 'react';
 import {formatPrice, type TCatalogProduct} from '../lib/catalog.ts';
 
 type TProductCardProps = {
@@ -9,16 +9,6 @@ type TProductCardProps = {
     readonly onAdjustCart: (delta: number) => void;
     readonly registerRef: (node: HTMLElement | null) => void;
 };
-
-const buildCardStyle = (product: TCatalogProduct) =>
-    ({
-        '--product-accent': product.theme.accent,
-        '--product-support': product.theme.support,
-        '--product-deep': product.theme.deep,
-        '--product-soft': product.theme.soft,
-        '--product-shell': product.theme.shell,
-        '--product-glow': product.theme.glow,
-    }) as CSSProperties;
 
 export const ProductCard = memo(
     ({
@@ -34,10 +24,6 @@ export const ProductCard = memo(
         const hasRenderedRef = useRef(false);
         const hasRenderedBefore = hasRenderedRef.current;
 
-        const cardStyle = useMemo(
-            () => buildCardStyle(product),
-            [product],
-        );
         if (!hasRenderedRef.current) {
             hasRenderedRef.current = true;
         }
@@ -81,15 +67,10 @@ export const ProductCard = memo(
                 data-highlighted={isHighlighted ? 'true' : 'false'}
                 data-agent-active={isAgentActive ? 'true' : 'false'}
                 data-pulse="false"
-                data-cached={hasRenderedBefore ? 'true' : 'false'}
-                style={cardStyle}>
+                data-cached={hasRenderedBefore ? 'true' : 'false'}>
                 <div
-                    className="grid aspect-square place-items-center overflow-hidden rounded-xl"
-                    aria-hidden="true"
-                    style={{
-                        backgroundImage:
-                            'radial-gradient(circle at top, rgba(255, 255, 255, 0.97), transparent 56%), linear-gradient(180deg, color-mix(in srgb, var(--product-soft) 38%, rgba(248, 241, 233, 0.98)), color-mix(in srgb, var(--product-shell) 18%, rgba(243, 235, 226, 0.94)))',
-                    }}>
+                    className="grid bg-red-500 aspect-square place-items-center overflow-hidden rounded-xl"
+                    aria-hidden="true">
                     <img
                         src={product.imageUrl}
                         alt={product.title}
@@ -99,26 +80,10 @@ export const ProductCard = memo(
                 </div>
 
                 <div className="grid gap-1 px-0.5">
-                    <h3
-                        className="m-0 overflow-hidden text-sm leading-tight text-[#201712]"
-                        style={
-                            {
-                                display: '-webkit-box',
-                                WebkitBoxOrient: 'vertical',
-                                WebkitLineClamp: 2,
-                            } as CSSProperties
-                        }>
+                    <h3 className="m-0 line-clamp-2 text-sm leading-tight text-[#201712]">
                         {product.title}
                     </h3>
-                    <p
-                        className="m-0 overflow-hidden text-xs text-[#201712]/[0.56]"
-                        style={
-                            {
-                                display: '-webkit-box',
-                                WebkitBoxOrient: 'vertical',
-                                WebkitLineClamp: 2,
-                            } as CSSProperties
-                        }>
+                    <p className="m-0 line-clamp-2 text-xs text-[#201712]/[0.56]">
                         {product.subtitle}
                     </p>
 
@@ -129,39 +94,45 @@ export const ProductCard = memo(
                             </strong>
                         </div>
 
-                        <div
-                            className="inline-grid grid-flow-col auto-cols-min items-center gap-1 rounded-full bg-white p-0.5"
-                            aria-label="Cart actions">
+                        {quantityInCart === 0 ? (
                             <button
                                 type="button"
-                                className="flex min-h-8 w-8 items-center justify-center rounded-full bg-white p-0 text-base font-bold leading-none text-[#201712]/[0.78] transition-[transform,opacity] duration-200 ease-out enabled:hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40 disabled:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d06b34]/40 focus-visible:ring-offset-2"
-                                aria-label={`Remove one ${product.title}`}
-                                disabled={quantityInCart === 0}
-                                onClick={() => {
-                                    onAdjustCart(-1);
-                                }}>
-                                -
-                            </button>
-                            <span className="min-w-6 text-center text-xs font-bold text-[#201712]/[0.7]">
-                                {quantityInCart}
-                            </span>
-                            <button
-                                type="button"
-                                className="flex min-h-8 w-8 items-center justify-center rounded-full p-0 text-base font-bold leading-none text-[#fffaf5] transition-[transform,opacity] duration-200 ease-out enabled:hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40 disabled:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d06b34]/40 focus-visible:ring-offset-2"
-                                aria-label={`Add one ${product.title}`}
+                                className="flex min-h-8 items-center justify-center rounded-full bg-[var(--g-accent-strong)] px-3.5 py-1 text-xs font-bold text-[var(--g-on-accent)] transition-[transform,background,opacity] duration-200 ease-out hover:-translate-y-0.5 hover:bg-[var(--g-accent)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--g-accent)]/40 focus-visible:ring-offset-2"
+                                aria-label={`Add ${product.title} to cart`}
                                 disabled={product.price === null}
-                                style={{
-                                    backgroundImage:
-                                        'linear-gradient(135deg, color-mix(in srgb, var(--product-deep) 72%, #120b08), color-mix(in srgb, var(--product-accent) 32%, #231712))',
-                                    textShadow:
-                                        '0 1px 0 rgba(0, 0, 0, 0.22)',
-                                }}
                                 onClick={() => {
                                     onAdjustCart(1);
                                 }}>
-                                +
+                                Add
                             </button>
-                        </div>
+                        ) : (
+                            <div
+                                className="inline-grid grid-flow-col auto-cols-min items-center gap-1 rounded-full bg-white p-0.5"
+                                aria-label="Cart actions">
+                                <button
+                                    type="button"
+                                    className="flex min-h-8 w-8 items-center justify-center rounded-full bg-[var(--g-accent-strong)] p-0 text-base font-bold leading-none text-[var(--g-on-accent)] transition-[transform,background,opacity] duration-200 ease-out hover:-translate-y-0.5 hover:bg-[var(--g-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--g-accent)]/40 focus-visible:ring-offset-2"
+                                    aria-label={`Remove one ${product.title}`}
+                                    onClick={() => {
+                                        onAdjustCart(-1);
+                                    }}>
+                                    -
+                                </button>
+                                <span className="min-w-6 text-center text-xs font-bold text-[#201712]">
+                                    {quantityInCart}
+                                </span>
+                                <button
+                                    type="button"
+                                    className="flex min-h-8 w-8 items-center justify-center rounded-full bg-[var(--g-accent-strong)] p-0 text-base font-bold leading-none text-[var(--g-on-accent)] transition-[transform,background,opacity] duration-200 ease-out hover:-translate-y-0.5 hover:bg-[var(--g-accent)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--g-accent)]/40 focus-visible:ring-offset-2"
+                                    aria-label={`Add one more ${product.title}`}
+                                    disabled={product.price === null}
+                                    onClick={() => {
+                                        onAdjustCart(1);
+                                    }}>
+                                    +
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             </article>

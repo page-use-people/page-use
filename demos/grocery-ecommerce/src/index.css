@@ -4,19 +4,21 @@
 :root {
     --font-body: 'Instrument Sans', sans-serif;
     --font-display: 'Cormorant Garamond', serif;
-    --g-ink: #173428;
-    --g-ink-muted: #667d72;
-    --g-surface: rgba(252, 253, 250, 0.9);
-    --g-surface-strong: rgba(255, 255, 253, 0.97);
-    --g-surface-soft: rgba(248, 250, 246, 0.94);
-    --g-border: rgba(23, 52, 40, 0.11);
-    --g-accent: #2f7a56;
-    --g-accent-strong: #21553e;
-    --g-accent-soft: rgba(47, 122, 86, 0.14);
+    --g-ink: #30261a;
+    --g-ink-muted: #7d7266;
+    --g-surface: rgba(255, 252, 245, 0.9);
+    --g-surface-strong: rgba(255, 254, 249, 0.97);
+    --g-surface-soft: rgba(253, 250, 242, 0.94);
+    --g-border: rgba(48, 38, 26, 0.11);
+    --g-accent: #ffb639;
+    --g-accent-strong: #ffa700;
+    --g-accent-soft: rgba(255, 182, 57, 0.14);
+    --g-on-accent: rgb(44, 32, 9);
+    --g-accent-glow: rgba(200, 150, 50, 0.16);
     --g-citrus: #d8a13f;
     --g-citrus-soft: rgba(216, 161, 63, 0.18);
     color: var(--g-ink);
-    background: #fbfcfa;
+    background: #fffcf5;
     font-family: var(--font-body);
     font-synthesis: none;
     text-rendering: optimizeLegibility;
@@ -56,12 +58,12 @@ button {
     0%,
     100% {
         box-shadow:
-            0 18px 38px rgba(31, 73, 55, 0.12),
+            0 18px 38px rgba(180, 130, 40, 0.12),
             inset 0 1px rgba(255, 255, 255, 0.9);
     }
     50% {
         box-shadow:
-            0 24px 48px rgba(47, 122, 86, 0.18),
+            0 24px 48px rgba(200, 150, 50, 0.18),
             inset 0 1px rgba(255, 255, 255, 0.9);
     }
 }
@@ -95,8 +97,8 @@ button {
         transform: translateY(-4px) scale(1.015);
         box-shadow:
             inset 0 1px rgba(255, 255, 255, 0.96),
-            0 0 0 0.34rem rgba(216, 161, 63, 0.14),
-            0 24px 44px rgba(47, 122, 86, 0.18);
+            0 0 0 0.34rem rgba(255, 182, 57, 0.14),
+            0 24px 44px rgba(200, 150, 50, 0.18);
     }
     100% {
         transform: translateY(0) scale(1);
@@ -130,38 +132,12 @@ button {
 @keyframes grocery-cart-line-flash {
     0% {
         transform: translateY(4px) scale(0.98);
-        background:
-            linear-gradient(
-                180deg,
-                color-mix(in srgb, var(--line-shell) 56%, white),
-                rgba(255, 255, 255, 0.99)
-            ),
-            rgba(255, 255, 255, 0.95);
     }
     40% {
         transform: translateY(-2px) scale(1.015);
-        background:
-            radial-gradient(
-                circle at top left,
-                rgba(216, 161, 63, 0.16),
-                transparent 48%
-            ),
-            linear-gradient(
-                180deg,
-                color-mix(in srgb, rgba(216, 161, 63, 0.28) 52%, white),
-                rgba(255, 255, 255, 0.99)
-            ),
-            rgba(255, 255, 255, 0.95);
     }
     100% {
         transform: translateY(0) scale(1);
-        background:
-            linear-gradient(
-                180deg,
-                color-mix(in srgb, var(--line-shell) 56%, white),
-                rgba(255, 255, 255, 0.99)
-            ),
-            rgba(255, 255, 255, 0.95);
     }
 }
 

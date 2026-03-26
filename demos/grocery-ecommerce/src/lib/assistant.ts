@@ -18,8 +18,6 @@ export type TCartLineSummary = {
     readonly quantity: number;
     readonly price: number | null;
     readonly lineTotal: number | null;
-    readonly accent: string;
-    readonly shell: string;
     readonly imageUrl: string;
 };
 
@@ -341,13 +339,13 @@ export const systemPrompt = `
     `;
 
 export const chatTheme = {
-    '--pu-bg': '#f8fcf5',
-    '--pu-fg': '#173428',
-    '--pu-surface': '#eef5ef',
-    '--pu-muted': '#5e786a',
-    '--pu-divider': '#9eb7a9',
-    '--pu-accent': '#2f7a56',
-    '--pu-shadow': '0 24px 70px rgba(31, 73, 55, 0.16)',
+    '--pu-bg': '#fffcf5',
+    '--pu-fg': '#30261a',
+    '--pu-surface': '#f5f0e4',
+    '--pu-muted': '#7d7266',
+    '--pu-divider': '#c4b8a4',
+    '--pu-accent': '#ffa700',
+    '--pu-shadow': '0 24px 70px rgba(180, 130, 40, 0.16)',
 } as const;
 
 export const assistantConfig = {
