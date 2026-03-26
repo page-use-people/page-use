@@ -1,7 +1,7 @@
-import {memo, useEffect, useRef, useState} from 'react';
+import {memo, useEffect, useRef} from 'react';
 import type {TCartLine} from '../lib/cart.ts';
+import {buildThumbStyle} from '../lib/theme-style.ts';
 import {useRegistryCallbacks} from '../contexts/element-registry-context.ts';
-import {useAgentTarget} from '../contexts/agent-target-context.ts';
 
 export type {TCartLine} from '../lib/cart.ts';
 
@@ -15,17 +15,9 @@ type TCartPanelProps = {
 export const CartPanel = memo(
     ({cartLines, totalItems, subtotal, onAdjustCart}: TCartPanelProps) => {
         const {registerCartPanel, registerCartLine} = useRegistryCallbacks();
-        const activeUiTarget = useAgentTarget();
-
-        const activeProductId = activeUiTarget?.startsWith('cart:line:')
-            ? Number(activeUiTarget.slice('cart:line:'.length))
-            : null;
-        const isAgentActive = activeUiTarget?.startsWith('cart:') ?? false;
 
         const previousQuantitiesRef = useRef<Record<number, number>>({});
-        const [recentlyChangedIds, setRecentlyChangedIds] = useState<
-            ReadonlySet<number>
-        >(() => new Set());
+        const lineRefsRef = useRef<Record<number, HTMLElement | null>>({});
 
         useEffect(() => {
             const previousQuantities = previousQuantitiesRef.current;
@@ -44,66 +36,45 @@ export const CartPanel = memo(
                 return;
             }
 
-            setRecentlyChangedIds((current) => {
-                const next = new Set(current);
-                changedIds.forEach((id) => next.add(id));
-                return next;
+            changedIds.forEach((id) => {
+                lineRefsRef.current[id]?.animate(
+                    [
+                        {outlineColor: 'transparent', zIndex: 99999},
+                        {
+                            outlineColor: 'rgba(255,182,57,0.8)',
+                            zIndex: 99999,
+                        },
+                        {outlineColor: 'transparent'},
+                    ],
+                    {
+                        duration: 2_000,
+                        fill: 'forwards',
+                        easing: 'cubic-bezier(0, 1, 0.999, -0.003)',
+                    },
+                );
             });
-
-            const timer = window.setTimeout(() => {
-                setRecentlyChangedIds((current) => {
-                    const next = new Set(current);
-                    changedIds.forEach((id) => next.delete(id));
-                    return next;
-                });
-            }, 820);
-
-            return () => {
-                window.clearTimeout(timer);
-            };
         }, [cartLines]);
 
         return (
             <aside
                 className="sticky top-20 flex flex-col self-start"
-                ref={registerCartPanel}
-                data-agent-active={isAgentActive ? 'true' : 'false'}>
-                <section
-                    className="grid w-full min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-2.5 overflow-hidden rounded-3xl bg-white p-4"
-                    data-agent-active={isAgentActive ? 'true' : 'false'}>
-                    <div className="flex items-center gap-2.5 px-0.5">
-                        <span className="inline-flex min-h-8 items-center rounded-full bg-white px-2.5 py-1 text-xs font-bold uppercase tracking-widest text-[var(--g-ink-muted)]">
-                            {totalItems} item{totalItems === 1 ? '' : 's'}
-                        </span>
-                        <span className="inline-flex min-h-8 items-center rounded-full bg-white px-2.5 py-1 text-xs font-bold uppercase tracking-widest text-[var(--g-ink-muted)]">
-                            {subtotal === null
-                                ? 'Mixed pricing'
-                                : subtotal.toLocaleString('en-US')}
-                        </span>
-                    </div>
-
-                    <div className="flex min-h-0 min-w-0 flex-col gap-3 overflow-y-auto overflow-x-hidden px-1.5 pb-3.5 pt-1.5 overscroll-contain [scrollbar-gutter:stable_both-edges] max-h-[calc(100vh-12rem)]">
+                ref={registerCartPanel}>
+                <section className="border border-stone-200 rounded-lg p-3 grid w-full min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-2.5 overflow-hidden rounded-5xl bg-white p-1 max-h-[calc(100vh-8rem)]">
+                    <h2 className={'font-semibold text-xl px-4'}>Cart</h2>
+                    <div className="flex h-full flex-col gap-2 overflow-y-auto overflow-x-hidden py-5 px-2">
                         {cartLines.length > 0 ? (
                             cartLines.map((line) => (
                                 <div
                                     key={line.productId}
                                     ref={(node) => {
+                                        lineRefsRef.current[line.productId] =
+                                            node;
                                         registerCartLine(line.productId, node);
                                     }}
-                                    className="relative flex-none grid grid-cols-[4.2rem_minmax(0,1fr)] gap-2.5 overflow-hidden rounded-2xl bg-white px-3 py-3 text-left transition-[transform,background] duration-200 ease-out data-[flash=true]:animate-[grocery-cart-line-flash_760ms_cubic-bezier(0.2,0.9,0.2,1)]"
-                                    data-agent-active={
-                                        activeProductId === line.productId
-                                            ? 'true'
-                                            : 'false'
-                                    }
-                                    data-flash={
-                                        recentlyChangedIds.has(line.productId)
-                                            ? 'true'
-                                            : 'false'
-                                    }
->
+                                    className="relative flex flex-row gap-2 rounded-3xl bg-white p-2 text-left transition-[transform,background] duration-200 ease-out outline outline-[2px] outline-transparent">
                                     <div
-                                        className="grid h-16 w-16 place-items-center self-stretch overflow-hidden rounded-2xl bg-white"
+                                        className="grid h-20 w-20 place-items-center self-stretch overflow-hidden rounded-2xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)]"
+                                        style={buildThumbStyle(line.theme)}
                                         aria-hidden="true">
                                         <img
                                             src={line.imageUrl}
@@ -115,8 +86,7 @@ export const CartPanel = memo(
 
                                     <div className="grid min-w-0 content-start gap-0.5">
                                         <div className="flex min-w-0 items-start justify-between gap-1.5">
-                                            <p
-                                                className="m-0 w-full min-w-0 line-clamp-2 text-sm font-bold leading-tight text-[var(--g-ink)]">
+                                            <p className="m-0 w-full min-w-0 line-clamp-2 text-sm font-bold leading-tight text-[var(--g-ink)]">
                                                 {line.title}
                                             </p>
                                         </div>
@@ -125,7 +95,7 @@ export const CartPanel = memo(
                                             <div className="flex items-center gap-1 rounded-full bg-white p-1">
                                                 <button
                                                     type="button"
-                                                    className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--g-accent-strong)] text-sm text-[var(--g-on-accent)] transition-[transform,background,opacity] duration-200 ease-out hover:-translate-y-0.5 hover:bg-[var(--g-accent)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--g-accent)]/40 focus-visible:ring-offset-2"
+                                                    className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--g-accent-strong)] text-sm text-[var(--g-on-accent)] transition-[transform,background,opacity] duration-200 ease-out hover:bg-[var(--g-accent)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--g-accent)]/40 focus-visible:ring-offset-2"
                                                     aria-label={`Remove one ${line.title}`}
                                                     onClick={() =>
                                                         onAdjustCart(
@@ -135,12 +105,12 @@ export const CartPanel = memo(
                                                     }>
                                                     -
                                                 </button>
-                                                <span className="min-w-5 text-center text-xs font-bold">
+                                                <span className="min-w-5 text-center text-xl font-bold">
                                                     {line.quantity}
                                                 </span>
                                                 <button
                                                     type="button"
-                                                    className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--g-accent-strong)] text-sm text-[var(--g-on-accent)] transition-[transform,background,opacity] duration-200 ease-out hover:-translate-y-0.5 hover:bg-[var(--g-accent)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--g-accent)]/40 focus-visible:ring-offset-2"
+                                                    className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--g-accent-strong)] text-sm text-[var(--g-on-accent)] transition-[transform,background,opacity] duration-200 ease-out hover:bg-[var(--g-accent)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--g-accent)]/40 focus-visible:ring-offset-2"
                                                     aria-label={`Add one more ${line.title}`}
                                                     disabled={
                                                         line.price === null
@@ -159,12 +129,18 @@ export const CartPanel = memo(
                                                 <span className="whitespace-nowrap text-xs font-bold tracking-wide text-[var(--g-ink-muted)]">
                                                     {line.price === null
                                                         ? 'Price on request'
-                                                        : `${line.price.toLocaleString('en-US')} each`}
+                                                        : `${line.price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} each`}
                                                 </span>
                                                 <strong className="whitespace-nowrap text-base leading-none text-right">
                                                     {line.lineTotal === null
                                                         ? `${line.quantity} selected`
-                                                        : line.lineTotal.toLocaleString('en-US')}
+                                                        : line.lineTotal.toLocaleString(
+                                                              'en-US',
+                                                              {
+                                                                  minimumFractionDigits: 2,
+                                                                  maximumFractionDigits: 2,
+                                                              },
+                                                          )}
                                                 </strong>
                                             </div>
                                         </div>

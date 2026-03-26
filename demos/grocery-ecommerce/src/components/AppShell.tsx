@@ -19,7 +19,7 @@ export const AppShell = ({
             </div>
         </header>
 
-        <main className="relative z-10 mx-auto grid max-w-[1380px] min-w-0 grid-cols-[15rem_1fr_20rem] gap-5 px-5 pb-20 max-lg:grid-cols-[1fr_20rem] max-md:grid-cols-1 max-md:px-3.5">
+        <main className="relative z-10 mx-auto grid max-w-[1380px] min-w-0 grid-cols-[15rem_1fr_20rem] gap-2 px-5 pb-20 max-lg:grid-cols-[1fr_20rem] max-md:grid-cols-1 max-md:px-3.5">
             <aside className="max-lg:hidden">{sidebar}</aside>
             <div className="min-w-0">{children}</div>
             <div className="min-w-0">{cart}</div>

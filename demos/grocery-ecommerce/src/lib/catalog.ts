@@ -182,7 +182,7 @@ export const normalizeCatalog = (
             order: index,
             title,
             subtitle,
-            price: product.price,
+            price: product.price === null ? null : Math.round(product.price / 124 * 10) / 10,
             imageUrl: `${IMAGE_BASE_URL}/${id}.png`,
             slug: slugify(`${id}-${title}`),
             searchText,
@@ -203,7 +203,7 @@ export const normalizeCatalog = (
 };
 
 export const formatPrice = (price: number | null) =>
-    price === null ? 'Ask for price' : price.toLocaleString('en-US');
+    price === null ? 'Ask for price' : price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
 export const wait = (ms: number, signal?: AbortSignal) =>
     new Promise<void>((resolve, reject) => {

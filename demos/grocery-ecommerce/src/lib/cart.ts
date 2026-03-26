@@ -1,4 +1,4 @@
-import {type TCatalogProduct} from './catalog.ts';
+import {type TCatalogProduct, type TProductTheme} from './catalog.ts';
 
 export type TCartLine = {
     readonly productId: number;
@@ -7,6 +7,7 @@ export type TCartLine = {
     readonly price: number | null;
     readonly lineTotal: number | null;
     readonly imageUrl: string;
+    readonly theme: TProductTheme;
 };
 
 export type TCartSummary = {
@@ -57,6 +58,7 @@ const buildCartLine = (
               lineTotal:
                   product.price === null ? null : product.price * quantity,
               imageUrl: product.imageUrl,
+              theme: product.theme,
           });
 
 export const buildCartLines = (
