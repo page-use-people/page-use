@@ -38,9 +38,6 @@ export const ProductCard = memo(
             () => buildCardStyle(product),
             [product],
         );
-        const categoryLabel = product.primaryCategoryLabel?.trim() ?? '';
-        const showEyebrow = categoryLabel.length > 0 || quantityInCart > 0;
-
         if (!hasRenderedRef.current) {
             hasRenderedRef.current = true;
         }
@@ -102,26 +99,6 @@ export const ProductCard = memo(
                 </div>
 
                 <div className="grid gap-1 px-0.5">
-                    {showEyebrow ? (
-                        <div className="flex min-h-5 items-center justify-between gap-2">
-                            {categoryLabel.length > 0 ? (
-                                <span className="text-xs font-bold uppercase tracking-widest text-[#271c16]/[0.62]">
-                                    {categoryLabel}
-                                </span>
-                            ) : null}
-                            {quantityInCart > 0 ? (
-                                <span
-                                    className="rounded-full px-2 py-1 text-xs font-bold uppercase tracking-widest text-[#392112]/[0.84]"
-                                    style={{
-                                        backgroundColor:
-                                            'color-mix(in srgb, var(--product-accent) 22%, rgba(255, 241, 226, 0.98))',
-                                    }}>
-                                    {quantityInCart} in cart
-                                </span>
-                            ) : null}
-                        </div>
-                    ) : null}
-
                     <h3
                         className="m-0 overflow-hidden text-sm leading-tight text-[#201712]"
                         style={
