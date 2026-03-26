@@ -61,7 +61,7 @@ export const CartPanel = memo(
                 ref={registerCartPanel}>
                 <section className="border border-stone-200 rounded-lg p-3 grid w-full min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-2.5 overflow-hidden rounded-5xl bg-white p-1 max-h-[calc(100vh-8rem)]">
                     <h2 className={'font-semibold text-xl px-4'}>Cart</h2>
-                    <div className="flex h-full flex-col gap-2 overflow-y-auto overflow-x-hidden py-5 px-2">
+                    <div className="flex h-full flex-col gap-2 overflow-y-auto overflow-x-hidden p-2">
                         {cartLines.length > 0 ? (
                             cartLines.map((line) => (
                                 <div
@@ -73,7 +73,7 @@ export const CartPanel = memo(
                                     }}
                                     className="relative flex flex-row gap-2 rounded-3xl bg-white p-2 text-left transition-[transform,background] duration-200 ease-out outline outline-[2px] outline-transparent">
                                     <div
-                                        className="grid h-20 w-20 place-items-center self-stretch overflow-hidden rounded-2xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)]"
+                                        className="grid aspect-square h-15 w-15 place-items-center rounded-2xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)]"
                                         style={buildThumbStyle(line.theme)}
                                         aria-hidden="true">
                                         <img
@@ -84,7 +84,7 @@ export const CartPanel = memo(
                                         />
                                     </div>
 
-                                    <div className="grid min-w-0 content-start gap-0.5">
+                                    <div className="grid content-start gap-0.5">
                                         <div className="flex min-w-0 items-start justify-between gap-1.5">
                                             <p className="m-0 w-full min-w-0 line-clamp-2 text-sm font-bold leading-tight text-[var(--g-ink)]">
                                                 {line.title}
