@@ -84,7 +84,7 @@ export const CartPanel = memo(
                                         />
                                     </div>
 
-                                    <div className="grid content-start gap-0.5">
+                                    <div className="grid content-start gap-0.5 w-full">
                                         <div className="flex min-w-0 items-start justify-between gap-1.5">
                                             <p className="m-0 w-full min-w-0 line-clamp-2 text-sm font-bold leading-tight text-[var(--g-ink)]">
                                                 {line.title}

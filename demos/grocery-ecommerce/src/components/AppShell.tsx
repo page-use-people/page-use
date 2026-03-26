@@ -10,11 +10,11 @@ export const AppShell = ({
     children,
     cart,
 }: PropsWithChildren<TAppShellProps>) => (
-    <div className="grocery-app-shell min-h-screen bg-white text-[var(--g-ink)]">
-        <header className="bg-[var(--g-accent-strong)] border-b-1 border-amber-400 relative z-10 mx-auto pb-4 flex min-w-0 items-start justify-between gap-4 px-5 pt-5 max-md:px-3.5">
+    <div className="grocery-app-shell min-h-screen bg-white text-black">
+        <header className="bg-stone-100 relative z-10 mx-auto pb-4 flex min-w-0 items-start justify-between gap-4 px-5 pt-5 max-md:px-3.5">
             <div className="grid min-w-0 gap-2">
-                <h1 className="font-[var(--font-display)] text-xl font-semibold leading-none tracking-tight">
-                    Atelier Basket
+                <h1 className="font-[var(--font-display)] text-lg font-semibold leading-none">
+                    Atelier Mart
                 </h1>
             </div>
         </header>

@@ -90,7 +90,9 @@ export const visibleProductCardSchema = z
                 .describe('current basket quantity for this product'),
             rank: z
                 .number()
-                .describe('1-based position in the settled visible result list'),
+                .describe(
+                    '1-based position in the settled visible result list',
+                ),
             primaryCategoryLabel: z
                 .string()
                 .nullable()
@@ -117,7 +119,9 @@ export const animateSearchVisibleResultSchema = z
                 .describe('current basket quantity for this product'),
             rank: z
                 .number()
-                .describe('1-based position in the settled visible result list'),
+                .describe(
+                    '1-based position in the settled visible result list',
+                ),
             primaryCategoryLabel: z
                 .string()
                 .nullable()
@@ -165,7 +169,9 @@ export const animateSearchOutputSchema = z
     .object({
         appliedQuery: z
             .string()
-            .describe('query currently applied to the shelf after search settles'),
+            .describe(
+                'query currently applied to the shelf after search settles',
+            ),
         resultCount: z.number().describe('number of matching products'),
         visibleResults: animateSearchVisibleResultSchema,
     })
@@ -339,13 +345,13 @@ export const systemPrompt = `
     `;
 
 export const chatTheme = {
-    '--pu-bg': '#fffcf5',
+    '--pu-bg': '#ffffff',
     '--pu-fg': '#30261a',
     '--pu-surface': '#f5f0e4',
     '--pu-muted': '#7d7266',
     '--pu-divider': '#c4b8a4',
     '--pu-accent': '#ffa700',
-    '--pu-shadow': '0 24px 70px rgba(180, 130, 40, 0.16)',
+    '--pu-shadow': '0 8px 30px rgba(100, 100, 80, 0.68)',
 } as const;
 
 export const assistantConfig = {

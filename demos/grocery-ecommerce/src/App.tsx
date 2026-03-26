@@ -147,7 +147,7 @@ const App = () => {
                     'Find a good salted butter and add it.',
                 ]}
                 theme="light"
-                roundedness="lg"
+                roundedness="sm"
                 expandedPlacement="bottom-left"
                 cssVariables={agent.chatTheme}
                 devMode
