@@ -2,10 +2,10 @@ import clsx from 'clsx';
 import { useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { TTodoItem } from './Previous.tsx';
-import DueDateDisplay from './DueDateDisplay.tsx';
+import type { TTask } from '../types.ts';
+import TaskDueDate from './TaskDueDate.tsx';
 
-const TodoItem = ({
+const TaskCard = ({
     item,
     onToggle,
     onDelete,
@@ -16,15 +16,15 @@ const TodoItem = ({
     highlighted = false,
     autoFocus = false,
 }: {
-    item: TTodoItem;
-    onToggle: () => void;
-    onDelete: () => void;
-    onUpdate: (text: string, dueDate: string) => void;
-    onAddBelow: () => void;
-    onDeleteFocusPrev?: () => void;
-    textareaRef?: (el: HTMLTextAreaElement | null) => void;
-    highlighted?: boolean;
-    autoFocus?: boolean;
+    readonly item: TTask;
+    readonly onToggle: () => void;
+    readonly onDelete: () => void;
+    readonly onUpdate: (text: string, dueDate: string) => void;
+    readonly onAddBelow: () => void;
+    readonly onDeleteFocusPrev?: () => void;
+    readonly textareaRef?: (el: HTMLTextAreaElement | null) => void;
+    readonly highlighted?: boolean;
+    readonly autoFocus?: boolean;
 }) => {
     const backspaceCountRef = useRef(0);
     const lastBackspaceTimeRef = useRef(0);
@@ -87,7 +87,7 @@ const TodoItem = ({
                     item.completed && 'text-stone-600 line-through',
                 )}
             />
-            <DueDateDisplay
+            <TaskDueDate
                 dueDate={item.dueDate}
                 onChange={(v) => onUpdate(item.text, v)}
                 completed={item.completed}
@@ -102,4 +102,4 @@ const TodoItem = ({
     );
 };
 
-export default TodoItem;
+export default TaskCard;

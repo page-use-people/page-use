@@ -1,32 +1,16 @@
 import clsx from 'clsx';
-import { differenceInDays, format, formatDistanceToNow, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { useEffect, useRef, useState } from 'react';
+import { formatRelativeDate, dueDateColorClass } from '../lib/date.ts';
 
-export const formatRelativeDate = (dueDate: string): string => {
-    const raw = formatDistanceToNow(parseISO(dueDate), { addSuffix: true });
-    return raw.endsWith(' ago') ? raw.replace(' ago', ' overdue') : raw;
-};
-
-export const getDateColorClass = (dueDate: string): string => {
-    const days = differenceInDays(parseISO(dueDate), new Date());
-    if (days < -30) return 'text-orange-900/70';
-    if (days < -7) return 'text-orange-700/70';
-    if (days < 0) return 'text-amber-600/70';
-    if (days < 3) return 'text-amber-500/70';
-    if (days < 8) return 'text-yellow-600/70';
-    if (days < 31) return 'text-yellow-500/70';
-    if (days < 91) return 'text-lime-700/70';
-    return 'text-lime-800/70';
-};
-
-const DueDateDisplay = ({
+const TaskDueDate = ({
     dueDate,
     onChange,
     completed = false,
 }: {
-    dueDate: string;
-    onChange: (v: string) => void;
-    completed?: boolean;
+    readonly dueDate: string;
+    readonly onChange: (v: string) => void;
+    readonly completed?: boolean;
 }) => {
     const [isEditing, setIsEditing] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -60,10 +44,10 @@ const DueDateDisplay = ({
     return (
         <button
             onClick={() => setIsEditing(true)}
-            className={clsx('mt-1 text-xs font-medium whitespace-nowrap cursor-pointer', getDateColorClass(dueDate))}>
+            className={clsx('mt-1 text-xs font-medium whitespace-nowrap cursor-pointer', dueDateColorClass(dueDate))}>
             {formatRelativeDate(dueDate)}
         </button>
     );
 };
 
-export default DueDateDisplay;
+export default TaskDueDate;
