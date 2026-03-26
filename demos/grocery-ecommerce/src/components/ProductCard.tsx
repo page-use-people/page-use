@@ -1,9 +1,6 @@
 import {memo, useEffect, useMemo, useRef, type CSSProperties} from 'react';
 import {formatPrice, type TCatalogProduct} from '../lib/catalog.ts';
 
-const renderedProductIdsCache = new Set<number>();
-const productStyleCache = new Map<number, CSSProperties>();
-
 type TProductCardProps = {
     readonly product: TCatalogProduct;
     readonly quantityInCart: number;
@@ -13,13 +10,8 @@ type TProductCardProps = {
     readonly registerRef: (node: HTMLElement | null) => void;
 };
 
-const getProductCardStyle = (product: TCatalogProduct) => {
-    const cachedStyle = productStyleCache.get(product.id);
-    if (cachedStyle) {
-        return cachedStyle;
-    }
-
-    const nextStyle = {
+const buildCardStyle = (product: TCatalogProduct) =>
+    ({
         '--product-accent': product.theme.accent,
         '--product-support': product.theme.support,
         '--product-deep': product.theme.deep,
@@ -28,11 +20,7 @@ const getProductCardStyle = (product: TCatalogProduct) => {
         '--product-glow': product.theme.glow,
         backgroundImage:
             'radial-gradient(circle at top left, color-mix(in srgb, var(--product-accent) 24%, rgba(255, 255, 255, 0.96)) 0, color-mix(in srgb, var(--product-support) 12%, rgba(255, 255, 255, 0.96)) 30%, transparent 74%), linear-gradient(180deg, color-mix(in srgb, var(--product-shell) 52%, rgba(255, 255, 255, 0.94)), rgba(248, 242, 234, 0.94))',
-    } as CSSProperties;
-
-    productStyleCache.set(product.id, nextStyle);
-    return nextStyle;
-};
+    }) as CSSProperties;
 
 export const ProductCard = memo(
     ({
@@ -45,16 +33,18 @@ export const ProductCard = memo(
     }: TProductCardProps) => {
         const previousQuantityRef = useRef(quantityInCart);
         const rootRef = useRef<HTMLElement | null>(null);
-        const hasRenderedBefore = renderedProductIdsCache.has(product.id);
+        const hasRenderedRef = useRef(false);
+        const hasRenderedBefore = hasRenderedRef.current;
+
         const cardStyle = useMemo(
-            () => getProductCardStyle(product),
+            () => buildCardStyle(product),
             [product],
         );
         const categoryLabel = product.primaryCategoryLabel?.trim() ?? '';
         const showEyebrow = categoryLabel.length > 0 || quantityInCart > 0;
 
-        if (!hasRenderedBefore) {
-            renderedProductIdsCache.add(product.id);
+        if (!hasRenderedRef.current) {
+            hasRenderedRef.current = true;
         }
 
         useEffect(() => {
@@ -149,7 +139,7 @@ export const ProductCard = memo(
                                 <span
                                     className="rounded-full px-2 py-[0.2rem] text-[0.68rem] font-bold uppercase tracking-[0.08em] text-[#392112]/[0.84]"
                                     style={{
-                                    backgroundColor:
+                                        backgroundColor:
                                             'color-mix(in srgb, var(--product-accent) 22%, rgba(255, 241, 226, 0.98))',
                                     }}>
                                     {quantityInCart} in cart
@@ -212,7 +202,8 @@ export const ProductCard = memo(
                                 style={{
                                     backgroundImage:
                                         'linear-gradient(135deg, color-mix(in srgb, var(--product-deep) 72%, #120b08), color-mix(in srgb, var(--product-accent) 32%, #231712))',
-                                    textShadow: '0 1px 0 rgba(0, 0, 0, 0.22)',
+                                    textShadow:
+                                        '0 1px 0 rgba(0, 0, 0, 0.22)',
                                 }}
                                 onClick={() => {
                                     onAdjustCart(1);

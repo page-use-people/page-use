@@ -1,5 +1,7 @@
 import {memo, useEffect, useRef, useState, type CSSProperties} from 'react';
 import type {TCartLine} from '../lib/cart.ts';
+import {useRegistryCallbacks} from '../contexts/element-registry-context.ts';
+import {useAgentTarget} from '../contexts/agent-target-context.ts';
 
 export type {TCartLine} from '../lib/cart.ts';
 
@@ -9,13 +11,6 @@ type TCartPanelProps = {
     readonly cartLines: readonly TCartLine[];
     readonly totalItems: number;
     readonly subtotal: number | null;
-    readonly activeProductId: number | null;
-    readonly isAgentActive: boolean;
-    readonly registerPanelRef: (node: HTMLElement | null) => void;
-    readonly registerLineRef: (
-        productId: number,
-        node: HTMLElement | null,
-    ) => void;
     readonly onAdjustCart: (productId: number, delta: number) => void;
     readonly onToggle: () => void;
     readonly onClose: () => void;
@@ -28,14 +23,18 @@ export const CartPanel = memo(
         cartLines,
         totalItems,
         subtotal,
-        activeProductId,
-        isAgentActive,
-        registerPanelRef,
-        registerLineRef,
         onAdjustCart,
         onToggle,
         onClose,
     }: TCartPanelProps) => {
+        const {registerCartPanel, registerCartLine} = useRegistryCallbacks();
+        const activeUiTarget = useAgentTarget();
+
+        const activeProductId = activeUiTarget?.startsWith('cart:line:')
+            ? Number(activeUiTarget.slice('cart:line:'.length))
+            : null;
+        const isAgentActive = activeUiTarget?.startsWith('cart:') ?? false;
+
         const previousQuantitiesRef = useRef<Record<number, number>>({});
         const [recentlyChangedIds, setRecentlyChangedIds] = useState<
             ReadonlySet<number>
@@ -60,18 +59,14 @@ export const CartPanel = memo(
 
             setRecentlyChangedIds((current) => {
                 const next = new Set(current);
-                for (const productId of changedIds) {
-                    next.add(productId);
-                }
+                changedIds.forEach((id) => next.add(id));
                 return next;
             });
 
             const timer = window.setTimeout(() => {
                 setRecentlyChangedIds((current) => {
                     const next = new Set(current);
-                    for (const productId of changedIds) {
-                        next.delete(productId);
-                    }
+                    changedIds.forEach((id) => next.delete(id));
                     return next;
                 });
             }, 820);
@@ -117,7 +112,7 @@ export const CartPanel = memo(
                     className="relative grid w-[min(19.5rem,calc(100vw-2.5rem))] min-w-0 origin-bottom-right grid-rows-[auto_minmax(0,1fr)] gap-[0.65rem] overflow-hidden rounded-[1.55rem] border border-[var(--g-border)] bg-[rgba(250,253,248,0.96)] p-4 shadow-[0_24px_54px_rgba(31,73,55,0.14),inset_0_1px_rgba(255,255,255,0.92)] backdrop-blur-[10px] transition-[transform,opacity,max-height,padding,border-color,box-shadow] duration-300 ease-out data-[open=false]:pointer-events-none data-[open=false]:max-h-0 data-[open=false]:border-transparent data-[open=false]:pb-0 data-[open=false]:pt-0 data-[open=false]:opacity-0 data-[open=false]:translate-y-2 data-[open=false]:scale-[0.98] data-[open=true]:pointer-events-auto data-[open=true]:max-h-[min(38rem,calc(100vh-5.75rem))] data-[open=true]:opacity-100 data-[open=true]:translate-y-0 data-[open=true]:scale-100 data-[agent-active=true]:shadow-[0_0_0_0.32rem_rgba(47,122,86,0.1),0_24px_54px_rgba(31,73,55,0.14),inset_0_1px_rgba(255,255,255,0.92)] max-[760px]:w-[min(22rem,calc(100vw-2rem))] max-[760px]:h-auto max-[760px]:max-h-[min(31rem,calc(100vh-7rem))] max-[560px]:w-[min(18.5rem,calc(100vw-1.8rem))] max-[560px]:rounded-[1.35rem] max-[560px]:p-[0.96rem] max-[560px]:max-h-[min(24rem,calc(100vh-6.2rem))]"
                     data-open={isOpen ? 'true' : 'false'}
                     data-agent-active={isAgentActive ? 'true' : 'false'}
-                    ref={registerPanelRef}>
+                    ref={registerCartPanel}>
                     <div className="flex items-center justify-between gap-[0.65rem] px-[0.12rem] pr-[0.16rem]">
                         <div className="flex min-w-0 flex-wrap items-center gap-[0.45rem]">
                             <span className="inline-flex min-h-[1.9rem] items-center rounded-full border border-[var(--g-border)] bg-white/72 px-[0.65rem] py-[0.2rem] text-[0.68rem] font-bold uppercase tracking-[0.08em] text-[var(--g-ink-muted)]">
@@ -152,7 +147,7 @@ export const CartPanel = memo(
                                 <div
                                     key={line.productId}
                                     ref={(node) => {
-                                        registerLineRef(line.productId, node);
+                                        registerCartLine(line.productId, node);
                                     }}
                                     className="relative flex-none grid grid-cols-[4.2rem_minmax(0,1fr)] gap-[0.68rem] overflow-hidden rounded-[1.2rem] border border-[rgba(23,52,40,0.12)] bg-clip-padding px-3 py-[0.72rem] text-left transition-[transform,border-color,background,box-shadow] duration-200 ease-out data-[agent-active=true]:border-[rgba(47,122,86,0.22)] data-[agent-active=true]:shadow-[inset_0_0_0_1px_rgba(47,122,86,0.16),0_18px_30px_rgba(31,73,55,0.08)] data-[flash=true]:animate-[grocery-cart-line-flash_760ms_cubic-bezier(0.2,0.9,0.2,1)] data-[flash=true]:border-[rgba(216,161,63,0.84)] data-[flash=true]:shadow-[inset_0_0_0_1px_rgba(216,161,63,0.44),inset_0_0_0_0.32rem_rgba(216,161,63,0.12),0_18px_30px_rgba(47,122,86,0.08)] max-[560px]:grid-cols-[auto_minmax(0,1fr)]"
                                     data-agent-active={
@@ -267,9 +262,7 @@ export const CartPanel = memo(
         previousProps.isPulsing === nextProps.isPulsing &&
         previousProps.cartLines === nextProps.cartLines &&
         previousProps.totalItems === nextProps.totalItems &&
-        previousProps.subtotal === nextProps.subtotal &&
-        previousProps.activeProductId === nextProps.activeProductId &&
-        previousProps.isAgentActive === nextProps.isAgentActive,
+        previousProps.subtotal === nextProps.subtotal,
 );
 
 CartPanel.displayName = 'CartPanel';
