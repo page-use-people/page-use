@@ -246,7 +246,7 @@ export const normalizeCatalog = (
 };
 
 export const formatPrice = (price: number | null) =>
-    price === null ? 'Ask for price' : `BDT ${price.toLocaleString('en-US')}`;
+    price === null ? 'Ask for price' : price.toLocaleString('en-US');
 
 export const wait = (ms: number, signal?: AbortSignal) =>
     new Promise<void>((resolve, reject) => {

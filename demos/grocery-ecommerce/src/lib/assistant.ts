@@ -86,7 +86,7 @@ export const visibleProductCardSchema = z
                 .string()
                 .nullable()
                 .describe('visible product subtitle if shown on the card'),
-            price: z.number().describe('visible product price in BDT'),
+            price: z.number().describe('visible product price'),
             quantityInCart: z
                 .number()
                 .describe('current basket quantity for this product'),
@@ -113,7 +113,7 @@ export const animateSearchVisibleResultSchema = z
                 .string()
                 .nullable()
                 .describe('visible product subtitle if shown on the card'),
-            price: z.number().describe('visible product price in BDT'),
+            price: z.number().describe('visible product price'),
             quantityInCart: z
                 .number()
                 .describe('current basket quantity for this product'),
@@ -224,7 +224,7 @@ export const cartOutputSchema = z
         subtotal: z
             .number()
             .nullable()
-            .describe('basket subtotal in BDT when all prices are known'),
+            .describe('basket subtotal when all prices are known'),
     })
     .describe('basket totals after the quantity change');
 
@@ -253,7 +253,7 @@ export const cartBatchOutputSchema = z
         subtotal: z
             .number()
             .nullable()
-            .describe('basket subtotal in BDT when all prices are known'),
+            .describe('basket subtotal when all prices are known'),
         touchedProductIds: z
             .array(z.number())
             .describe('product ids whose basket quantities changed'),

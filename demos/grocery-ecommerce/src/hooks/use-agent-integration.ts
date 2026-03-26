@@ -139,7 +139,7 @@ export const useAgentIntegration = (
         const subtotalText =
             cartStateHook.cartSummary.subtotal === null
                 ? 'mixed pricing'
-                : `৳${cartStateHook.cartSummary.subtotal.toLocaleString('en-US')}`;
+                : cartStateHook.cartSummary.subtotal.toLocaleString('en-US');
         const lineSummary = cartStateHook.cartLines
             .slice(0, 8)
             .map(

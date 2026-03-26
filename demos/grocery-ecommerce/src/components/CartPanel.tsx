@@ -78,7 +78,7 @@ export const CartPanel = memo(
                         <span className="inline-flex min-h-8 items-center rounded-full bg-white px-2.5 py-1 text-xs font-bold uppercase tracking-widest text-[var(--g-ink-muted)]">
                             {subtotal === null
                                 ? 'Mixed pricing'
-                                : `৳${subtotal.toLocaleString('en-US')}`}
+                                : subtotal.toLocaleString('en-US')}
                         </span>
                     </div>
 
@@ -174,12 +174,12 @@ export const CartPanel = memo(
                                                 <span className="whitespace-nowrap text-xs font-bold tracking-wide text-[rgba(95,119,107,0.86)]">
                                                     {line.price === null
                                                         ? 'Price on request'
-                                                        : `৳${line.price.toLocaleString('en-US')} each`}
+                                                        : `${line.price.toLocaleString('en-US')} each`}
                                                 </span>
                                                 <strong className="whitespace-nowrap text-base leading-none text-right">
                                                     {line.lineTotal === null
                                                         ? `${line.quantity} selected`
-                                                        : `৳${line.lineTotal.toLocaleString('en-US')}`}
+                                                        : line.lineTotal.toLocaleString('en-US')}
                                                 </strong>
                                             </div>
                                         </div>
