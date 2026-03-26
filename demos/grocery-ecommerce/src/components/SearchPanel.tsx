@@ -27,7 +27,7 @@ export const SearchPanel = memo(
         return (
             <div
                 ref={registerSearchPanel}
-                className="grid min-w-0 rounded-[1.1rem] p-0"
+                className="grid min-w-0 rounded-2xl p-0"
                 data-loading={isLoading ? 'true' : 'false'}
                 data-agent-active={
                     activeUiTarget === 'search-panel' ? 'true' : 'false'
@@ -41,7 +41,7 @@ export const SearchPanel = memo(
                     onChange={(event) => {
                         onSearchDraftChange(event.target.value);
                     }}
-                    className="h-[2.95rem] w-full rounded-[1rem] bg-white px-[0.92rem] text-[0.96rem] leading-[1.25] text-[var(--g-ink)] outline outline-2 outline-transparent transition-[transform,outline-color] duration-[220ms] ease-out placeholder:text-[rgba(102,125,114,0.76)] focus:-translate-y-px focus:outline-[rgba(47,122,86,0.52)] data-[animating=true]:-translate-y-px data-[animating=true]:outline-[rgba(47,122,86,0.52)] data-[agent-active=true]:-translate-y-px data-[agent-active=true]:outline-[rgba(47,122,86,0.52)] data-[loading=true]:cursor-wait"
+                    className="h-12 w-full rounded-2xl bg-white px-3.5 text-base leading-tight text-[var(--g-ink)] outline outline-2 outline-transparent transition-[transform,outline-color] duration-200 ease-out placeholder:text-[rgba(102,125,114,0.76)] focus:-translate-y-px focus:outline-[rgba(47,122,86,0.52)] data-[animating=true]:-translate-y-px data-[animating=true]:outline-[rgba(47,122,86,0.52)] data-[agent-active=true]:-translate-y-px data-[agent-active=true]:outline-[rgba(47,122,86,0.52)] data-[loading=true]:cursor-wait"
                     data-animating={searchIsAnimating ? 'true' : 'false'}
                     data-agent-active={
                         activeUiTarget === 'search-panel' ? 'true' : 'false'
@@ -50,7 +50,7 @@ export const SearchPanel = memo(
                 />
                 {isSearchLoading ? (
                     <div
-                        className="flex items-center justify-between gap-3 px-[0.15rem] pt-[0.45rem] text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[rgba(64,102,83,0.8)]"
+                        className="flex items-center justify-between gap-3 px-0.5 pt-2 text-xs font-semibold uppercase tracking-widest text-[rgba(64,102,83,0.8)]"
                         aria-live="polite">
                         <span className="inline-flex items-center gap-2">
                             <span className="h-2 w-2 rounded-full bg-[var(--g-accent)] motion-safe:animate-pulse" />

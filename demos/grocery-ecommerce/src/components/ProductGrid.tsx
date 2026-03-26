@@ -31,11 +31,11 @@ export const ProductGrid = memo(
         return (
             <section
                 ref={registerGridSection}
-                className="min-w-0 rounded-[1rem] bg-white p-[0.5rem] max-[760px]:rounded-[0.75rem]">
+                className="min-w-0 rounded-2xl bg-white p-2 max-md:rounded-xl">
                 <div
                     ref={registerGridHeading}
-                    className="mb-[0.5rem] flex min-w-0 items-end justify-between gap-4">
-                    <div className="grid gap-[0.12rem]">
+                    className="mb-2 flex min-w-0 items-end justify-between gap-4">
+                    <div className="grid gap-0.5">
                         <h2 className="text-[clamp(1.5rem,2.4vw,2.2rem)] font-semibold leading-tight">
                             {selectedCategoryLabel}
                         </h2>
@@ -48,28 +48,28 @@ export const ProductGrid = memo(
                 </div>
 
                 {isLoading ? (
-                    <div className="grid min-w-0 gap-[0.5rem] grid-cols-3">
+                    <div className="grid min-w-0 gap-2 grid-cols-3">
                         {Array.from({length: 8}, (_, index) => (
                             <div
                                 key={index}
-                                className="grid gap-[0.72rem] overflow-hidden rounded-[1.22rem] bg-white p-[0.78rem]">
-                                <div className="grid min-h-[8.75rem] place-items-center rounded-[1rem] bg-[#f5f5f5] px-[0.3rem] py-[0.72rem]">
-                                    <div className="h-[6.6rem] w-[6.6rem] rounded-[1.4rem] bg-white animate-pulse" />
+                                className="grid gap-3 overflow-hidden rounded-2xl bg-white p-3">
+                                <div className="grid min-h-36 place-items-center rounded-2xl bg-neutral-100 px-1 py-3">
+                                    <div className="h-28 w-28 rounded-3xl bg-white animate-pulse" />
                                 </div>
-                                <div className="grid gap-[0.45rem]">
-                                    <div className="h-3.5 w-2/5 rounded-full bg-[#eee] animate-pulse" />
-                                    <div className="h-4.5 w-4/5 rounded-full bg-[#e5e5e5] animate-pulse" />
-                                    <div className="h-4 w-3/5 rounded-full bg-[#eee] animate-pulse" />
+                                <div className="grid gap-2">
+                                    <div className="h-3.5 w-2/5 rounded-full bg-neutral-200 animate-pulse" />
+                                    <div className="h-4.5 w-4/5 rounded-full bg-neutral-200 animate-pulse" />
+                                    <div className="h-4 w-3/5 rounded-full bg-neutral-200 animate-pulse" />
                                 </div>
                                 <div className="mt-1 flex items-center justify-between gap-3">
-                                    <div className="h-5 w-20 rounded-full bg-[#eee] animate-pulse" />
-                                    <div className="h-10 w-28 rounded-full bg-[#f5f5f5] animate-pulse" />
+                                    <div className="h-5 w-20 rounded-full bg-neutral-200 animate-pulse" />
+                                    <div className="h-10 w-28 rounded-full bg-neutral-100 animate-pulse" />
                                 </div>
                             </div>
                         ))}
                     </div>
                 ) : visibleProducts.length > 0 ? (
-                    <div className="grocery-product-grid grid min-w-0 gap-[0.5rem] grid-cols-3">
+                    <div className="grocery-product-grid grid min-w-0 gap-2 grid-cols-3">
                         {visibleProducts.map((product) => (
                             <ProductCard
                                 key={product.id}
@@ -94,7 +94,7 @@ export const ProductGrid = memo(
                         ))}
                     </div>
                 ) : (
-                    <div className="grid min-h-[13rem] place-items-center gap-[0.45rem] rounded-[1.2rem] bg-white px-[1.1rem] py-[2.25rem] text-center">
+                    <div className="grid min-h-52 place-items-center gap-2 rounded-2xl bg-white px-4 py-9 text-center">
                         <h3 className="text-[clamp(1.5rem,3vw,2rem)] font-semibold">
                             No products found
                         </h3>

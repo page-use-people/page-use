@@ -26,12 +26,12 @@ export const PaginationNav = memo(
         return (
             <div
                 ref={registerGridWindowNav}
-                className="mt-[1rem] flex items-center justify-end gap-4 rounded-[1.35rem] bg-white px-[1.05rem] py-[1rem] max-[760px]:flex-col max-[760px]:items-start max-[560px]:items-stretch">
-                <div className="flex flex-wrap gap-[0.6rem] max-[760px]:w-full">
+                className="mt-4 flex items-center justify-end gap-4 rounded-3xl bg-white px-4 py-4 max-md:flex-col max-md:items-start max-sm:items-stretch">
+                <div className="flex flex-wrap gap-2.5 max-md:w-full">
                     <button
                         ref={registerPreviousWindowButton}
                         type="button"
-                        className="min-h-[2.7rem] min-w-[5.9rem] rounded-full border-0 bg-[var(--g-accent-strong)] px-[0.95rem] font-semibold text-[#f7fcf8] transition-[transform,opacity,background,box-shadow] duration-[220ms] ease-out enabled:hover:-translate-y-px enabled:hover:bg-[var(--g-accent)] disabled:cursor-not-allowed disabled:opacity-[0.36] data-[agent-active=true]:shadow-[0_0_0_0.28rem_rgba(47,122,86,0.16)]"
+                        className="min-h-11 min-w-24 rounded-full border-0 bg-[var(--g-accent-strong)] px-4 font-semibold text-[#f7fcf8] transition-[transform,opacity,background,box-shadow] duration-200 ease-out enabled:hover:-translate-y-px enabled:hover:bg-[var(--g-accent)] disabled:cursor-not-allowed disabled:opacity-35 data-[agent-active=true]:shadow-[0_0_0_0.28rem_rgba(47,122,86,0.16)]"
                         data-agent-active={
                             activeUiTarget === 'window:previous'
                                 ? 'true'
@@ -44,7 +44,7 @@ export const PaginationNav = memo(
                     <button
                         ref={registerNextWindowButton}
                         type="button"
-                        className="min-h-[2.7rem] min-w-[5.9rem] rounded-full border-0 bg-[var(--g-accent-strong)] px-[0.95rem] font-semibold text-[#f7fcf8] transition-[transform,opacity,background,box-shadow] duration-[220ms] ease-out enabled:hover:-translate-y-px enabled:hover:bg-[var(--g-accent)] disabled:cursor-not-allowed disabled:opacity-[0.36] data-[agent-active=true]:shadow-[0_0_0_0.28rem_rgba(47,122,86,0.16)]"
+                        className="min-h-11 min-w-24 rounded-full border-0 bg-[var(--g-accent-strong)] px-4 font-semibold text-[#f7fcf8] transition-[transform,opacity,background,box-shadow] duration-200 ease-out enabled:hover:-translate-y-px enabled:hover:bg-[var(--g-accent)] disabled:cursor-not-allowed disabled:opacity-35 data-[agent-active=true]:shadow-[0_0_0_0.28rem_rgba(47,122,86,0.16)]"
                         data-agent-active={
                             activeUiTarget === 'window:next'
                                 ? 'true'
