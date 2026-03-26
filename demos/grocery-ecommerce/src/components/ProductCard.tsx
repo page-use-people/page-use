@@ -1,6 +1,11 @@
 import {memo, useEffect, useRef} from 'react';
 import {formatPrice, type TCatalogProduct} from '../lib/catalog.ts';
 
+const hexToRGBA = (hex: string, alpha: number) => {
+    const n = parseInt(hex.replace('#', ''), 16);
+    return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+};
+
 type TProductCardProps = {
     readonly product: TCatalogProduct;
     readonly quantityInCart: number;
@@ -69,7 +74,23 @@ export const ProductCard = memo(
                 data-pulse="false"
                 data-cached={hasRenderedBefore ? 'true' : 'false'}>
                 <div
-                    className="grid bg-red-500 aspect-square place-items-center overflow-hidden rounded-xl"
+                    className="grid aspect-square place-items-center overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]"
+                    style={
+                        {
+                            '--c-v': product.theme.vibrant,
+                            '--c-m': product.theme.muted,
+                            '--c-dv': product.theme.darkVibrant,
+                            '--c-dm': product.theme.darkMuted,
+                            '--c-lv': product.theme.lightVibrant,
+                            '--c-lm': product.theme.lightMuted,
+                            '--c-shell': hexToRGBA(
+                                product.theme.lightMuted,
+                                0.18,
+                            ),
+                            backgroundImage:
+                                'radial-gradient(circle at top, rgba(255, 255, 255, 0.8), transparent 56%), linear-gradient(180deg, color-mix(in srgb, var(--c-lv) 38%, rgba(248, 241, 233, 0.98)), color-mix(in srgb, var(--c-shell) 18%, rgba(243, 235, 226, 0.94)))',
+                        } as React.CSSProperties
+                    }
                     aria-hidden="true">
                     <img
                         src={product.imageUrl}
@@ -79,10 +100,11 @@ export const ProductCard = memo(
                     />
                 </div>
 
-                <div className="grid gap-1 px-0.5">
-                    <h3 className="m-0 line-clamp-2 text-sm leading-tight text-[#201712]">
+                <div className="grid gap-1 px-2">
+                    <h3 className="m-0 line-clamp-2 text-sm leading-tight text-[#201712] font-bold">
                         {product.title}
                     </h3>
+
                     <p className="m-0 line-clamp-2 text-xs text-[#201712]/[0.56]">
                         {product.subtitle}
                     </p>
