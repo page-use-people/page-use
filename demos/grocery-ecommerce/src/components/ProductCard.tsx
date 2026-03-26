@@ -79,7 +79,7 @@ export const ProductCard = memo(
                     rootRef.current = node;
                     registerRef(node);
                 }}
-                className="group relative grid gap-[0.72rem] overflow-hidden rounded-[1.22rem] bg-white p-[0.78rem] transition-transform duration-[220ms] ease-out hover:-translate-y-[3px] data-[agent-active=true]:-translate-y-[3px] data-[highlighted=true]:-translate-y-[3px] data-[highlighted=true]:animate-[grocery-product-pulse_900ms_ease-out_1] data-[pulse=add]:animate-[grocery-product-pop_560ms_cubic-bezier(0.2,0.9,0.2,1)] data-[pulse=remove]:animate-[grocery-product-pop-down_520ms_cubic-bezier(0.2,0.9,0.2,1)]"
+                className="group relative grid gap-[0.4rem] overflow-hidden rounded-[0.85rem] bg-white p-[0.5rem] transition-transform duration-[220ms] ease-out hover:-translate-y-[3px] data-[agent-active=true]:-translate-y-[3px] data-[highlighted=true]:-translate-y-[3px] data-[highlighted=true]:animate-[grocery-product-pulse_900ms_ease-out_1] data-[pulse=add]:animate-[grocery-product-pop_560ms_cubic-bezier(0.2,0.9,0.2,1)] data-[pulse=remove]:animate-[grocery-product-pop-down_520ms_cubic-bezier(0.2,0.9,0.2,1)]"
                 data-in-cart={quantityInCart > 0 ? 'true' : 'false'}
                 data-highlighted={isHighlighted ? 'true' : 'false'}
                 data-agent-active={isAgentActive ? 'true' : 'false'}
@@ -87,7 +87,7 @@ export const ProductCard = memo(
                 data-cached={hasRenderedBefore ? 'true' : 'false'}
                 style={cardStyle}>
                 <div
-                    className="grid min-h-[8.75rem] place-items-center overflow-hidden rounded-[1rem] px-[0.3rem] pb-[0.72rem] pt-[0.45rem]"
+                    className="grid aspect-square place-items-center overflow-hidden rounded-[0.65rem]"
                     aria-hidden="true"
                     style={{
                         backgroundImage:
@@ -97,11 +97,11 @@ export const ProductCard = memo(
                         src={product.imageUrl}
                         alt={product.title}
                         loading={hasRenderedBefore ? 'eager' : 'lazy'}
-                        className="relative w-full max-w-[7.4rem] max-h-[7.8rem] object-contain drop-shadow-[0_14px_24px_rgba(34,23,16,0.14)] transition-transform duration-[220ms] ease-out group-hover:-translate-y-0.5 group-hover:scale-[1.02] group-data-[cached=false]:animate-[grocery-image-settle_420ms_ease-out_both]"
+                        className="relative w-[90%] object-contain transition-transform duration-[220ms] ease-out group-hover:-translate-y-0.5 group-hover:scale-[1.02] group-data-[cached=false]:animate-[grocery-image-settle_420ms_ease-out_both]"
                     />
                 </div>
 
-                <div className="grid gap-[0.32rem]">
+                <div className="grid gap-[0.2rem] px-[0.15rem]">
                     {showEyebrow ? (
                         <div className="flex min-h-[1.2rem] items-center justify-between gap-[0.55rem]">
                             {categoryLabel.length > 0 ? (
@@ -123,7 +123,7 @@ export const ProductCard = memo(
                     ) : null}
 
                     <h3
-                        className="m-0 overflow-hidden text-[0.98rem] leading-[1.28] text-[#201712]"
+                        className="m-0 overflow-hidden text-[0.84rem] leading-[1.24] text-[#201712]"
                         style={
                             {
                                 display: '-webkit-box',
@@ -134,7 +134,7 @@ export const ProductCard = memo(
                         {product.title}
                     </h3>
                     <p
-                        className="m-0 overflow-hidden text-[0.8rem] text-[#201712]/[0.56]"
+                        className="m-0 overflow-hidden text-[0.72rem] text-[#201712]/[0.56]"
                         style={
                             {
                                 display: '-webkit-box',
@@ -153,11 +153,11 @@ export const ProductCard = memo(
                         </div>
 
                         <div
-                            className="mb-[0.08rem] inline-grid grid-flow-col auto-cols-min items-center gap-[0.35rem] rounded-full bg-white p-[0.24rem]"
+                            className="inline-grid grid-flow-col auto-cols-min items-center gap-[0.25rem] rounded-full bg-white p-[0.15rem]"
                             aria-label="Cart actions">
                             <button
                                 type="button"
-                                className="flex min-h-[2.55rem] w-[2.55rem] items-center justify-center rounded-full bg-white p-0 text-[1.05rem] font-bold leading-none text-[#201712]/[0.78] transition-[transform,opacity] duration-[220ms] ease-out enabled:hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-[0.42] disabled:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d06b34]/40 focus-visible:ring-offset-2"
+                                className="flex min-h-[2.1rem] w-[2.1rem] items-center justify-center rounded-full bg-white p-0 text-[1.05rem] font-bold leading-none text-[#201712]/[0.78] transition-[transform,opacity] duration-[220ms] ease-out enabled:hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-[0.42] disabled:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d06b34]/40 focus-visible:ring-offset-2"
                                 aria-label={`Remove one ${product.title}`}
                                 disabled={quantityInCart === 0}
                                 onClick={() => {
@@ -170,7 +170,7 @@ export const ProductCard = memo(
                             </span>
                             <button
                                 type="button"
-                                className="flex min-h-[2.55rem] w-[2.55rem] items-center justify-center rounded-full p-0 text-[1.05rem] font-bold leading-none text-[#fffaf5] transition-[transform,opacity] duration-[220ms] ease-out enabled:hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-[0.42] disabled:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d06b34]/40 focus-visible:ring-offset-2"
+                                className="flex min-h-[2.1rem] w-[2.1rem] items-center justify-center rounded-full p-0 text-[1.05rem] font-bold leading-none text-[#fffaf5] transition-[transform,opacity] duration-[220ms] ease-out enabled:hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-[0.42] disabled:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d06b34]/40 focus-visible:ring-offset-2"
                                 aria-label={`Add one ${product.title}`}
                                 disabled={product.price === null}
                                 style={{

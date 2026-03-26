@@ -31,10 +31,10 @@ export const ProductGrid = memo(
         return (
             <section
                 ref={registerGridSection}
-                className="min-w-0 rounded-[1.8rem] bg-white p-[1.1rem] max-[760px]:rounded-[1.35rem]">
+                className="min-w-0 rounded-[1rem] bg-white p-[0.5rem] max-[760px]:rounded-[0.75rem]">
                 <div
                     ref={registerGridHeading}
-                    className="mb-[0.85rem] flex min-w-0 items-end justify-between gap-4">
+                    className="mb-[0.5rem] flex min-w-0 items-end justify-between gap-4">
                     <div className="grid gap-[0.12rem]">
                         <h2 className="text-[clamp(1.5rem,2.4vw,2.2rem)] font-semibold leading-tight">
                             {selectedCategoryLabel}
@@ -48,7 +48,7 @@ export const ProductGrid = memo(
                 </div>
 
                 {isLoading ? (
-                    <div className="grid min-w-0 gap-[0.85rem] grid-cols-3 max-[1320px]:grid-cols-2 max-[560px]:grid-cols-1">
+                    <div className="grid min-w-0 gap-[0.5rem] grid-cols-3">
                         {Array.from({length: 8}, (_, index) => (
                             <div
                                 key={index}
@@ -69,7 +69,7 @@ export const ProductGrid = memo(
                         ))}
                     </div>
                 ) : visibleProducts.length > 0 ? (
-                    <div className="grocery-product-grid grid min-w-0 gap-[0.85rem] grid-cols-3 max-[1320px]:grid-cols-2 max-[560px]:grid-cols-1">
+                    <div className="grocery-product-grid grid min-w-0 gap-[0.5rem] grid-cols-3">
                         {visibleProducts.map((product) => (
                             <ProductCard
                                 key={product.id}
