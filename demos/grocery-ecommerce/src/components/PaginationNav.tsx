@@ -26,7 +26,7 @@ export const PaginationNav = memo(
         return (
             <div
                 ref={registerGridWindowNav}
-                className="mt-[1rem] flex items-center justify-end gap-4 rounded-[1.35rem] border border-[var(--g-border)] bg-[rgba(255,255,254,0.95)] px-[1.05rem] py-[1rem] shadow-[inset_0_1px_rgba(255,255,255,0.86),0_14px_28px_rgba(31,73,55,0.06)] max-[760px]:flex-col max-[760px]:items-start max-[560px]:items-stretch">
+                className="mt-[1rem] flex items-center justify-end gap-4 rounded-[1.35rem] bg-white px-[1.05rem] py-[1rem] max-[760px]:flex-col max-[760px]:items-start max-[560px]:items-stretch">
                 <div className="flex flex-wrap gap-[0.6rem] max-[760px]:w-full">
                     <button
                         ref={registerPreviousWindowButton}

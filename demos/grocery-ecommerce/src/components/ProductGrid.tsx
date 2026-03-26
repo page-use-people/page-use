@@ -31,7 +31,7 @@ export const ProductGrid = memo(
         return (
             <section
                 ref={registerGridSection}
-                className="min-w-0 rounded-[1.8rem] border border-[var(--g-border)] bg-[var(--g-surface-strong)] p-[1.1rem] shadow-[0_20px_48px_rgba(31,73,55,0.06)] backdrop-blur-[16px] max-[760px]:rounded-[1.35rem]">
+                className="min-w-0 rounded-[1.8rem] bg-white p-[1.1rem] max-[760px]:rounded-[1.35rem]">
                 <div
                     ref={registerGridHeading}
                     className="mb-[0.85rem] flex min-w-0 items-end justify-between gap-4">
@@ -48,28 +48,28 @@ export const ProductGrid = memo(
                 </div>
 
                 {isLoading ? (
-                    <div className="grid min-w-0 gap-[0.85rem] grid-cols-4 max-[1320px]:grid-cols-3 max-[980px]:grid-cols-2 max-[560px]:grid-cols-1 [.grocery-main-layout[data-cart-open='true']_&]:grid-cols-3">
+                    <div className="grid min-w-0 gap-[0.85rem] grid-cols-3 max-[1320px]:grid-cols-2 max-[560px]:grid-cols-1">
                         {Array.from({length: 8}, (_, index) => (
                             <div
                                 key={index}
-                                className="grid gap-[0.72rem] overflow-hidden rounded-[1.22rem] border border-[var(--g-border)] bg-[rgba(255,255,254,0.97)] p-[0.78rem] shadow-[inset_0_1px_rgba(255,255,255,0.94),0_16px_28px_rgba(31,73,55,0.04)]">
-                                <div className="grid min-h-[8.75rem] place-items-center rounded-[1rem] bg-[rgba(250,251,247,0.96)] px-[0.3rem] py-[0.72rem]">
-                                    <div className="h-[6.6rem] w-[6.6rem] rounded-[1.4rem] bg-white/70 animate-pulse" />
+                                className="grid gap-[0.72rem] overflow-hidden rounded-[1.22rem] bg-white p-[0.78rem]">
+                                <div className="grid min-h-[8.75rem] place-items-center rounded-[1rem] bg-[#f5f5f5] px-[0.3rem] py-[0.72rem]">
+                                    <div className="h-[6.6rem] w-[6.6rem] rounded-[1.4rem] bg-white animate-pulse" />
                                 </div>
                                 <div className="grid gap-[0.45rem]">
-                                    <div className="h-3.5 w-2/5 rounded-full bg-[#d8e8d8] animate-pulse" />
-                                    <div className="h-4.5 w-4/5 rounded-full bg-[#c1d9c4] animate-pulse" />
-                                    <div className="h-4 w-3/5 rounded-full bg-[#d8e8d8] animate-pulse" />
+                                    <div className="h-3.5 w-2/5 rounded-full bg-[#eee] animate-pulse" />
+                                    <div className="h-4.5 w-4/5 rounded-full bg-[#e5e5e5] animate-pulse" />
+                                    <div className="h-4 w-3/5 rounded-full bg-[#eee] animate-pulse" />
                                 </div>
                                 <div className="mt-1 flex items-center justify-between gap-3">
-                                    <div className="h-5 w-20 rounded-full bg-[#e6d79d] animate-pulse" />
-                                    <div className="h-10 w-28 rounded-full bg-white/80 animate-pulse" />
+                                    <div className="h-5 w-20 rounded-full bg-[#eee] animate-pulse" />
+                                    <div className="h-10 w-28 rounded-full bg-[#f5f5f5] animate-pulse" />
                                 </div>
                             </div>
                         ))}
                     </div>
                 ) : visibleProducts.length > 0 ? (
-                    <div className="grocery-product-grid grid min-w-0 gap-[0.85rem] grid-cols-4 max-[1320px]:grid-cols-3 max-[980px]:grid-cols-2 max-[560px]:grid-cols-1 [.grocery-main-layout[data-cart-open='true']_&]:grid-cols-3">
+                    <div className="grocery-product-grid grid min-w-0 gap-[0.85rem] grid-cols-3 max-[1320px]:grid-cols-2 max-[560px]:grid-cols-1">
                         {visibleProducts.map((product) => (
                             <ProductCard
                                 key={product.id}
@@ -94,7 +94,7 @@ export const ProductGrid = memo(
                         ))}
                     </div>
                 ) : (
-                    <div className="grid min-h-[13rem] place-items-center gap-[0.45rem] rounded-[1.2rem] bg-[rgba(250,251,247,0.92)] px-[1.1rem] py-[2.25rem] text-center">
+                    <div className="grid min-h-[13rem] place-items-center gap-[0.45rem] rounded-[1.2rem] bg-white px-[1.1rem] py-[2.25rem] text-center">
                         <h3 className="text-[clamp(1.5rem,3vw,2rem)] font-semibold">
                             No products found
                         </h3>

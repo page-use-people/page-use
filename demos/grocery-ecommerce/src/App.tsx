@@ -8,11 +8,11 @@ import {useCartState} from './hooks/use-cart-state.ts';
 import {useCursorAnimation} from './hooks/use-cursor-animation.ts';
 import {useScrollReveal} from './hooks/use-scroll-reveal.ts';
 import {useProductHighlight} from './hooks/use-product-highlight.ts';
-import {useCategoryNavCollapse} from './hooks/use-category-nav-collapse.ts';
 import {useAgentIntegration} from './hooks/use-agent-integration.ts';
 import {AppShell} from './components/AppShell.tsx';
 import {CatalogBrowser} from './components/CatalogBrowser.tsx';
 import {CartPanel} from './components/CartPanel.tsx';
+import {CategoryNav} from './components/CategoryNav.tsx';
 import {FauxCursor} from './components/FauxCursor.tsx';
 import {AgentStatusBadge} from './components/AgentStatusBadge.tsx';
 import {waitForUi} from './lib/async-animation.ts';
@@ -22,16 +22,8 @@ const App = () => {
     const catalogState = useCatalogState();
     const cartState = useCartState(catalogState.catalog);
     const cursor = useCursorAnimation(refs);
-    const scrollReveal = useScrollReveal(
-        refs,
-        cartState.isCartOpenRef,
-        cartState.setIsCartOpen,
-    );
+    const scrollReveal = useScrollReveal(refs);
     const {highlightedProductIds, flashProducts} = useProductHighlight();
-    const isCategoryNavCollapsed = useCategoryNavCollapse(refs, [
-        catalogState.catalog,
-        cartState.isCartOpen,
-    ]);
     const agent = useAgentIntegration(
         catalogState,
         cartState,
@@ -42,10 +34,6 @@ const App = () => {
     );
 
     // ── Derived layout state ────────────────────────────────────
-
-    const showCategoryNav =
-        !isCategoryNavCollapsed ||
-        agent.activeUiTarget?.kind === 'category';
 
     const loadingState = catalogState.isCatalogLoading
         ? 'catalog' as const
@@ -61,12 +49,9 @@ const App = () => {
         ]);
         if (result.touchedProductIds.length > 0) {
             flashProducts(result.touchedProductIds);
-            cartState.pulseCartFab();
         }
         if (delta > 0 && result.addedProductIds.length > 0) {
-            void scrollReveal.revealCartLine(productId, undefined, {
-                openIfNeeded: true,
-            });
+            void scrollReveal.revealCartLine(productId);
         }
     };
 
@@ -76,7 +61,6 @@ const App = () => {
         ]);
         if (result.touchedProductIds.length > 0) {
             flashProducts(result.touchedProductIds);
-            cartState.pulseCartFab();
         }
     };
 
@@ -106,44 +90,47 @@ const App = () => {
                 <AgentTargetContext.Provider value={agent.serializedTarget}>
                     <AppShell
                         loadError={catalogState.loadError}
-                        isCartOpen={cartState.isCartOpen}>
+                        sidebar={
+                            <CategoryNav
+                                selectedCategory={catalogState.selectedCategory}
+                                featuredCategories={
+                                    catalogState.featuredCategories
+                                }
+                                onSelectAllAisles={() =>
+                                    catalogState.selectCategory(null)
+                                }
+                                onSelectCategory={catalogState.selectCategory}
+                            />
+                        }
+                        cart={
+                            catalogState.catalog ? (
+                                <CartPanel
+                                    cartLines={cartState.cartLines}
+                                    totalItems={
+                                        cartState.cartSummary.totalItems
+                                    }
+                                    subtotal={cartState.cartSummary.subtotal}
+                                    onAdjustCart={handleCartAdjust}
+                                />
+                            ) : null
+                        }>
                         <CatalogBrowser
                             searchDraft={catalogState.searchText}
                             searchIsAnimating={catalogState.searchIsAnimating}
                             loadingState={loadingState}
                             searchAppliedQuery={catalogState.searchQuery}
-                            showCategoryNav={showCategoryNav}
-                            selectedCategory={catalogState.selectedCategory}
                             selectedCategoryLabel={
                                 catalogState.selectedCategoryLabel
                             }
-                            featuredCategories={catalogState.featuredCategories}
                             visibleProducts={catalogState.visibleProducts}
                             catalogWindow={catalogState.catalogWindow}
                             cartQuantities={cartState.cartQuantities}
                             highlightedProductIds={highlightedProductIds}
                             onSearchDraftChange={catalogState.applySearchValue}
-                            onSelectAllAisles={() =>
-                                catalogState.selectCategory(null)
-                            }
-                            onSelectCategory={catalogState.selectCategory}
                             onAdjustCart={handleProductAdjust}
                             onPreviousPage={goToPreviousPage}
                             onNextPage={goToNextPage}
                         />
-
-                        {catalogState.catalog ? (
-                            <CartPanel
-                                isOpen={cartState.isCartOpen}
-                                isPulsing={cartState.cartIsPulsing}
-                                cartLines={cartState.cartLines}
-                                totalItems={cartState.cartSummary.totalItems}
-                                subtotal={cartState.cartSummary.subtotal}
-                                onAdjustCart={handleCartAdjust}
-                                onToggle={cartState.toggleCart}
-                                onClose={cartState.closeCart}
-                            />
-                        ) : null}
                     </AppShell>
 
                     <AgentStatusBadge agentAction={cursor.agentAction} />

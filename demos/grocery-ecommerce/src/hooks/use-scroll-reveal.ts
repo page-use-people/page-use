@@ -1,4 +1,3 @@
-import {startTransition} from 'react';
 import type {TElementRegistry} from './use-element-registry.ts';
 import {nextFrame} from '../lib/async-animation.ts';
 import {wait} from '../lib/catalog.ts';
@@ -56,11 +55,7 @@ const revealElement = async (
     await nextFrame(signal);
 };
 
-export const useScrollReveal = (
-    refs: TElementRegistry,
-    isCartOpenRef: React.RefObject<boolean>,
-    setIsCartOpen: (next: boolean | ((prev: boolean) => boolean)) => void,
-) => {
+export const useScrollReveal = (refs: TElementRegistry) => {
     const scrollSearchAreaIntoView = async (
         signal?: AbortSignal,
         behavior: ScrollBehavior = 'smooth',
@@ -90,25 +85,15 @@ export const useScrollReveal = (
         );
     };
 
-    const revealCartPanel = async (
-        signal?: AbortSignal,
-        options?: {readonly openIfNeeded?: boolean},
-    ) => {
-        if (options?.openIfNeeded && !isCartOpenRef.current) {
-            startTransition(() => {
-                setIsCartOpen(true);
-            });
-        }
-
+    const revealCartPanel = async (signal?: AbortSignal) => {
         await nextFrame(signal);
     };
 
     const revealCartLine = async (
         productId: number,
         signal?: AbortSignal,
-        options?: {readonly openIfNeeded?: boolean},
     ) => {
-        await revealCartPanel(signal, options);
+        await revealCartPanel(signal);
         const line = refs.cartLines.current.get(productId) ?? null;
         line?.scrollIntoView({
             behavior: 'smooth',

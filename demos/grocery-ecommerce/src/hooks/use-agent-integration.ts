@@ -410,9 +410,7 @@ export const useAgentIntegration = (
                         ? 'update basket'
                         : 'trim basket',
                 );
-                await scrollReveal.revealCartLine(product.id, signal, {
-                    openIfNeeded: true,
-                });
+                await scrollReveal.revealCartLine(product.id, signal);
                 await cursor.moveCursorToElement(
                     refs.cartLines.current.get(product.id) ??
                         refs.cartPanel.current,
@@ -423,7 +421,6 @@ export const useAgentIntegration = (
 
                 const result = cartStateHook.applyCartMutations([mutation]);
                 flashProducts(result.touchedProductIds);
-                cartStateHook.pulseCartFab();
                 await waitForUi(signal, 60);
 
                 return {
@@ -457,15 +454,12 @@ export const useAgentIntegration = (
 
             const result = cartStateHook.applyCartMutations([mutation]);
             flashProducts(result.touchedProductIds);
-            cartStateHook.pulseCartFab();
             await waitForUi(signal, 60);
 
             if (result.addedProductIds.length > 0) {
                 setActiveUiTarget(cartLineTarget(product.id));
                 cursor.setCursorMode('cart', 'review basket');
-                await scrollReveal.revealCartLine(product.id, signal, {
-                    openIfNeeded: true,
-                });
+                await scrollReveal.revealCartLine(product.id, signal);
                 await cursor.moveCursorToElement(
                     refs.cartLines.current.get(product.id) ??
                         refs.cartPanel.current,

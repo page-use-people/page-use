@@ -18,8 +18,6 @@ const buildCardStyle = (product: TCatalogProduct) =>
         '--product-soft': product.theme.soft,
         '--product-shell': product.theme.shell,
         '--product-glow': product.theme.glow,
-        backgroundImage:
-            'radial-gradient(circle at top left, color-mix(in srgb, var(--product-accent) 24%, rgba(255, 255, 255, 0.96)) 0, color-mix(in srgb, var(--product-support) 12%, rgba(255, 255, 255, 0.96)) 30%, transparent 74%), linear-gradient(180deg, color-mix(in srgb, var(--product-shell) 52%, rgba(255, 255, 255, 0.94)), rgba(248, 242, 234, 0.94))',
     }) as CSSProperties;
 
 export const ProductCard = memo(
@@ -81,37 +79,13 @@ export const ProductCard = memo(
                     rootRef.current = node;
                     registerRef(node);
                 }}
-                className="group relative grid gap-[0.72rem] overflow-hidden rounded-[1.22rem] border border-[#231914]/[0.08] p-[0.78rem] shadow-[inset_0_1px_rgba(255,255,255,0.9),0_18px_36px_rgba(62,40,26,0.06)] transition-[transform,box-shadow,border-color] duration-[220ms] ease-out hover:-translate-y-[3px] data-[agent-active=true]:-translate-y-[3px] data-[highlighted=true]:-translate-y-[3px] data-[highlighted=true]:animate-[grocery-product-pulse_900ms_ease-out_1] data-[pulse=add]:animate-[grocery-product-pop_560ms_cubic-bezier(0.2,0.9,0.2,1)] data-[pulse=remove]:animate-[grocery-product-pop-down_520ms_cubic-bezier(0.2,0.9,0.2,1)]"
+                className="group relative grid gap-[0.72rem] overflow-hidden rounded-[1.22rem] bg-white p-[0.78rem] transition-transform duration-[220ms] ease-out hover:-translate-y-[3px] data-[agent-active=true]:-translate-y-[3px] data-[highlighted=true]:-translate-y-[3px] data-[highlighted=true]:animate-[grocery-product-pulse_900ms_ease-out_1] data-[pulse=add]:animate-[grocery-product-pop_560ms_cubic-bezier(0.2,0.9,0.2,1)] data-[pulse=remove]:animate-[grocery-product-pop-down_520ms_cubic-bezier(0.2,0.9,0.2,1)]"
                 data-in-cart={quantityInCart > 0 ? 'true' : 'false'}
                 data-highlighted={isHighlighted ? 'true' : 'false'}
                 data-agent-active={isAgentActive ? 'true' : 'false'}
                 data-pulse="false"
                 data-cached={hasRenderedBefore ? 'true' : 'false'}
-                style={{
-                    ...cardStyle,
-                    borderColor: isHighlighted
-                        ? 'rgba(240, 192, 58, 0.88)'
-                        : isAgentActive
-                          ? 'color-mix(in srgb, var(--product-accent) 28%, rgba(35, 25, 20, 0.12))'
-                          : undefined,
-                    boxShadow: isHighlighted
-                        ? 'inset 0 1px rgba(255,255,255,0.96), 0 0 0 0.34rem rgba(240,192,58,0.18), 0 24px 44px rgba(240,192,58,0.16)'
-                        : quantityInCart > 0
-                          ? 'inset 0 1px rgba(255,255,255,0.94), 0 0 0 0.18rem color-mix(in srgb, var(--product-accent) 14%, transparent), 0 24px 44px rgba(208,107,52,0.1)'
-                          : isAgentActive
-                            ? 'inset 0 1px rgba(255,255,255,0.92), 0 24px 44px color-mix(in srgb, var(--product-glow) 56%, rgba(208,107,52,0.13))'
-                            : undefined,
-                }}>
-                <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-[-1px] rounded-[inherit] opacity-0 transition-opacity duration-[220ms] ease-out group-hover:opacity-100 group-data-[agent-active=true]:opacity-100 group-data-[highlighted=true]:opacity-100"
-                    style={{
-                        backgroundImage: isHighlighted
-                            ? 'linear-gradient(135deg, rgba(255, 228, 118, 0.28), rgba(255, 255, 255, 0.06))'
-                            : 'linear-gradient(135deg, color-mix(in srgb, var(--product-accent) 34%, rgba(255, 255, 255, 0.07)), color-mix(in srgb, var(--product-support) 24%, transparent))',
-                    }}
-                />
-
+                style={cardStyle}>
                 <div
                     className="grid min-h-[8.75rem] place-items-center overflow-hidden rounded-[1rem] px-[0.3rem] pb-[0.72rem] pt-[0.45rem]"
                     aria-hidden="true"
@@ -179,11 +153,11 @@ export const ProductCard = memo(
                         </div>
 
                         <div
-                            className="mb-[0.08rem] inline-grid grid-flow-col auto-cols-min items-center gap-[0.35rem] rounded-full bg-white/82 p-[0.24rem] shadow-[inset_0_1px_rgba(255,255,255,0.92)]"
+                            className="mb-[0.08rem] inline-grid grid-flow-col auto-cols-min items-center gap-[0.35rem] rounded-full bg-white p-[0.24rem]"
                             aria-label="Cart actions">
                             <button
                                 type="button"
-                                className="flex min-h-[2.55rem] w-[2.55rem] items-center justify-center rounded-full border border-[#201712]/[0.08] bg-white/92 p-0 text-[1.05rem] font-bold leading-none text-[#201712]/[0.78] shadow-[0_14px_28px_rgba(35,22,16,0.12)] transition-[transform,box-shadow,background,opacity] duration-[220ms] ease-out enabled:hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-[0.42] disabled:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d06b34]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fbf7f2]"
+                                className="flex min-h-[2.55rem] w-[2.55rem] items-center justify-center rounded-full bg-white p-0 text-[1.05rem] font-bold leading-none text-[#201712]/[0.78] transition-[transform,opacity] duration-[220ms] ease-out enabled:hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-[0.42] disabled:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d06b34]/40 focus-visible:ring-offset-2"
                                 aria-label={`Remove one ${product.title}`}
                                 disabled={quantityInCart === 0}
                                 onClick={() => {
@@ -196,7 +170,7 @@ export const ProductCard = memo(
                             </span>
                             <button
                                 type="button"
-                                className="flex min-h-[2.55rem] w-[2.55rem] items-center justify-center rounded-full border border-transparent p-0 text-[1.05rem] font-bold leading-none text-[#fffaf5] shadow-[inset_0_1px_rgba(255,255,255,0.16),0_14px_28px_rgba(35,22,16,0.2),0_0_0_1px_color-mix(in_srgb,var(--product-accent)_22%,rgba(17,10,8,0.92))] transition-[transform,box-shadow,background,opacity] duration-[220ms] ease-out enabled:hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-[0.42] disabled:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d06b34]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fbf7f2]"
+                                className="flex min-h-[2.55rem] w-[2.55rem] items-center justify-center rounded-full p-0 text-[1.05rem] font-bold leading-none text-[#fffaf5] transition-[transform,opacity] duration-[220ms] ease-out enabled:hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-[0.42] disabled:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d06b34]/40 focus-visible:ring-offset-2"
                                 aria-label={`Add one ${product.title}`}
                                 disabled={product.price === null}
                                 style={{

@@ -1,4 +1,4 @@
-import {useMemo, useRef, useState} from 'react';
+import {useMemo, useRef} from 'react';
 import {
     buildCartLines,
     mutateCartStateBatch,
@@ -16,9 +16,6 @@ export const useCartState = (catalog: TCatalogData | null) => {
     const [cartActivity, setCartActivity, cartActivityRef] =
         useLatestState<Record<number, number>>({});
     const cartActivityCounterRef = useRef(0);
-    const [isCartOpen, setIsCartOpen, isCartOpenRef] = useLatestState(false);
-    const [cartIsPulsing, setCartIsPulsing] = useState(false);
-    const cartPulseTimerRef = useRef<number | null>(null);
 
     const cartLines = useMemo(
         () =>
@@ -36,18 +33,6 @@ export const useCartState = (catalog: TCatalogData | null) => {
         () => summarizeCartLines(cartLines),
         [cartLines],
     );
-
-    const pulseCartFab = () => {
-        if (cartPulseTimerRef.current !== null) {
-            window.clearTimeout(cartPulseTimerRef.current);
-        }
-
-        setCartIsPulsing(true);
-        cartPulseTimerRef.current = window.setTimeout(() => {
-            setCartIsPulsing(false);
-            cartPulseTimerRef.current = null;
-        }, 520);
-    };
 
     const applyCartMutations = (mutations: readonly TCartMutation[]) => {
         if (!catalog) {
@@ -83,10 +68,6 @@ export const useCartState = (catalog: TCatalogData | null) => {
         setCartActivity(mutationResult.state.activity);
         cartActivityCounterRef.current = mutationResult.state.activityCounter;
 
-        if (mutationResult.addedProductIds.length > 0) {
-            setIsCartOpen(true);
-        }
-
         return {
             summary: mutationResult.summary,
             touchedProductIds: mutationResult.touchedProductIds,
@@ -95,31 +76,16 @@ export const useCartState = (catalog: TCatalogData | null) => {
         };
     };
 
-    const toggleCart = () => {
-        setIsCartOpen((current) => !current);
-    };
-
-    const closeCart = () => {
-        setIsCartOpen(false);
-    };
-
     return {
         cartQuantities,
         cartActivity,
         cartLines,
         cartSummary,
-        isCartOpen,
-        cartIsPulsing,
 
         cartQuantitiesRef,
         cartActivityRef,
-        isCartOpenRef,
 
         applyCartMutations,
-        pulseCartFab,
-        toggleCart,
-        closeCart,
-        setIsCartOpen,
     } as const;
 };
 

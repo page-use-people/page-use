@@ -27,7 +27,7 @@ export const SearchPanel = memo(
         return (
             <div
                 ref={registerSearchPanel}
-                className="grid min-w-0 rounded-[1.1rem] p-0 transition-[background,box-shadow] duration-[220ms] ease-out data-[agent-active=true]:bg-[rgba(249,252,247,0.96)] data-[agent-active=true]:shadow-[inset_0_0_0_1px_rgba(47,122,86,0.18),0_0_0_0.35rem_rgba(47,122,86,0.07)] data-[loading=true]:bg-[rgba(255,252,244,0.96)] data-[loading=true]:shadow-[inset_0_0_0_1px_rgba(216,161,63,0.16),0_0_0_0.35rem_rgba(216,161,63,0.07)]"
+                className="grid min-w-0 rounded-[1.1rem] p-0"
                 data-loading={isLoading ? 'true' : 'false'}
                 data-agent-active={
                     activeUiTarget === 'search-panel' ? 'true' : 'false'
@@ -41,7 +41,7 @@ export const SearchPanel = memo(
                     onChange={(event) => {
                         onSearchDraftChange(event.target.value);
                     }}
-                    className="h-[2.95rem] w-full rounded-[1rem] border border-[var(--g-border)] bg-[rgba(255,255,254,0.96)] px-[0.92rem] text-[0.96rem] leading-[1.25] text-[var(--g-ink)] outline outline-2 outline-transparent shadow-[inset_0_1px_rgba(255,255,255,0.94),0_12px_24px_rgba(31,73,55,0.05)] transition-[transform,outline-color,box-shadow] duration-[220ms] ease-out placeholder:text-[rgba(102,125,114,0.76)] focus:-translate-y-px focus:outline-[rgba(47,122,86,0.52)] focus:shadow-[inset_0_1px_rgba(255,255,255,0.96),0_18px_38px_rgba(47,122,86,0.14)] data-[animating=true]:-translate-y-px data-[animating=true]:outline-[rgba(47,122,86,0.52)] data-[animating=true]:shadow-[inset_0_1px_rgba(255,255,255,0.96),0_18px_38px_rgba(47,122,86,0.14)] data-[agent-active=true]:-translate-y-px data-[agent-active=true]:outline-[rgba(47,122,86,0.52)] data-[agent-active=true]:shadow-[inset_0_1px_rgba(255,255,255,0.96),0_18px_38px_rgba(47,122,86,0.14)] data-[loading=true]:cursor-wait"
+                    className="h-[2.95rem] w-full rounded-[1rem] bg-white px-[0.92rem] text-[0.96rem] leading-[1.25] text-[var(--g-ink)] outline outline-2 outline-transparent transition-[transform,outline-color] duration-[220ms] ease-out placeholder:text-[rgba(102,125,114,0.76)] focus:-translate-y-px focus:outline-[rgba(47,122,86,0.52)] data-[animating=true]:-translate-y-px data-[animating=true]:outline-[rgba(47,122,86,0.52)] data-[agent-active=true]:-translate-y-px data-[agent-active=true]:outline-[rgba(47,122,86,0.52)] data-[loading=true]:cursor-wait"
                     data-animating={searchIsAnimating ? 'true' : 'false'}
                     data-agent-active={
                         activeUiTarget === 'search-panel' ? 'true' : 'false'
