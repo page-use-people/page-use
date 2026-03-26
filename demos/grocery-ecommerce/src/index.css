@@ -11,10 +11,10 @@
     --g-surface-strong: rgba(255, 254, 249, 0.97);
     --g-surface-soft: rgba(253, 250, 242, 0.94);
     --g-border: rgba(48, 38, 26, 0.11);
-    --g-accent: #ffb639;
-    --g-accent-strong: #ffa700;
+    --g-accent: #ffb874;
+    --g-accent-strong: #ffcf73;
     --g-accent-soft: rgba(255, 182, 57, 0.14);
-    --g-on-accent: rgb(44, 32, 9);
+    --g-on-accent: rgb(76, 62, 52);
     --g-accent-glow: rgba(200, 150, 50, 0.16);
     --g-citrus: #d8a13f;
     --g-citrus-soft: rgba(216, 161, 63, 0.18);
@@ -63,11 +63,6 @@ button {
     outline-color: rgba(255, 182, 57, 0.55);
 }
 
-article[data-highlighted='true'],
-article[data-agent-active='true'] {
-    outline-color: rgba(255, 182, 57, 0.55);
-}
-
 @keyframes grocery-agent-status-pulse {
     0%,
     100% {
@@ -91,45 +86,6 @@ article[data-agent-active='true'] {
     }
 }
 
-@keyframes grocery-product-pulse {
-    0% {
-        transform: translateY(0) scale(1);
-    }
-    45% {
-        transform: translateY(-4px) scale(1.015);
-    }
-    100% {
-        transform: translateY(-3px) scale(1);
-    }
-}
-
-@keyframes grocery-product-pop {
-    0% {
-        transform: translateY(0) scale(1);
-    }
-    40% {
-        transform: translateY(-4px) scale(1.015);
-        box-shadow:
-            inset 0 1px rgba(255, 255, 255, 0.96),
-            0 0 0 0.34rem rgba(255, 182, 57, 0.14),
-            0 24px 44px rgba(200, 150, 50, 0.18);
-    }
-    100% {
-        transform: translateY(0) scale(1);
-    }
-}
-
-@keyframes grocery-product-pop-down {
-    0% {
-        transform: translateY(0) scale(1);
-    }
-    45% {
-        transform: translateY(2px) scale(0.99);
-    }
-    100% {
-        transform: translateY(0) scale(1);
-    }
-}
 
 @keyframes grocery-cart-bump {
     0% {

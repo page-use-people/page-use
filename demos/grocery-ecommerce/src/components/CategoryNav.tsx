@@ -23,21 +23,19 @@ export const CategoryNav = memo(
 
         return (
             <nav
-                className="flex flex-col gap-2 overflow-y-auto py-1"
+                className="flex flex-col gap-2 overflow-y-auto py-7"
                 aria-label="Browse product categories">
                 <button
                     ref={registerAllCategoryButton}
                     type="button"
                     className="flex min-h-9 w-full items-center justify-start rounded-xl bg-white px-3.5 py-1.5 text-[var(--g-ink)] transition-[transform,background,color] duration-200 ease-out data-[active=true]:bg-[var(--g-accent-strong)] data-[active=true]:text-[var(--g-on-accent)] data-[agent-active=true]:shadow-[0_0_0_0.28rem_var(--g-accent-glow)]"
-                    data-active={
-                        selectedCategory === null ? 'true' : 'false'
-                    }
+                    data-active={selectedCategory === null ? 'true' : 'false'}
                     data-agent-active={
                         activeUiTarget === 'category:all' ? 'true' : 'false'
                     }
                     onClick={onSelectAllAisles}>
-                    <span className="whitespace-nowrap text-xs font-bold uppercase tracking-widest">
-                        All aisles
+                    <span className="whitespace-nowrap text-sm font-semibold">
+                        All
                     </span>
                 </button>
 
@@ -50,9 +48,7 @@ export const CategoryNav = memo(
                         type="button"
                         className="flex min-h-9 w-full items-center justify-start rounded-xl bg-white px-3.5 py-1.5 text-[var(--g-ink)] transition-[transform,background,color] duration-200 ease-out data-[active=true]:bg-[var(--g-accent-strong)] data-[active=true]:text-[var(--g-on-accent)] data-[agent-active=true]:shadow-[0_0_0_0.28rem_var(--g-accent-glow)]"
                         data-active={
-                            selectedCategory === category.key
-                                ? 'true'
-                                : 'false'
+                            selectedCategory === category.key ? 'true' : 'false'
                         }
                         data-agent-active={
                             activeUiTarget === `category:${category.key}`
@@ -62,7 +58,7 @@ export const CategoryNav = memo(
                         onClick={() => {
                             onSelectCategory(category.key);
                         }}>
-                        <span className="whitespace-nowrap text-xs font-bold uppercase tracking-widest">
+                        <span className="whitespace-nowrap text-sm font-semibold">
                             {category.label}
                         </span>
                     </button>

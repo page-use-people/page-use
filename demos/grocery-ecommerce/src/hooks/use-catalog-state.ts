@@ -79,11 +79,13 @@ export const useCatalogState = () => {
 
     const featuredCategories = useMemo<readonly TCatalogBrowserCategory[]>(
         () =>
-            (catalog?.categories ?? []).slice(0, 10).map((category) => ({
-                key: category.key,
-                label: category.label,
-                count: category.count,
-            })),
+            [...(catalog?.categories ?? [])]
+                .sort((left, right) => left.label.localeCompare(right.label))
+                .map((category) => ({
+                    key: category.key,
+                    label: category.label,
+                    count: category.count,
+                })),
         [catalog],
     );
 

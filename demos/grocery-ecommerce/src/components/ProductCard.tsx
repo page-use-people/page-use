@@ -19,8 +19,6 @@ export const ProductCard = memo(
     ({
         product,
         quantityInCart,
-        isHighlighted,
-        isAgentActive,
         onAdjustCart,
         registerRef,
     }: TProductCardProps) => {
@@ -34,31 +32,33 @@ export const ProductCard = memo(
         }
 
         useEffect(() => {
-            const previousQuantity = previousQuantityRef.current;
+            const prev = previousQuantityRef.current;
             previousQuantityRef.current = quantityInCart;
 
-            if (previousQuantity === quantityInCart) {
+            if (prev === quantityInCart) {
                 return;
             }
 
-            const root = rootRef.current;
-            if (!root) {
-                return;
-            }
+            rootRef.current?.scrollIntoView({
+                block: 'center',
+            });
 
-            const nextPulse =
-                quantityInCart > previousQuantity ? 'add' : 'remove';
-            root.dataset.pulse = 'false';
-            void root.offsetWidth;
-            root.dataset.pulse = nextPulse;
-
-            const timer = window.setTimeout(() => {
-                root.dataset.pulse = 'false';
-            }, 720);
-
-            return () => {
-                window.clearTimeout(timer);
-            };
+            rootRef.current?.animate(
+                [
+                    {outlineColor: 'transparent', zIndex: 99999},
+                    {
+                        outlineColor: 'rgba(255,182,57,0.8)',
+                        transform: 'scale(1.04) translateY(-10px)',
+                        zIndex: 99999,
+                    },
+                    {outlineColor: 'transparent'},
+                ],
+                {
+                    duration: 2_000,
+                    fill: 'forwards',
+                    easing: 'cubic-bezier(0, 1, 0.999, -0.003)',
+                },
+            );
         }, [quantityInCart]);
 
         return (
@@ -67,11 +67,8 @@ export const ProductCard = memo(
                     rootRef.current = node;
                     registerRef(node);
                 }}
-                className="group relative grid gap-1.5 overflow-hidden rounded-xl bg-white p-2 outline outline-[6px] outline-transparent transition-[transform,outline-color] duration-200 ease-out hover:-translate-y-1 data-[agent-active=true]:-translate-y-1 data-[highlighted=true]:-translate-y-1 data-[highlighted=true]:animate-[grocery-product-pulse_900ms_ease-out_1] data-[pulse=add]:animate-[grocery-product-pop_560ms_cubic-bezier(0.2,0.9,0.2,1)] data-[pulse=remove]:animate-[grocery-product-pop-down_520ms_cubic-bezier(0.2,0.9,0.2,1)]"
+                className="group relative grid gap-1.5 overflow-hidden rounded-2xl bg-white p-2 outline outline-[6px] outline-transparent"
                 data-in-cart={quantityInCart > 0 ? 'true' : 'false'}
-                data-highlighted={isHighlighted ? 'true' : 'false'}
-                data-agent-active={isAgentActive ? 'true' : 'false'}
-                data-pulse="false"
                 data-cached={hasRenderedBefore ? 'true' : 'false'}>
                 <div
                     className="grid aspect-square place-items-center overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]"
@@ -162,9 +159,7 @@ export const ProductCard = memo(
     },
     (previousProps, nextProps) =>
         previousProps.product === nextProps.product &&
-        previousProps.quantityInCart === nextProps.quantityInCart &&
-        previousProps.isHighlighted === nextProps.isHighlighted &&
-        previousProps.isAgentActive === nextProps.isAgentActive,
+        previousProps.quantityInCart === nextProps.quantityInCart,
 );
 
 ProductCard.displayName = 'ProductCard';
