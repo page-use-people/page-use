@@ -17,7 +17,7 @@ export const useProductHighlight = () => {
 
     const flashProducts = (
         productIds: readonly number[],
-        duration = 1300,
+        duration = 3500,
     ) => {
         if (productIds.length === 0) {
             return;

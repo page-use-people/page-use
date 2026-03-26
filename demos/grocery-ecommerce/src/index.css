@@ -4,6 +4,7 @@
 :root {
     --font-body: 'Instrument Sans', sans-serif;
     --font-display: 'Cormorant Garamond', serif;
+
     --g-ink: #30261a;
     --g-ink-muted: #7d7266;
     --g-surface: rgba(255, 252, 245, 0.9);
@@ -52,6 +53,19 @@ button {
 
 #root {
     min-height: 100vh;
+}
+
+#catalog-search:focus,
+#catalog-search[data-animating='true'],
+#catalog-search[data-agent-active='true'] {
+    --tw-translate-y: -1px;
+    outline-width: 6px;
+    outline-color: rgba(255, 182, 57, 0.55);
+}
+
+article[data-highlighted='true'],
+article[data-agent-active='true'] {
+    outline-color: rgba(255, 182, 57, 0.55);
 }
 
 @keyframes grocery-agent-status-pulse {

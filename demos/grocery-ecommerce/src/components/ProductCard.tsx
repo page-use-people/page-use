@@ -67,7 +67,7 @@ export const ProductCard = memo(
                     rootRef.current = node;
                     registerRef(node);
                 }}
-                className="group relative grid gap-1.5 overflow-hidden rounded-xl bg-white p-2 transition-transform duration-200 ease-out hover:-translate-y-1 data-[agent-active=true]:-translate-y-1 data-[highlighted=true]:-translate-y-1 data-[highlighted=true]:animate-[grocery-product-pulse_900ms_ease-out_1] data-[pulse=add]:animate-[grocery-product-pop_560ms_cubic-bezier(0.2,0.9,0.2,1)] data-[pulse=remove]:animate-[grocery-product-pop-down_520ms_cubic-bezier(0.2,0.9,0.2,1)]"
+                className="group relative grid gap-1.5 overflow-hidden rounded-xl bg-white p-2 outline outline-[6px] outline-transparent transition-[transform,outline-color] duration-200 ease-out hover:-translate-y-1 data-[agent-active=true]:-translate-y-1 data-[highlighted=true]:-translate-y-1 data-[highlighted=true]:animate-[grocery-product-pulse_900ms_ease-out_1] data-[pulse=add]:animate-[grocery-product-pop_560ms_cubic-bezier(0.2,0.9,0.2,1)] data-[pulse=remove]:animate-[grocery-product-pop-down_520ms_cubic-bezier(0.2,0.9,0.2,1)]"
                 data-in-cart={quantityInCart > 0 ? 'true' : 'false'}
                 data-highlighted={isHighlighted ? 'true' : 'false'}
                 data-agent-active={isAgentActive ? 'true' : 'false'}

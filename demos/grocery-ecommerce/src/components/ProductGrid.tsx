@@ -17,8 +17,6 @@ type TProductGridProps = {
 export const ProductGrid = memo(
     ({
         isLoading,
-        isSearchLoading,
-        selectedCategoryLabel,
         visibleProducts,
         cartQuantities,
         highlightedProductIds,
@@ -26,26 +24,14 @@ export const ProductGrid = memo(
     }: TProductGridProps) => {
         const {registerGridSection, registerGridHeading, registerProductCard} =
             useRegistryCallbacks();
+
         const activeUiTarget = useAgentTarget();
 
         return (
-            <section
-                ref={registerGridSection}
-                className="min-w-0 rounded-2xl bg-white p-2 max-md:rounded-xl">
+            <section ref={registerGridSection} className="min-w-0 bg-white p-2">
                 <div
                     ref={registerGridHeading}
-                    className="mb-2 flex min-w-0 items-end justify-between gap-4">
-                    <div className="grid gap-0.5">
-                        <h2 className="text-[clamp(1.5rem,2.4vw,2.2rem)] font-semibold leading-tight">
-                            {selectedCategoryLabel}
-                        </h2>
-                        {isSearchLoading ? (
-                            <p className="text-sm font-medium text-[var(--g-ink-muted)]">
-                                Search in flight. Waiting for fresh results.
-                            </p>
-                        ) : null}
-                    </div>
-                </div>
+                    className="mb-2 flex min-w-0 items-end justify-between gap-4"></div>
 
                 {isLoading ? (
                     <div className="grid min-w-0 gap-2 grid-cols-3">
@@ -74,15 +60,12 @@ export const ProductGrid = memo(
                             <ProductCard
                                 key={product.id}
                                 product={product}
-                                quantityInCart={
-                                    cartQuantities[product.id] ?? 0
-                                }
+                                quantityInCart={cartQuantities[product.id] ?? 0}
                                 isHighlighted={highlightedProductIds.has(
                                     product.id,
                                 )}
                                 isAgentActive={
-                                    activeUiTarget ===
-                                    `product:${product.id}`
+                                    activeUiTarget === `product:${product.id}`
                                 }
                                 onAdjustCart={(delta) => {
                                     onAdjustCart(product.id, delta);

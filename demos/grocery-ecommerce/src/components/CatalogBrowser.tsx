@@ -45,8 +45,8 @@ export const CatalogBrowser = memo(
         const isSearchLoading = loadingState === 'search';
 
         return (
-            <section className="grocery-browser grid min-w-0 gap-3">
-                <section className="sticky top-4 z-20 grid min-w-0 rounded-3xl bg-white px-4 py-4 max-md:px-3.5 max-md:py-3.5">
+            <section className="grocery-browser grid min-w-0 gap-3 pt-4">
+                <section className="sticky top-0 z-20 grid min-w-0 bg-white px-4 py-2 max-md:px-3.5 max-md:py-3.5">
                     <SearchPanel
                         searchDraft={searchDraft}
                         searchIsAnimating={searchIsAnimating}

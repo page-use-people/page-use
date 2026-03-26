@@ -36,10 +36,10 @@ const App = () => {
     // ── Derived layout state ────────────────────────────────────
 
     const loadingState = catalogState.isCatalogLoading
-        ? 'catalog' as const
+        ? ('catalog' as const)
         : catalogState.isSearchLoading
-          ? 'search' as const
-          : 'idle' as const;
+          ? ('search' as const)
+          : ('idle' as const);
 
     // ── Manual interaction handlers ─────────────────────────────
 
@@ -89,7 +89,6 @@ const App = () => {
             <ElementRegistryContext.Provider value={callbacks}>
                 <AgentTargetContext.Provider value={agent.serializedTarget}>
                     <AppShell
-                        loadError={catalogState.loadError}
                         sidebar={
                             <CategoryNav
                                 selectedCategory={catalogState.selectedCategory}
@@ -134,10 +133,7 @@ const App = () => {
                     </AppShell>
 
                     <AgentStatusBadge agentAction={cursor.agentAction} />
-                    <FauxCursor
-                        ref={refs.cursor}
-                        labelRef={refs.cursorLabel}
-                    />
+                    <FauxCursor ref={refs.cursor} labelRef={refs.cursorLabel} />
                 </AgentTargetContext.Provider>
             </ElementRegistryContext.Provider>
 

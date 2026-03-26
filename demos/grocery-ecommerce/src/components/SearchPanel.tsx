@@ -41,7 +41,7 @@ export const SearchPanel = memo(
                     onChange={(event) => {
                         onSearchDraftChange(event.target.value);
                     }}
-                    className="h-12 w-full rounded-2xl bg-white px-3.5 text-base leading-tight text-[var(--g-ink)] outline outline-2 outline-transparent transition-[transform,outline-color] duration-200 ease-out placeholder:text-[var(--g-ink-muted)] focus:-translate-y-px focus:outline-[var(--g-accent-glow)] data-[animating=true]:-translate-y-px data-[animating=true]:outline-[var(--g-accent-glow)] data-[agent-active=true]:-translate-y-px data-[agent-active=true]:outline-[var(--g-accent-glow)] data-[loading=true]:cursor-wait"
+                    className="h-12 border-stone-200 focus:border-amber-500 border w-full rounded-lg bg-white px-3.5 text-base leading-tight text-[var(--g-ink)] outline outline-2 outline-transparent transition-[transform,outline-color] duration-200 ease-out placeholder:text-[var(--g-ink-muted)] data-[loading=true]:cursor-wait"
                     data-animating={searchIsAnimating ? 'true' : 'false'}
                     data-agent-active={
                         activeUiTarget === 'search-panel' ? 'true' : 'false'
