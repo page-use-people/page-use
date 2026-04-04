@@ -1,0 +1,44 @@
+{
+    "name": "@page-use/client",
+    "version": "0.2.5",
+    "license": "MIT",
+    "type": "module",
+    "main": "dist/index.mjs",
+    "types": "dist/index.d.mts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.mjs",
+            "types": "./dist/index.d.mts"
+        }
+    },
+    "imports": {
+        "#client/*": "./dist/*"
+    },
+    "files": [
+        "dist"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/page-use-people/page-use",
+        "directory": "packages/client"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "scripts": {
+        "dev": "tsc --watch --preserveWatchOutput",
+        "build": "tsc",
+        "build:no-check": "tsc --noCheck"
+    },
+    "dependencies": {
+        "@trpc/client": "11.8.1",
+        "dedent": "1.7.2",
+        "prettier": "3.8.1",
+        "typescript": "5.9.3",
+        "zod": ">=4.0.0 <5",
+        "zod-to-ts": "2.0.0"
+    },
+    "devDependencies": {
+        "@page-use/core": "workspace:*"
+    }
+}

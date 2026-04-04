@@ -38,7 +38,7 @@ export type TAssistantBlock = z.infer<typeof assistantBlockSchema>;
 export const API_MODEL = 'claude-sonnet-4-20250514';
 export const DB_MODEL: TConversationModel = 'claude-sonnet-4.6';
 export const MAX_TOKENS = 16384;
-export const MAX_CONSECUTIVE_PATCH_FAILURES = 3;
+export const MAX_CONSECUTIVE_EDIT_FAILURES = 3;
 export const MAX_AGENT_TURNS = 6;
 
 // ── Anthropic Tool Definitions ──────────────────────────────
@@ -53,24 +53,34 @@ export const WRITE_AND_RUN_JS_TOOL: Tool = {
                 type: 'string',
                 description: 'The JavaScript code to execute',
             },
+            description: {
+                type: 'string',
+                description:
+                    'A super short human-readable label for what this code does (e.g. "adding the todo item", "checking current colors")',
+            },
         },
-        required: ['js_code'],
+        required: ['js_code', 'description'],
     },
 };
 
-export const PATCH_AND_RUN_JS_TOOL: Tool = {
-    name: 'patch_and_run_js',
+export const EDIT_AND_RUN_JS_TOOL: Tool = {
+    name: 'edit_and_run_js',
     description:
-        'Apply a unified diff patch to the most recently executed code and re-run it',
+        'Edit the most recently executed code using SEARCH/REPLACE blocks and re-run it',
     input_schema: {
         type: 'object' as const,
         properties: {
-            js_code_diff_patch: {
+            edits: {
                 type: 'string',
                 description:
-                    'A unified diff patch to apply to the previous code',
+                    'One or more SEARCH/REPLACE blocks. Use <<<<<<< SEARCH, =======, and >>>>>>> REPLACE markers to specify exact code to find and its replacement.',
+            },
+            description: {
+                type: 'string',
+                description:
+                    'A super short human-readable label for what this code does (e.g. "fixing the validation", "retrying with correct input")',
             },
         },
-        required: ['js_code_diff_patch'],
+        required: ['edits', 'description'],
     },
 };

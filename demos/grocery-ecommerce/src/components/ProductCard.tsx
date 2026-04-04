@@ -1,0 +1,146 @@
+import {memo, useEffect, useRef} from 'react';
+import {formatPrice, type TCatalogProduct} from '../lib/catalog.ts';
+import {buildThumbStyle} from '../lib/theme-style.ts';
+
+type TProductCardProps = {
+    readonly product: TCatalogProduct;
+    readonly quantityInCart: number;
+    readonly isHighlighted: boolean;
+    readonly isAgentActive: boolean;
+    readonly onAdjustCart: (delta: number) => void;
+    readonly registerRef: (node: HTMLElement | null) => void;
+};
+
+export const ProductCard = memo(
+    ({
+        product,
+        quantityInCart,
+        onAdjustCart,
+        registerRef,
+    }: TProductCardProps) => {
+        const previousQuantityRef = useRef(quantityInCart);
+        const rootRef = useRef<HTMLElement | null>(null);
+        const hasRenderedRef = useRef(false);
+        const hasRenderedBefore = hasRenderedRef.current;
+
+        if (!hasRenderedRef.current) {
+            hasRenderedRef.current = true;
+        }
+
+        useEffect(() => {
+            const prev = previousQuantityRef.current;
+            previousQuantityRef.current = quantityInCart;
+
+            if (prev === quantityInCart) {
+                return;
+            }
+
+            rootRef.current?.scrollIntoView({
+                block: 'center',
+            });
+
+            rootRef.current?.animate(
+                [
+                    {outlineColor: 'transparent', zIndex: 99999},
+                    {
+                        outlineColor: 'rgba(255,182,57,0.8)',
+                        transform: 'scale(1.04) translateY(-10px)',
+                        zIndex: 99999,
+                    },
+                    {outlineColor: 'transparent'},
+                ],
+                {
+                    duration: 2_000,
+                    fill: 'forwards',
+                    easing: 'cubic-bezier(0, 1, 0.999, -0.003)',
+                },
+            );
+        }, [quantityInCart]);
+
+        return (
+            <article
+                ref={(node) => {
+                    rootRef.current = node;
+                    registerRef(node);
+                }}
+                className="group relative grid gap-1.5 overflow-hidden rounded-2xl bg-white p-2 outline outline-[6px] outline-transparent"
+                data-in-cart={quantityInCart > 0 ? 'true' : 'false'}
+                data-cached={hasRenderedBefore ? 'true' : 'false'}>
+                <div
+                    className="grid aspect-square place-items-center overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]"
+                    style={buildThumbStyle(product.theme)}
+                    aria-hidden="true">
+                    <img
+                        src={product.imageUrl}
+                        alt={product.title}
+                        loading={hasRenderedBefore ? 'eager' : 'lazy'}
+                        className="relative w-[90%] object-contain transition-transform duration-200 ease-out group-hover:-translate-y-0.5 group-hover:scale-[1.02] group-data-[cached=false]:animate-[grocery-image-settle_420ms_ease-out_both]"
+                    />
+                </div>
+
+                <div className="grid gap-1 px-2">
+                    <h3 className="m-0 line-clamp-2 text-sm leading-tight text-[#201712] font-bold">
+                        {product.title}
+                    </h3>
+
+                    <p className="m-0 line-clamp-2 text-xs text-[#201712]/[0.56]">
+                        {product.subtitle}
+                    </p>
+
+                    <div className="flex items-center justify-between gap-3 pr-px pb-0.5 max-sm:flex-col max-sm:items-start">
+                        <div className="grid">
+                            <span className="text-sm font-semibold text-[#201712]">
+                                $ {formatPrice(product.price)}
+                            </span>
+                        </div>
+
+                        {quantityInCart === 0 ? (
+                            <button
+                                type="button"
+                                className="flex min-h-8 items-center justify-center rounded-full bg-[var(--g-accent-strong)] px-3.5 py-1 text-xs font-bold text-[var(--g-on-accent)] transition-[transform,background,opacity] duration-200 ease-out hover:-translate-y-0.5 hover:bg-[var(--g-accent)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--g-accent)]/40 focus-visible:ring-offset-2"
+                                aria-label={`Add ${product.title} to cart`}
+                                disabled={product.price === null}
+                                onClick={() => {
+                                    onAdjustCart(1);
+                                }}>
+                                Add
+                            </button>
+                        ) : (
+                            <div
+                                className="inline-grid grid-flow-col auto-cols-min items-center gap-1 rounded-full bg-white p-0.5"
+                                aria-label="Cart actions">
+                                <button
+                                    type="button"
+                                    className="flex min-h-8 w-8 items-center justify-center rounded-full bg-[var(--g-accent-strong)] p-0 text-base font-bold leading-none text-[var(--g-on-accent)] transition-[transform,background,opacity] duration-200 ease-out hover:-translate-y-0.5 hover:bg-[var(--g-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--g-accent)]/40 focus-visible:ring-offset-2"
+                                    aria-label={`Remove one ${product.title}`}
+                                    onClick={() => {
+                                        onAdjustCart(-1);
+                                    }}>
+                                    -
+                                </button>
+                                <span className="min-w-6 text-center font-semibold text-lg text-[#201712]">
+                                    {quantityInCart}
+                                </span>
+                                <button
+                                    type="button"
+                                    className="flex min-h-8 w-8 items-center justify-center rounded-full bg-[var(--g-accent-strong)] p-0 text-xl font-bold leading-none text-[var(--g-on-accent)] transition-[transform,background,opacity] duration-200 ease-out hover:-translate-y-0.5 hover:bg-[var(--g-accent)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--g-accent)]/40 focus-visible:ring-offset-2"
+                                    aria-label={`Add one more ${product.title}`}
+                                    disabled={product.price === null}
+                                    onClick={() => {
+                                        onAdjustCart(1);
+                                    }}>
+                                    +
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </article>
+        );
+    },
+    (previousProps, nextProps) =>
+        previousProps.product === nextProps.product &&
+        previousProps.quantityInCart === nextProps.quantityInCart,
+);
+
+ProductCard.displayName = 'ProductCard';

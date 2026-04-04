@@ -7,16 +7,16 @@ import {
     API_MODEL,
     DB_MODEL,
     MAX_TOKENS,
-    MAX_CONSECUTIVE_PATCH_FAILURES,
+    MAX_CONSECUTIVE_EDIT_FAILURES,
     MAX_AGENT_TURNS,
     WRITE_AND_RUN_JS_TOOL,
-    PATCH_AND_RUN_JS_TOOL,
+    EDIT_AND_RUN_JS_TOOL,
 } from './schemas.mjs';
 import type {TAssistantBlock} from './schemas.mjs';
 import {
     userBlockToDBType,
     userBlockToPayload,
-    countConsecutivePatchFailures,
+    countConsecutiveEditFailures,
     processResponseBlocks,
 } from './blocks.mjs';
 import {
@@ -24,6 +24,8 @@ import {
     buildContextSection,
     sanitizeMessages,
     buildHistoryMessages,
+    buildCachedSystemPrompt,
+    markLastMessageForCaching,
     applyForceStop,
 } from './messages.mjs';
 import {
@@ -135,7 +137,7 @@ export const converseRouter = router({
                     existingBlocks,
                 );
 
-            // 5. Find last code block for patching
+            // 5. Find last code block for editing
             const lastCodeBlock = [...existingBlocks]
                 .filter((b) => b.type === 'tool_use')
                 .sort(
@@ -148,10 +150,10 @@ export const converseRouter = router({
                 ? String((lastCodeBlock.payload as {code: string}).code ?? '')
                 : null;
 
-            // 6. Check consecutive patch failures
-            const patchFailures = countConsecutivePatchFailures(existingBlocks);
-            const shouldDisablePatch =
-                patchFailures >= MAX_CONSECUTIVE_PATCH_FAILURES;
+            // 6. Check consecutive edit failures
+            const editFailures = countConsecutiveEditFailures(existingBlocks);
+            const shouldDisableEdit =
+                editFailures >= MAX_CONSECUTIVE_EDIT_FAILURES;
 
             // 7. Build messages
             const blocksByTurnId = existingBlocks.reduce<
@@ -161,10 +163,9 @@ export const converseRouter = router({
                 return {...acc, [block.turn_id]: [...existing, block]};
             }, {});
 
-            const historyMessages = await buildHistoryMessages(
+            const historyMessages = buildHistoryMessages(
                 existingTurns,
                 blocksByTurnId,
-                code,
             );
 
             const currentUserContent = buildUserContent(input.blocks);
@@ -207,32 +208,39 @@ export const converseRouter = router({
                 page_variable_types: input.variables_object_definition,
             });
 
-            const systemPrompt =
-                contextSection +
-                systemPromptBase +
-                `\n\n<turn_budget>\nYou have a maximum of ${MAX_AGENT_TURNS} execution turns to fulfill the user's request. Budget your turns carefully: explore and plan early, execute decisively, and verify before your turns run out.\n</turn_budget>`;
+            const stableSystemPrompt =
+                contextSection + systemPromptBase;
 
-            // 9. Build tools + apply force-stop
+            const dynamicSystemPrompt =
+                `\n\n<turn_budget>\nYou have a maximum of ${MAX_AGENT_TURNS} execution turns to fulfill the user's request. Budget your turns carefully: explore and plan early, execute decisively, and verify before your turns run out.\n</turn_budget>` +
+                (shouldDisableEdit && !isForceStop
+                    ? `\n\n<important_notice>\nEditing has failed ${editFailures} times consecutively. The edit_and_run_js tool has been disabled. You MUST use write_and_run_js to write fresh code.\n</important_notice>`
+                    : '');
+
+            // 9. Build tools + apply force-stop + cache breakpoints
             const tools: Tool[] = isForceStop
                 ? []
-                : shouldDisablePatch
+                : shouldDisableEdit
                   ? [WRITE_AND_RUN_JS_TOOL]
-                  : [WRITE_AND_RUN_JS_TOOL, PATCH_AND_RUN_JS_TOOL];
+                  : [WRITE_AND_RUN_JS_TOOL, EDIT_AND_RUN_JS_TOOL];
 
             if (isForceStop) {
                 applyForceStop(messages);
             }
 
-            const finalSystemPrompt =
-                shouldDisablePatch && !isForceStop
-                    ? `${systemPrompt}\n\n<important_notice>\nPatching has failed ${patchFailures} times consecutively. The patch_and_run_js tool has been disabled. You MUST use write_and_run_js to write fresh code.\n</important_notice>`
-                    : systemPrompt;
+            const cachedMessages = markLastMessageForCaching(messages);
 
             // 10. Call Anthropic API
+            // Cache processing order: tools → system → messages
+            // 1h system breakpoint covers tools too (no tool breakpoint needed)
+            // 5m message breakpoint caches conversation history prefix
             const response = await anthropic.createMessage({
                 model: API_MODEL,
-                system: finalSystemPrompt,
-                messages,
+                system: buildCachedSystemPrompt(
+                    stableSystemPrompt,
+                    dynamicSystemPrompt,
+                ),
+                messages: cachedMessages,
                 max_tokens: MAX_TOKENS,
                 tools,
             });

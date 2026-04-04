@@ -1,6 +1,8 @@
 {
     "name": "@page-use/core",
-    "version": "0.1.0",
+    "private": true,
+    "version": "0.2.5",
+    "license": "MIT",
     "type": "module",
     "main": "dist/index.mjs",
     "types": "dist/index.d.mts",
@@ -14,12 +16,13 @@
         "#core/*": "./dist/*"
     },
     "files": [
-        "dist"
+        "dist",
+        "templates"
     ],
     "scripts": {
         "build": "tsc",
         "build:no-check": "tsc --noCheck",
-        "dev": "concurrently -n tsc,node -c blue,green \"tsc --watch --preserveWatchOutput\" \"nodemon --watch dist --ext mjs --delay 2 --exec 'node --inspect=0.0.0.0:14001' dist/index.mjs\"",
+        "dev": "concurrently -n tsc,node -c blue,green \"tsc --watch --preserveWatchOutput\" \"nodemon --watch dist --watch templates --ext mjs,liquid --delay 2 --exec 'node --inspect=0.0.0.0:14001' dist/index.mjs\"",
         "test": "NODE_OPTIONS='--experimental-vm-modules' jest",
         "db:migrate:make": "kysely migrate:make",
         "db:migrate:latest": "kysely migrate:latest",
@@ -36,7 +39,6 @@
         "@trpc/server": "11.8.1",
         "bottleneck": "2.19.5",
         "cors": "2.8.5",
-        "diff": "7.0.0",
         "express": "5.1.0",
         "ioredis": "5.9.2",
         "jose": "6.0.11",
@@ -53,7 +55,6 @@
     },
     "devDependencies": {
         "@types/cors": "2.8.19",
-        "@types/diff": "6.0.0",
         "@types/express": "5.0.6",
         "@types/jest": "29.5.14",
         "@types/node": "24.0.0",

@@ -1,274 +1,148 @@
-import { useState, useReducer, useEffect, useMemo } from 'react';
-import {
-    DndContext,
-    closestCorners,
-    DragOverlay,
-    PointerSensor,
-    useSensor,
-    useSensors,
-    useDroppable,
-    type DragStartEvent,
-    type DragOverEvent,
-    type DragEndEvent,
-} from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
-import TodoInput from './TodoInput.tsx';
-import TodoItem from './TodoItem.tsx';
-import ConfirmModal from './ConfirmModal.tsx';
-
-export type TTodoItem = {
-    id: string;
-    text: string;
-    dueDate: string;
-    completed: boolean;
-};
-
-type TAction =
-    | { type: 'ADD'; text: string; dueDate: string }
-    | { type: 'DELETE'; id: string }
-    | { type: 'TOGGLE'; id: string }
-    | { type: 'UPDATE'; id: string; text: string; dueDate: string }
-    | { type: 'REORDER'; items: TTodoItem[] }
-    | { type: 'CLEAR_ALL' };
-
-const STORAGE_KEY = 'todo-items';
-
-const loadItems = (): TTodoItem[] => {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? JSON.parse(raw) : [];
-    } catch {
-        return [];
-    }
-};
-
-const reducer = (state: TTodoItem[], action: TAction): TTodoItem[] => {
-    switch (action.type) {
-        case 'ADD':
-            return [
-                ...state,
-                {
-                    id: crypto.randomUUID(),
-                    text: action.text,
-                    dueDate: action.dueDate,
-                    completed: false,
-                },
-            ];
-        case 'DELETE':
-            return state.filter((i) => i.id !== action.id);
-        case 'TOGGLE':
-            return state.map((i) => (i.id === action.id ? { ...i, completed: !i.completed } : i));
-        case 'UPDATE':
-            return state.map((i) => (i.id === action.id ? { ...i, text: action.text, dueDate: action.dueDate } : i));
-        case 'REORDER':
-            return action.items;
-        case 'CLEAR_ALL':
-            return [];
-    }
-};
-
-const DroppableSection = ({
-    id,
-    title,
-    children,
-    isEmpty,
-}: {
-    id: string;
-    title: string;
-    children: React.ReactNode;
-    isEmpty: boolean;
-}) => {
-    const { setNodeRef, isOver } = useDroppable({ id });
-    return (
-        <div className="mt-6">
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-black/40">{title}</h2>
-            <div
-                ref={setNodeRef}
-                className={`min-h-[48px] rounded-lg border-2 border-dashed p-2 transition-colors ${isOver ? 'border-black/20 bg-black/[0.03]' : 'border-transparent'}`}
-            >
-                {isEmpty ? <p className="py-3 text-center text-sm text-black/20">No items</p> : children}
-            </div>
-        </div>
-    );
-};
+import { useReducer, useEffect, useMemo } from 'react';
+import { DndContext, closestCorners, DragOverlay } from '@dnd-kit/core';
+import { SystemPrompt } from '@page-use/react';
+import { PageUseChat } from '@page-use/react/ui/chat';
+import { taskReducer, splitByCompletion } from './state/reducer.ts';
+import { loadTasks, saveTasks } from './state/persistence.ts';
+import { useHighlight } from './hooks/use-highlight.ts';
+import { useFocusManagement } from './hooks/use-focus-management.ts';
+import { useTaskAgent } from './hooks/use-task-agent.ts';
+import { useDragReorder } from './hooks/use-drag-reorder.ts';
+import TaskCard from './components/TaskCard.tsx';
+import TaskSection from './components/TaskSection.tsx';
+import DragPreview from './components/DragPreview.tsx';
 
 const App = () => {
-    const [items, dispatch] = useReducer(reducer, undefined, loadItems);
-    const [showClearModal, setShowClearModal] = useState(false);
-    const [activeId, setActiveId] = useState<string | null>(null);
+    const [tasks, dispatch] = useReducer(taskReducer, undefined, loadTasks);
 
-    const incomplete = useMemo(() => items.filter((i) => !i.completed), [items]);
-    const completed = useMemo(() => items.filter((i) => i.completed), [items]);
+    const { highlightedIDs, highlightItems } = useHighlight();
+    const { newItemID, setNewItemID, registerRef, focusTask } = useFocusManagement();
+
+    useTaskAgent(tasks, dispatch, highlightItems);
+    const { activeID, sensors, onDragStart, onDragOver, onDragEnd } = useDragReorder(dispatch, highlightItems);
+
+    const { incomplete, completed } = useMemo(() => splitByCompletion(tasks), [tasks]);
 
     useEffect(() => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-    }, [items]);
+        saveTasks(tasks);
+    }, [tasks]);
 
-    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
-
-    const findContainer = (id: string): 'incomplete' | 'completed' | null => {
-        if (id === 'incomplete' || incomplete.some((i) => i.id === id)) return 'incomplete';
-        if (id === 'completed' || completed.some((i) => i.id === id)) return 'completed';
-        return null;
-    };
-
-    const handleDragStart = (event: DragStartEvent) => {
-        setActiveId(event.active.id as string);
-    };
-
-    const handleDragOver = (event: DragOverEvent) => {
-        const { active, over } = event;
-        if (!over) return;
-
-        const activeContainer = findContainer(active.id as string);
-        const overContainer = findContainer(over.id as string);
-        if (!activeContainer || !overContainer || activeContainer === overContainer) return;
-
-        const activeItem = items.find((i) => i.id === active.id)!;
-        const updated = { ...activeItem, completed: overContainer === 'completed' };
-
-        const sourceList = activeContainer === 'incomplete' ? incomplete : completed;
-        const targetList = overContainer === 'incomplete' ? [...incomplete] : [...completed];
-        const filteredSource = sourceList.filter((i) => i.id !== active.id);
-
-        const overIndex = targetList.findIndex((i) => i.id === over.id);
-        targetList.splice(overIndex >= 0 ? overIndex : targetList.length, 0, updated);
-
-        dispatch({
-            type: 'REORDER',
-            items:
-                overContainer === 'incomplete'
-                    ? [...targetList, ...filteredSource]
-                    : [...filteredSource, ...targetList],
-        });
-    };
-
-    const handleDragEnd = (event: DragEndEvent) => {
-        setActiveId(null);
-        const { active, over } = event;
-        if (!over || active.id === over.id) return;
-
-        const activeContainer = findContainer(active.id as string);
-        const overContainer = findContainer(over.id as string);
-        if (!activeContainer || !overContainer || activeContainer !== overContainer) return;
-
-        const list = activeContainer === 'incomplete' ? incomplete : completed;
-        const other = activeContainer === 'incomplete' ? completed : incomplete;
-        const oldIdx = list.findIndex((i) => i.id === active.id);
-        const newIdx = list.findIndex((i) => i.id === over.id);
-        if (oldIdx === -1 || newIdx === -1) return;
-
-        const reordered = arrayMove(list, oldIdx, newIdx);
-        dispatch({
-            type: 'REORDER',
-            items: activeContainer === 'incomplete' ? [...reordered, ...other] : [...other, ...reordered],
-        });
-    };
+    const activeTask = activeID ? tasks.find((t) => t.id === activeID) : undefined;
 
     return (
-        <div className="min-h-screen bg-gray-50 px-4 py-8">
-            <div className="mx-auto max-w-lg">
-                <h1 className="mb-6 text-2xl font-bold">Todo List</h1>
-                <TodoInput onAdd={(text, dueDate) => dispatch({ type: 'ADD', text, dueDate })} />
-                <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCorners}
-                    onDragStart={handleDragStart}
-                    onDragOver={handleDragOver}
-                    onDragEnd={handleDragEnd}
-                >
-                    <DroppableSection id="incomplete" title="To Do" isEmpty={incomplete.length === 0}>
-                        <SortableContext items={incomplete.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-                            <div className="space-y-2">
-                                {incomplete.map((item) => (
-                                    <TodoItem
-                                        key={item.id}
-                                        item={item}
-                                        onToggle={() =>
-                                            dispatch({
-                                                type: 'TOGGLE',
-                                                id: item.id,
-                                            })
+        <>
+            <SystemPrompt>
+                {`
+                    You are a helpful todo list assistant.
+
+                    For Context:
+                    - You help me manage my tasks in a todo list app.
+                    - The app has two sections: "To Do" (incomplete) and "Completed"
+                    - Each item has a text description, an optional due date, and a completion status.
+                    - Items can be dragged between sections, but you manage them via functions.
+                    - You can add new todos, delete existing ones, toggle their completion status, and clear all items.
+                `}
+            </SystemPrompt>
+
+            <div className="min-h-screen text-stone-800 px-4 py-8 mb-32">
+                <h1 className={'mx-auto max-w-md text-5xl text-center font-light text-pink-600'}>Todo List 🤝 Agent</h1>
+                <div className="mx-auto max-w-md">
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCorners}
+                        onDragStart={onDragStart}
+                        onDragOver={onDragOver}
+                        onDragEnd={onDragEnd}>
+                        <TaskSection id="incomplete" title="TO DO" itemIDs={incomplete.map((t) => t.id)} isEmpty={incomplete.length === 0}>
+                            {incomplete.map((task, idx) => (
+                                <TaskCard
+                                    key={task.id}
+                                    item={task}
+                                    autoFocus={task.id === newItemID}
+                                    highlighted={highlightedIDs.has(task.id)}
+                                    textareaRef={registerRef(task.id)}
+                                    onToggle={() => {
+                                        dispatch({ type: 'TOGGLE_TASK', id: task.id });
+                                        highlightItems([task.id]);
+                                    }}
+                                    onDelete={() => dispatch({ type: 'DELETE_TASK', id: task.id })}
+                                    onUpdate={(text, dueDate) =>
+                                        dispatch({ type: 'UPDATE_TASK', id: task.id, text, dueDate })
+                                    }
+                                    onAddBelow={() => {
+                                        const id = crypto.randomUUID();
+                                        setNewItemID(id);
+                                        dispatch({ type: 'ADD_TASK', id, text: '', dueDate: '' });
+                                    }}
+                                    onDeleteFocusPrev={() => {
+                                        const prevTask = incomplete[idx - 1];
+                                        dispatch({ type: 'DELETE_TASK', id: task.id });
+                                        if (prevTask) {
+                                            focusTask(prevTask.id);
                                         }
-                                        onDelete={() =>
-                                            dispatch({
-                                                type: 'DELETE',
-                                                id: item.id,
-                                            })
-                                        }
-                                        onUpdate={(text, dueDate) =>
-                                            dispatch({
-                                                type: 'UPDATE',
-                                                id: item.id,
-                                                text,
-                                                dueDate,
-                                            })
-                                        }
-                                    />
-                                ))}
-                            </div>
-                        </SortableContext>
-                    </DroppableSection>
-                    <DroppableSection id="completed" title="Completed" isEmpty={completed.length === 0}>
-                        <SortableContext items={completed.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-                            <div className="space-y-2">
-                                {completed.map((item) => (
-                                    <TodoItem
-                                        key={item.id}
-                                        item={item}
-                                        onToggle={() =>
-                                            dispatch({
-                                                type: 'TOGGLE',
-                                                id: item.id,
-                                            })
-                                        }
-                                        onDelete={() =>
-                                            dispatch({
-                                                type: 'DELETE',
-                                                id: item.id,
-                                            })
-                                        }
-                                        onUpdate={(text, dueDate) =>
-                                            dispatch({
-                                                type: 'UPDATE',
-                                                id: item.id,
-                                                text,
-                                                dueDate,
-                                            })
-                                        }
-                                    />
-                                ))}
-                            </div>
-                        </SortableContext>
-                    </DroppableSection>
-                    <DragOverlay>
-                        {activeId ? (
-                            <div className="flex items-center gap-2 rounded border border-gray-200 bg-white px-3 py-2 shadow-lg">
-                                <span className="text-black/20">⠿</span>
-                                <span className="text-sm">{items.find((i) => i.id === activeId)?.text}</span>
-                            </div>
-                        ) : null}
-                    </DragOverlay>
-                </DndContext>
-                {items.length > 0 && (
-                    <button
-                        className="mt-8 w-full rounded border border-gray-300 py-2 text-sm text-black/40 transition-colors hover:border-black hover:text-black"
-                        onClick={() => setShowClearModal(true)}
-                    >
-                        Clear All
-                    </button>
-                )}
-                <ConfirmModal
-                    open={showClearModal}
-                    message="Are you sure you want to clear all items?"
-                    onConfirm={() => {
-                        dispatch({ type: 'CLEAR_ALL' });
-                        setShowClearModal(false);
-                    }}
-                    onCancel={() => setShowClearModal(false)}
-                />
+                                    }}
+                                />
+                            ))}
+                        </TaskSection>
+                        <div className="text-center py-2 px-8">
+                            <button
+                                onClick={() => {
+                                    const id = crypto.randomUUID();
+                                    setNewItemID(id);
+                                    dispatch({ type: 'ADD_TASK', id, text: '', dueDate: '' });
+                                }}
+                                className="mt-2 flex items-center gap-1 text-sm text-stone-600/60 transition-colors hover:text-stone-800">
+                                + Add Task
+                            </button>
+                        </div>
+                        <TaskSection id="completed" title="Done" itemIDs={completed.map((t) => t.id)} isEmpty={completed.length === 0}>
+                            {completed.map((task) => (
+                                <TaskCard
+                                    key={task.id}
+                                    item={task}
+                                    highlighted={highlightedIDs.has(task.id)}
+                                    onToggle={() => {
+                                        dispatch({ type: 'TOGGLE_TASK', id: task.id });
+                                        highlightItems([task.id]);
+                                    }}
+                                    onDelete={() => dispatch({ type: 'DELETE_TASK', id: task.id })}
+                                    onUpdate={(text, dueDate) =>
+                                        dispatch({ type: 'UPDATE_TASK', id: task.id, text, dueDate })
+                                    }
+                                    onAddBelow={() => {
+                                        const id = crypto.randomUUID();
+                                        setNewItemID(id);
+                                        dispatch({ type: 'ADD_TASK', id, text: '', dueDate: '' });
+                                    }}
+                                />
+                            ))}
+                        </TaskSection>
+                        <DragOverlay>
+                            <DragPreview task={activeTask} />
+                        </DragOverlay>
+                    </DndContext>
+                </div>
             </div>
-        </div>
+
+            <PageUseChat
+                title={'Task Master'}
+                greeting={`Hi, I'm the _Task Master_. I help you manage your todo list.`}
+                theme="dark"
+                placeholder={'Write to Task Master'}
+                roundedness={'sm'}
+                icon={({ location }) => <span className={location === 'launcher' ? 'text-3xl' : 'text-xl'}>🐼</span>}
+                cssVariables={{
+                    '--pu-bg': '#292217',
+                    '--pu-fg': '#eae7d6',
+                    '--pu-surface': '#423c2c',
+                    '--pu-muted': '#776d55',
+                    '--pu-divider': '#433425',
+                    '--pu-accent': '#af9055',
+                    '--pu-shadow': '0 25px 60px rgba(6,4,0,0.65)',
+                }}
+                devMode
+            />
+        </>
     );
 };
 

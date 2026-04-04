@@ -5,8 +5,8 @@ on:
         branches:
             - main
         paths:
-            - apps/client/package.json
-            - apps/react/package.json
+            - packages/client/package.json
+            - packages/react/package.json
 
 permissions:
     id-token: write
@@ -16,11 +16,11 @@ jobs:
     release:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v6
 
             - uses: pnpm/action-setup@v4
 
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@v6
               with:
                   node-version: 24
                   registry-url: https://registry.npmjs.org

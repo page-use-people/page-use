@@ -1,0 +1,99 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+:root {
+    --font-body: 'Instrument Sans', sans-serif;
+    --font-display: 'Cormorant Garamond', serif;
+
+    --g-ink: #30261a;
+    --g-ink-muted: #7d7266;
+    --g-surface: rgba(255, 252, 245, 0.9);
+    --g-surface-strong: rgba(255, 254, 249, 0.97);
+    --g-surface-soft: rgba(253, 250, 242, 0.94);
+    --g-border: rgba(48, 38, 26, 0.11);
+    --g-accent: #ffb874;
+    --g-accent-strong: #ffcf73;
+    --g-accent-soft: rgba(255, 182, 57, 0.14);
+    --g-on-accent: rgb(76, 62, 52);
+    --g-accent-glow: rgba(200, 150, 50, 0.16);
+    --g-citrus: #d8a13f;
+    --g-citrus-soft: rgba(216, 161, 63, 0.18);
+    color: var(--g-ink);
+    background: #fffcf5;
+    font-family: var(--font-body);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    overflow-x: hidden;
+    font-family: var(--font-body);
+}
+
+button,
+input {
+    font: inherit;
+}
+
+button {
+    cursor: pointer;
+}
+
+#root {
+    min-height: 100vh;
+}
+
+#catalog-search:focus,
+#catalog-search[data-animating='true'],
+#catalog-search[data-agent-active='true'] {
+    --tw-translate-y: -1px;
+    outline-width: 6px;
+    outline-color: rgba(255, 182, 57, 0.55);
+}
+
+@keyframes grocery-agent-status-pulse {
+    0%,
+    100% {
+        box-shadow:
+            0 18px 38px rgba(180, 130, 40, 0.12),
+            inset 0 1px rgba(255, 255, 255, 0.9);
+    }
+    50% {
+        box-shadow:
+            0 24px 48px rgba(200, 150, 50, 0.18),
+            inset 0 1px rgba(255, 255, 255, 0.9);
+    }
+}
+
+@keyframes grocery-shimmer {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+
+@keyframes grocery-image-settle {
+    0% {
+        opacity: 0;
+        transform: translateY(6px) scale(0.98);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}

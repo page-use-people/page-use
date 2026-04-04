@@ -27,28 +27,6 @@ importers:
         specifier: 2.8.1
         version: 2.8.1
 
-  apps/client:
-    dependencies:
-      '@trpc/client':
-        specifier: 11.8.1
-        version: 11.8.1(@trpc/server@11.8.1(typescript@5.9.3))(typescript@5.9.3)
-      prettier:
-        specifier: 3.8.1
-        version: 3.8.1
-      typescript:
-        specifier: 5.9.3
-        version: 5.9.3
-      zod-to-ts:
-        specifier: 2.0.0
-        version: 2.0.0(typescript@5.9.3)(zod@4.3.6)
-    devDependencies:
-      '@page-use/core':
-        specifier: workspace:*
-        version: link:../core
-      zod:
-        specifier: 4.3.6
-        version: 4.3.6
-
   apps/core:
     dependencies:
       '@anthropic-ai/sdk':
@@ -66,9 +44,6 @@ importers:
       cors:
         specifier: 2.8.5
         version: 2.8.5
-      diff:
-        specifier: 7.0.0
-        version: 7.0.0
       express:
         specifier: 5.1.0
         version: 5.1.0
@@ -112,9 +87,6 @@ importers:
       '@types/cors':
         specifier: 2.8.19
         version: 2.8.19
-      '@types/diff':
-        specifier: 6.0.0
-        version: 6.0.0
       '@types/express':
         specifier: 5.0.6
         version: 5.0.6
@@ -155,7 +127,248 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
-  apps/react:
+  demos/color-picker:
+    dependencies:
+      '@page-use/client':
+        specifier: workspace:*
+        version: link:../../packages/client
+      '@page-use/react':
+        specifier: workspace:*
+        version: link:../../packages/react
+      '@tailwindcss/vite':
+        specifier: 4.2.1
+        version: 4.2.1(vite@7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.19.4))
+      react:
+        specifier: ^19.2.0
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.2.0
+        version: 19.2.4(react@19.2.4)
+      tailwindcss:
+        specifier: 4.2.1
+        version: 4.2.1
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.39.1
+        version: 9.39.3
+      '@types/node':
+        specifier: ^24.10.1
+        version: 24.11.0
+      '@types/react':
+        specifier: ^19.2.7
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      '@vitejs/plugin-react':
+        specifier: ^5.1.1
+        version: 5.1.4(vite@7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.19.4))
+      eslint:
+        specifier: ^9.39.1
+        version: 9.39.3(jiti@2.6.1)
+      eslint-plugin-react-hooks:
+        specifier: ^7.0.1
+        version: 7.0.1(eslint@9.39.3(jiti@2.6.1))
+      eslint-plugin-react-refresh:
+        specifier: ^0.4.24
+        version: 0.4.26(eslint@9.39.3(jiti@2.6.1))
+      globals:
+        specifier: ^16.5.0
+        version: 16.5.0
+      prettier:
+        specifier: 3.8.1
+        version: 3.8.1
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+      typescript-eslint:
+        specifier: ^8.48.0
+        version: 8.56.1(eslint@9.39.3(jiti@2.6.1))(typescript@5.9.3)
+      vite:
+        specifier: ^7.3.1
+        version: 7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.19.4)
+
+  demos/grocery-ecommerce:
+    dependencies:
+      '@page-use/client':
+        specifier: workspace:*
+        version: link:../../packages/client
+      '@page-use/react':
+        specifier: workspace:*
+        version: link:../../packages/react
+      '@tailwindcss/vite':
+        specifier: 4.2.1
+        version: 4.2.1(vite@7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.19.4))
+      '@tanstack/react-query':
+        specifier: 5.95.2
+        version: 5.95.2(react@19.2.4)
+      react:
+        specifier: ^19.2.0
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.2.0
+        version: 19.2.4(react@19.2.4)
+      tailwindcss:
+        specifier: 4.2.1
+        version: 4.2.1
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.39.1
+        version: 9.39.3
+      '@types/node':
+        specifier: ^24.10.1
+        version: 24.11.0
+      '@types/react':
+        specifier: ^19.2.7
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      '@vitejs/plugin-react':
+        specifier: ^5.1.1
+        version: 5.1.4(vite@7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.19.4))
+      eslint:
+        specifier: ^9.39.1
+        version: 9.39.3(jiti@2.6.1)
+      eslint-plugin-react-hooks:
+        specifier: ^7.0.1
+        version: 7.0.1(eslint@9.39.3(jiti@2.6.1))
+      eslint-plugin-react-refresh:
+        specifier: ^0.4.24
+        version: 0.4.26(eslint@9.39.3(jiti@2.6.1))
+      globals:
+        specifier: ^16.5.0
+        version: 16.5.0
+      prettier:
+        specifier: 3.8.1
+        version: 3.8.1
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+      typescript-eslint:
+        specifier: ^8.48.0
+        version: 8.56.1(eslint@9.39.3(jiti@2.6.1))(typescript@5.9.3)
+      vite:
+        specifier: ^7.3.1
+        version: 7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.19.4)
+
+  demos/noop: {}
+
+  demos/todo-list:
+    dependencies:
+      '@dnd-kit/core':
+        specifier: ^6.3.1
+        version: 6.3.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@dnd-kit/sortable':
+        specifier: ^10.0.0
+        version: 10.0.0(@dnd-kit/core@6.3.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)
+      '@dnd-kit/utilities':
+        specifier: ^3.2.2
+        version: 3.2.2(react@19.2.4)
+      '@page-use/client':
+        specifier: workspace:*
+        version: link:../../packages/client
+      '@page-use/react':
+        specifier: workspace:*
+        version: link:../../packages/react
+      '@tailwindcss/vite':
+        specifier: 4.2.1
+        version: 4.2.1(vite@7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.19.4))
+      clsx:
+        specifier: 2.1.1
+        version: 2.1.1
+      date-fns:
+        specifier: 4.1.0
+        version: 4.1.0
+      react:
+        specifier: ^19.2.0
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.2.0
+        version: 19.2.4(react@19.2.4)
+      tailwindcss:
+        specifier: 4.2.1
+        version: 4.2.1
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.39.1
+        version: 9.39.3
+      '@types/node':
+        specifier: ^24.10.1
+        version: 24.11.0
+      '@types/react':
+        specifier: ^19.2.7
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      '@vitejs/plugin-react':
+        specifier: ^5.1.1
+        version: 5.1.4(vite@7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.19.4))
+      eslint:
+        specifier: ^9.39.1
+        version: 9.39.3(jiti@2.6.1)
+      eslint-plugin-react-hooks:
+        specifier: ^7.0.1
+        version: 7.0.1(eslint@9.39.3(jiti@2.6.1))
+      eslint-plugin-react-refresh:
+        specifier: ^0.4.24
+        version: 0.4.26(eslint@9.39.3(jiti@2.6.1))
+      globals:
+        specifier: ^16.5.0
+        version: 16.5.0
+      prettier:
+        specifier: 3.8.1
+        version: 3.8.1
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+      typescript-eslint:
+        specifier: ^8.48.0
+        version: 8.56.1(eslint@9.39.3(jiti@2.6.1))(typescript@5.9.3)
+      vite:
+        specifier: ^7.3.1
+        version: 7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.19.4)
+
+  packages/client:
+    dependencies:
+      '@trpc/client':
+        specifier: 11.8.1
+        version: 11.8.1(@trpc/server@11.8.1(typescript@5.9.3))(typescript@5.9.3)
+      dedent:
+        specifier: 1.7.2
+        version: 1.7.2
+      prettier:
+        specifier: 3.8.1
+        version: 3.8.1
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      zod:
+        specifier: '>=4.0.0 <5'
+        version: 4.3.6
+      zod-to-ts:
+        specifier: 2.0.0
+        version: 2.0.0(typescript@5.9.3)(zod@4.3.6)
+    devDependencies:
+      '@page-use/core':
+        specifier: workspace:*
+        version: link:../../apps/core
+
+  packages/react:
+    dependencies:
+      '@twind/core':
+        specifier: 1.1.3
+        version: 1.1.3(typescript@5.9.3)
+      '@twind/preset-tailwind':
+        specifier: 1.1.4
+        version: 1.1.4(@twind/core@1.1.3(typescript@5.9.3))(typescript@5.9.3)
+      marked:
+        specifier: 17.0.4
+        version: 17.0.4
+      mobx:
+        specifier: ^6.15.0
+        version: 6.15.0
     devDependencies:
       '@page-use/client':
         specifier: workspace:*
@@ -178,146 +391,6 @@ importers:
       typescript:
         specifier: 5.9.3
         version: 5.9.3
-      zod:
-        specifier: 4.3.6
-        version: 4.3.6
-
-  demos/color-picker:
-    dependencies:
-      '@page-use/client':
-        specifier: workspace:*
-        version: link:../../apps/client
-      '@page-use/react':
-        specifier: workspace:*
-        version: link:../../apps/react
-      '@tailwindcss/vite':
-        specifier: 4.2.1
-        version: 4.2.1(vite@7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.19.4))
-      dedent:
-        specifier: 1.7.2
-        version: 1.7.2
-      react:
-        specifier: ^19.2.0
-        version: 19.2.4
-      react-dom:
-        specifier: ^19.2.0
-        version: 19.2.4(react@19.2.4)
-      tailwindcss:
-        specifier: 4.2.1
-        version: 4.2.1
-      zod:
-        specifier: 4.3.6
-        version: 4.3.6
-    devDependencies:
-      '@eslint/js':
-        specifier: ^9.39.1
-        version: 9.39.3
-      '@types/node':
-        specifier: ^24.10.1
-        version: 24.11.0
-      '@types/react':
-        specifier: ^19.2.7
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: ^5.1.1
-        version: 5.1.4(vite@7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.19.4))
-      eslint:
-        specifier: ^9.39.1
-        version: 9.39.3(jiti@2.6.1)
-      eslint-plugin-react-hooks:
-        specifier: ^7.0.1
-        version: 7.0.1(eslint@9.39.3(jiti@2.6.1))
-      eslint-plugin-react-refresh:
-        specifier: ^0.4.24
-        version: 0.4.26(eslint@9.39.3(jiti@2.6.1))
-      globals:
-        specifier: ^16.5.0
-        version: 16.5.0
-      prettier:
-        specifier: 3.8.1
-        version: 3.8.1
-      typescript:
-        specifier: ~5.9.3
-        version: 5.9.3
-      typescript-eslint:
-        specifier: ^8.48.0
-        version: 8.56.1(eslint@9.39.3(jiti@2.6.1))(typescript@5.9.3)
-      vite:
-        specifier: ^7.3.1
-        version: 7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.19.4)
-
-  demos/todo-list:
-    dependencies:
-      '@dnd-kit/core':
-        specifier: ^6.3.1
-        version: 6.3.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@dnd-kit/sortable':
-        specifier: ^10.0.0
-        version: 10.0.0(@dnd-kit/core@6.3.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)
-      '@dnd-kit/utilities':
-        specifier: ^3.2.2
-        version: 3.2.2(react@19.2.4)
-      '@page-use/client':
-        specifier: workspace:*
-        version: link:../../apps/client
-      '@tailwindcss/vite':
-        specifier: 4.2.1
-        version: 4.2.1(vite@7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.19.4))
-      react:
-        specifier: ^19.2.0
-        version: 19.2.4
-      react-dom:
-        specifier: ^19.2.0
-        version: 19.2.4(react@19.2.4)
-      tailwindcss:
-        specifier: 4.2.1
-        version: 4.2.1
-      zod:
-        specifier: 4.3.6
-        version: 4.3.6
-    devDependencies:
-      '@eslint/js':
-        specifier: ^9.39.1
-        version: 9.39.3
-      '@types/node':
-        specifier: ^24.10.1
-        version: 24.11.0
-      '@types/react':
-        specifier: ^19.2.7
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: ^5.1.1
-        version: 5.1.4(vite@7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.19.4))
-      eslint:
-        specifier: ^9.39.1
-        version: 9.39.3(jiti@2.6.1)
-      eslint-plugin-react-hooks:
-        specifier: ^7.0.1
-        version: 7.0.1(eslint@9.39.3(jiti@2.6.1))
-      eslint-plugin-react-refresh:
-        specifier: ^0.4.24
-        version: 0.4.26(eslint@9.39.3(jiti@2.6.1))
-      globals:
-        specifier: ^16.5.0
-        version: 16.5.0
-      prettier:
-        specifier: 3.8.1
-        version: 3.8.1
-      typescript:
-        specifier: ~5.9.3
-        version: 5.9.3
-      typescript-eslint:
-        specifier: ^8.48.0
-        version: 8.56.1(eslint@9.39.3(jiti@2.6.1))(typescript@5.9.3)
-      vite:
-        specifier: ^7.3.1
-        version: 7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.19.4)
 
 packages:
 
@@ -1348,6 +1421,14 @@ packages:
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7
 
+  '@tanstack/query-core@5.95.2':
+    resolution: {integrity: sha512-o4T8vZHZET4Bib3jZ/tCW9/7080urD4c+0/AUaYVpIqOsr7y0reBc1oX3ttNaSW5mYyvZHctiQ/UOP2PfdmFEQ==}
+
+  '@tanstack/react-query@5.95.2':
+    resolution: {integrity: sha512-/wGkvLj/st5Ud1Q76KF1uFxScV7WeqN1slQx5280ycwAyYkIPGaRZAEgHxe3bjirSd5Zpwkj6zNcR4cqYni/ZA==}
+    peerDependencies:
+      react: ^18 || ^19
+
   '@trpc/client@11.8.1':
     resolution: {integrity: sha512-L/SJFGanr9xGABmuDoeXR4xAdHJmsXsiF9OuH+apecJ+8sUITzVT1EPeqp0ebqA6lBhEl5pPfg3rngVhi/h60Q==}
     peerDependencies:
@@ -1358,6 +1439,25 @@ packages:
     resolution: {integrity: sha512-P4rzZRpEL7zDFgjxK65IdyH0e41FMFfTkQkuq0BA5tKcr7E6v9/v38DEklCpoDN6sPiB1Sigy/PUEzHENhswDA==}
     peerDependencies:
       typescript: '>=5.7.2'
+
+  '@twind/core@1.1.3':
+    resolution: {integrity: sha512-/B/aNFerMb2IeyjSJy3SJxqVxhrT77gBDknLMiZqXIRr4vNJqiuhx7KqUSRzDCwUmyGuogkamz+aOLzN6MeSLw==}
+    engines: {node: '>=14.15.0'}
+    peerDependencies:
+      typescript: ^4.8.4
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
+  '@twind/preset-tailwind@1.1.4':
+    resolution: {integrity: sha512-zv85wrP/DW4AxgWrLfH7kyGn/KJF3K04FMLVl2AjoxZGYdCaoZDkL8ma3hzaKQ+WGgBFRubuB/Ku2Rtv/wjzVw==}
+    engines: {node: '>=14.15.0'}
+    peerDependencies:
+      '@twind/core': ^1.1.0
+      typescript: ^4.8.4
+    peerDependenciesMeta:
+      typescript:
+        optional: true
 
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
@@ -1379,9 +1479,6 @@ packages:
 
   '@types/cors@2.8.19':
     resolution: {integrity: sha512-mFNylyeyqN93lfe/9CSxOGREz8cpzAhH+E93xJ4xWQf62V8sQ/24reV2nyzUWM6H6Xji+GGHpkbLe7pVoUEskg==}
-
-  '@types/diff@6.0.0':
-    resolution: {integrity: sha512-dhVCYGv3ZSbzmQaBSagrv1WJ6rXCdkyTcDyoNu1MD8JohI7pR7k8wdZEm+mvdxRKXyHVwckFzWU1vJc+Z29MlA==}
 
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
@@ -1758,6 +1855,10 @@ packages:
     resolution: {integrity: sha512-BSeNnyus75C4//NQ9gQt1/csTXyo/8Sb+afLAkzAptFuMsod9HFokGNudZpi/oQV73hnVK+sR+5PVRMd+Dr7YQ==}
     engines: {node: '>=12'}
 
+  clsx@2.1.1:
+    resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
+    engines: {node: '>=6'}
+
   cluster-key-slot@1.1.2:
     resolution: {integrity: sha512-RMr0FhtfXemyinomL4hrWcYJxmX6deFdCxpJzhDttxgO1+bcCnkk+9drydLVDmAMG7NE6aN/fl4F7ucU/90gAA==}
     engines: {node: '>=0.10.0'}
@@ -1868,6 +1969,9 @@ packages:
   dataloader@1.4.0:
     resolution: {integrity: sha512-68s5jYdlvasItOJnCuI2Q9s4q98g0pCyL3HrcKJu8KNugUl8ahgmZYg38ysLTgQjjXX3H8CJLkAvWrclWfcalw==}
 
+  date-fns@4.1.0:
+    resolution: {integrity: sha512-Ukq0owbQXxa/U3EGtsdVBkR1w7KOQ5gIBqdH2hkvknzZPYvBxb/aa6E8L7tmjFtkwZBu3UXBbjIgPo/Ez4xaNg==}
+
   debug@4.4.3:
     resolution: {integrity: sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==}
     engines: {node: '>=6.0'}
@@ -1928,10 +2032,6 @@ packages:
 
   diff@3.5.1:
     resolution: {integrity: sha512-Z3u54A8qGyqFOSr2pk0ijYs8mOE9Qz8kTvtKeBI+upoG9j04Sq+oI7W8zAJiQybDcESET8/uIdHzs0p3k4fZlw==}
-    engines: {node: '>=0.3.1'}
-
-  diff@7.0.0:
-    resolution: {integrity: sha512-PJWHUb1RFevKCwaFA9RlG5tCd+FO5iRh9A8HEtkmBH2Li03iJriB6m6JIN4rGz3K3JLawI7/veA1xzRKP6ISBw==}
     engines: {node: '>=0.3.1'}
 
   dir-glob@3.0.1:
@@ -2838,6 +2938,11 @@ packages:
   makeerror@1.0.12:
     resolution: {integrity: sha512-JmqCvUhmt43madlpFzG4BQzG2Z3m6tvQDNKdClZnO3VbIudJYmxsT0FNJMeiB2+JTSlTQTSbU8QdesVmwJcmLg==}
 
+  marked@17.0.4:
+    resolution: {integrity: sha512-NOmVMM+KAokHMvjWmC5N/ZOvgmSWuqJB8FoYI019j4ogb/PeRMKoKIjReZ2w3376kkA8dSJIP8uD993Kxc0iRQ==}
+    engines: {node: '>= 20'}
+    hasBin: true
+
   math-intrinsics@1.1.0:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
     engines: {node: '>= 0.4'}
@@ -2893,6 +2998,9 @@ packages:
 
   mitt@3.0.1:
     resolution: {integrity: sha512-vKivATfr97l2/QBCYAkXYDbrIWPM2IIKEl7YPhjCvKlG3kE2gm+uBo6nEXK3M5/Ffh/FLpKExzOQ3JJoJGFKBw==}
+
+  mobx@6.15.0:
+    resolution: {integrity: sha512-UczzB+0nnwGotYSgllfARAqWCJ5e/skuV2K/l+Zyck/H6pJIhLXuBnz+6vn2i211o7DtbE78HQtsYEKICHGI+g==}
 
   mri@1.2.0:
     resolution: {integrity: sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA==}
@@ -4853,6 +4961,13 @@ snapshots:
       tailwindcss: 4.2.1
       vite: 7.3.1(@types/node@24.11.0)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.19.4)
 
+  '@tanstack/query-core@5.95.2': {}
+
+  '@tanstack/react-query@5.95.2(react@19.2.4)':
+    dependencies:
+      '@tanstack/query-core': 5.95.2
+      react: 19.2.4
+
   '@trpc/client@11.8.1(@trpc/server@11.8.1(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:
       '@trpc/server': 11.8.1(typescript@5.9.3)
@@ -4860,6 +4975,18 @@ snapshots:
 
   '@trpc/server@11.8.1(typescript@5.9.3)':
     dependencies:
+      typescript: 5.9.3
+
+  '@twind/core@1.1.3(typescript@5.9.3)':
+    dependencies:
+      csstype: 3.2.3
+    optionalDependencies:
+      typescript: 5.9.3
+
+  '@twind/preset-tailwind@1.1.4(@twind/core@1.1.3(typescript@5.9.3))(typescript@5.9.3)':
+    dependencies:
+      '@twind/core': 1.1.3(typescript@5.9.3)
+    optionalDependencies:
       typescript: 5.9.3
 
   '@types/babel__core@7.20.5':
@@ -4895,8 +5022,6 @@ snapshots:
   '@types/cors@2.8.19':
     dependencies:
       '@types/node': 24.11.0
-
-  '@types/diff@6.0.0': {}
 
   '@types/estree@1.0.8': {}
 
@@ -5360,6 +5485,8 @@ snapshots:
       strip-ansi: 6.0.1
       wrap-ansi: 7.0.0
 
+  clsx@2.1.1: {}
+
   cluster-key-slot@1.1.2: {}
 
   co@4.6.0: {}
@@ -5463,6 +5590,8 @@ snapshots:
 
   dataloader@1.4.0: {}
 
+  date-fns@4.1.0: {}
+
   debug@4.4.3(supports-color@5.5.0):
     dependencies:
       ms: 2.1.3
@@ -5494,8 +5623,6 @@ snapshots:
   diff-sequences@29.6.3: {}
 
   diff@3.5.1: {}
-
-  diff@7.0.0: {}
 
   dir-glob@3.0.1:
     dependencies:
@@ -6654,6 +6781,8 @@ snapshots:
     dependencies:
       tmpl: 1.0.5
 
+  marked@17.0.4: {}
+
   math-intrinsics@1.1.0: {}
 
   media-typer@1.1.0: {}
@@ -6694,6 +6823,8 @@ snapshots:
   minimist@1.2.8: {}
 
   mitt@3.0.1: {}
+
+  mobx@6.15.0: {}
 
   mri@1.2.0: {}
 

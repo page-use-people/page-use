@@ -1,0 +1,65 @@
+{
+    "name": "@page-use/react",
+    "version": "0.2.5",
+    "license": "MIT",
+    "type": "module",
+    "main": "dist/index.mjs",
+    "types": "dist/index.d.mts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.mjs",
+            "types": "./dist/index.d.mts"
+        },
+        "./hooks": {
+            "import": "./dist/page-use/index.js",
+            "types": "./dist/page-use/index.d.ts"
+        },
+        "./ui/chat": {
+            "import": "./dist/chat-widget/index.js",
+            "types": "./dist/chat-widget/index.d.ts"
+        }
+    },
+    "sideEffects": [
+        "./dist/chat-widget/lib/twind.*",
+        "./dist/chat-widget/lib/markdown.*"
+    ],
+    "imports": {
+        "#react/*": "./dist/*"
+    },
+    "files": [
+        "dist"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/page-use-people/page-use",
+        "directory": "packages/react"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "scripts": {
+        "dev": "tsc --watch --preserveWatchOutput",
+        "build": "tsc",
+        "build:no-check": "tsc --noCheck"
+    },
+    "peerDependencies": {
+        "@page-use/client": ">=0.2.5",
+        "react": ">=18.0.0",
+        "react-dom": ">=18.0.0"
+    },
+    "devDependencies": {
+        "@page-use/client": "workspace:*",
+        "@types/react": "19.1.8",
+        "@types/react-dom": "19.1.6",
+        "prettier": "3.8.1",
+        "react": "19.1.0",
+        "react-dom": "19.1.0",
+        "typescript": "5.9.3"
+    },
+    "dependencies": {
+        "@twind/core": "1.1.3",
+        "@twind/preset-tailwind": "1.1.4",
+        "marked": "17.0.4",
+        "mobx": "^6.15.0"
+    }
+}

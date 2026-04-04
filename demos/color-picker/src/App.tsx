@@ -1,12 +1,6 @@
 import {useState} from 'react';
-import {
-    PageUseChat,
-    PageUseFunction,
-    PageUseSystemPrompt,
-    PageUseVariable,
-} from '@page-use/react';
-import z from 'zod';
-import dedent from 'dedent';
+import {SystemPrompt, useAgentVariable, useAgentFunction, z} from '@page-use/react';
+import {PageUseChat} from '@page-use/react/ui/chat';
 
 const randomHex = () =>
     `#${Array.from({length: 6}, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('')}`;
@@ -18,9 +12,9 @@ const luminance = (hex: string) => {
     return 0.299 * r + 0.587 * g + 0.114 * b;
 };
 
-const systemPrompt = dedent`
-    You are a color picker assistant named Picaso. 
-    
+const systemPrompt = `
+    You are a color picker assistant named Picaso.
+
     For Context:
     - You help me, the user with picking colors.
     - The page is basically
@@ -30,63 +24,40 @@ const systemPrompt = dedent`
         - There is a button for "Random Color" it will generate a random color
 `;
 
-const colorType = z
+const colorSchema = z.string().describe('the currently selected color in hex format');
+const textColorSchema = z
     .string()
-    .describe('the currently selected color in hex format');
-const textColorType = z
-    .string()
-    .describe(
-        'the current text color, typically black when the luminance is greater than 0.5',
-    );
-const setColorInput = z
-    .string()
-    .describe('the color to set in hex format');
-const setColorOutput = z.void().describe('void');
+    .describe('the current text color, typically black when the luminance is greater than 0.5');
+const setColorInputSchema = z.string().describe('the color to set in hex format');
 
-const promptChips = [
-    {
-        label: 'Pick a warm color',
-        prompt: 'Set the page to a warm orange color that still keeps the text readable.',
-    },
-    {
-        label: 'High contrast mode',
-        prompt: 'Switch the page to the highest-contrast readable color scheme you can.',
-    },
+const suggestions = [
+    'Set the page to a warm orange color that still keeps the text readable.',
+    'Switch the page to the highest-contrast readable color scheme you can.',
 ];
 
 const App = () => {
     const [color, setColor] = useState('#ffffff');
     const textColor = luminance(color) > 0.5 ? '#000000' : '#ffffff';
 
+    useAgentVariable('color', {schema: colorSchema, value: color});
+    useAgentVariable('text_color', {schema: textColorSchema, value: textColor});
+
+    useAgentFunction('set_color', {
+        inputSchema: setColorInputSchema,
+        func: async (input) => {
+            setColor(input);
+        },
+    });
+
     return (
         <>
-            <PageUseSystemPrompt prompt={systemPrompt} />
-            <PageUseVariable
-                name="color"
-                value={color}
-                type={colorType}
-            />
-            <PageUseVariable
-                name="text_color"
-                value={textColor}
-                type={textColorType}
-            />
-            <PageUseFunction
-                name="set_color"
-                input={setColorInput}
-                output={setColorOutput}
-                func={async (input) => {
-                    setColor(input);
-                }}
-            />
+            <SystemPrompt>{systemPrompt}</SystemPrompt>
 
             <div
                 className="min-h-screen flex items-center justify-center"
                 style={{backgroundColor: color, color: textColor}}>
                 <div className="flex flex-col items-center gap-6">
-                    <p className="text-6xl font-bold tracking-tight font-mono">
-                        {color}
-                    </p>
+                    <p className="text-6xl font-bold tracking-tight font-mono">{color}</p>
 
                     <input
                         type="color"
@@ -122,7 +93,7 @@ const App = () => {
                 title="PICASO"
                 placeholder="Set a color, ask for contrast, or describe a mood"
                 greeting="Hello, I'm Picaso. I can see the current page color, keep contrast readable, and call the color setter for you."
-                promptChips={promptChips}
+                suggestions={suggestions}
                 theme={textColor === '#000000' ? 'light' : 'dark'}
             />
         </>
