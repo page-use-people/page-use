@@ -4,6 +4,8 @@ import {
     useQuery,
 } from '@tanstack/react-query';
 import {useCallback, useEffect, useMemo, useState} from 'react';
+import {CartPanel} from './components/CartPanel';
+import {ProductCard} from './components/ProductCard';
 import {decodeAllEmbeddings} from './lib/embeddings';
 import {
     embedQuery,
@@ -176,7 +178,7 @@ const Grocery = () => {
 
     return (
         <div className="min-h-screen bg-gray-50 p-8">
-            <div className="mx-auto max-w-2xl">
+            <div className="mx-auto max-w-6xl">
                 <h1 className="mb-6 text-2xl font-bold text-gray-900">
                     Grocery Semantic Search
                 </h1>
@@ -211,82 +213,37 @@ const Grocery = () => {
                     )}
                 </form>
 
-                {hasQuery && results && results.length > 0 && (
-                    <div className="space-y-2">
-                        {results.slice(0, 50).map((r, idx) => (
-                            <div
-                                key={r.item.id}
-                                className={`flex items-center gap-3 rounded-lg border bg-white px-4 py-3 shadow-sm ${
-                                    r.score < 0.5 ? 'opacity-40' : ''
-                                }`}>
-                                <img
-                                    src={`${IMAGE_BASE}/${r.item.id}.jpeg`}
-                                    alt={r.item.name}
-                                    className="size-12 shrink-0 rounded-md object-cover"
-                                />
-                                <div className="min-w-0 flex-1">
-                                    <span className="mr-2 font-mono text-xs text-gray-400">
-                                        {idx + 1}.
-                                    </span>
-                                    <span className="font-medium text-gray-900">
-                                        {r.item.name}
-                                    </span>
-                                    <p className="mt-0.5 text-xs text-gray-500">
-                                        {r.item.categoryTitle} /{' '}
-                                        {r.item.subcategoryTitle}
-                                    </p>
-                                </div>
-                                <div className="ml-4 flex shrink-0 flex-col items-end">
-                                    <span className="font-mono text-xs text-gray-400">
-                                        {r.score.toFixed(4)}
-                                    </span>
-                                    <span className="text-sm font-medium text-gray-900">
-                                        {r.item.originalPrice >
-                                            r.item.currentPrice && (
-                                            <span className="mr-1 text-gray-400 line-through">
-                                                {r.item.originalPrice}
-                                            </span>
-                                        )}
-                                        {r.item.currentPrice}
-                                    </span>
-                                </div>
+                <div className="flex items-start gap-8">
+                    <div className="min-w-0 flex-1">
+                        {hasQuery && results && results.length > 0 && (
+                            <div className="space-y-2">
+                                {results.slice(0, 50).map((r, idx) => (
+                                    <ProductCard
+                                        key={r.item.id}
+                                        item={r.item}
+                                        index={idx}
+                                        score={r.score}
+                                        imageBase={IMAGE_BASE}
+                                    />
+                                ))}
                             </div>
-                        ))}
-                    </div>
-                )}
+                        )}
 
-                {!hasQuery && (
-                    <div className="space-y-2">
-                        {shuffledItems.map((item) => (
-                            <div
-                                key={item.id}
-                                className="flex items-center gap-3 rounded-lg border bg-white px-4 py-3 shadow-sm">
-                                <img
-                                    src={`${IMAGE_BASE}/${item.id}.jpeg`}
-                                    alt={item.name}
-                                    className="size-12 shrink-0 rounded-md object-cover"
-                                />
-                                <div className="min-w-0 flex-1">
-                                    <span className="font-medium text-gray-900">
-                                        {item.name}
-                                    </span>
-                                    <p className="mt-0.5 text-xs text-gray-500">
-                                        {item.categoryTitle} /{' '}
-                                        {item.subcategoryTitle}
-                                    </p>
-                                </div>
-                                <span className="ml-4 shrink-0 text-sm font-medium text-gray-900">
-                                    {item.originalPrice > item.currentPrice && (
-                                        <span className="mr-1 text-gray-400 line-through">
-                                            {item.originalPrice}
-                                        </span>
-                                    )}
-                                    {item.currentPrice}
-                                </span>
+                        {!hasQuery && (
+                            <div className="space-y-2">
+                                {shuffledItems.map((item) => (
+                                    <ProductCard
+                                        key={item.id}
+                                        item={item}
+                                        imageBase={IMAGE_BASE}
+                                    />
+                                ))}
                             </div>
-                        ))}
+                        )}
                     </div>
-                )}
+
+                    <CartPanel imageBase={IMAGE_BASE} />
+                </div>
             </div>
         </div>
     );
