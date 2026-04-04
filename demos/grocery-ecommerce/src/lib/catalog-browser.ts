@@ -234,7 +234,7 @@ export const getFilteredProducts = (
     return catalog.products
         .map((product) => ({
             product,
-            score: scoreSearchMatch(product, selectedCategory, normalizedQuery),
+            score: scoreSearchMatch(product, null, normalizedQuery),
         }))
         .filter(
             (

@@ -143,6 +143,8 @@ export const useCatalogState = () => {
 
     const selectCategory = (categoryKey: string | null) => {
         setSelectedCategory(categoryKey);
+        setSearchText('');
+        setSearchQuery('');
         setVisibleStartIndex(0);
     };
 
