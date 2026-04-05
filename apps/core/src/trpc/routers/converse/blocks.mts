@@ -21,6 +21,7 @@ export const userBlockToPayload = (block: TUserBlock): unknown =>
 
 export const countConsecutiveEditFailures = (
     blocks: readonly TSelectableBlock[],
+    currentBlocks: readonly TUserBlock[] = [],
 ): number => {
     let count = 0;
 
@@ -41,25 +42,38 @@ export const countConsecutiveEditFailures = (
         {toolUse: new Map(), toolResult: []},
     );
 
-    // Walk backwards through tool_result blocks
-    const sortedResults = [...blocksByType.toolResult].sort(
-        (a, b) =>
-            b.created_at.getTime() - a.created_at.getTime() ||
-            b.id.localeCompare(a.id),
-    );
+    const orderedResults = [
+        ...blocksByType.toolResult.map((block) => {
+            const payload = block.payload as {
+                execution_identifier: string;
+                error: string | null;
+            };
 
-    for (const resultBlock of sortedResults) {
-        const payload = resultBlock.payload as {
-            execution_identifier: string;
-            error: string | null;
-        };
+            return {
+                execution_identifier: payload.execution_identifier,
+                error: payload.error,
+            };
+        }),
+        ...currentBlocks
+            .filter(
+                (block): block is Extract<TUserBlock, {type: 'execution_result'}> =>
+                    block.type === 'execution_result',
+            )
+            .map((block) => ({
+                execution_identifier: block.execution_identifier,
+                error: block.error,
+            })),
+    ];
 
-        if (!payload.error) {
+    // Walk backwards through tool_result blocks, including the current user turn.
+    for (let i = orderedResults.length - 1; i >= 0; i--) {
+        const resultBlock = orderedResults[i];
+        if (!resultBlock.error) {
             break; // Success found, stop counting
         }
 
         const toolUseBlock = blocksByType.toolUse.get(
-            payload.execution_identifier,
+            resultBlock.execution_identifier,
         );
         if (!toolUseBlock) {
             break;

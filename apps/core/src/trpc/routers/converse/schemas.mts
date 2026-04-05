@@ -39,7 +39,9 @@ export const API_MODEL = 'claude-sonnet-4-20250514';
 export const DB_MODEL: TConversationModel = 'claude-sonnet-4.6';
 export const MAX_TOKENS = 16384;
 export const MAX_CONSECUTIVE_EDIT_FAILURES = 3;
-export const MAX_AGENT_TURNS = 6;
+export const MAX_CONSECUTIVE_FAILED_EXECUTION_TURNS = 6;
+// TODO: Move MAX_AGENT_TURNS to env vars once loop controls settle.
+export const MAX_AGENT_TURNS = 30;
 
 // ── Anthropic Tool Definitions ──────────────────────────────
 
