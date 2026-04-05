@@ -8,6 +8,7 @@ import {
     DB_MODEL,
     MAX_TOKENS,
     MAX_CONSECUTIVE_EDIT_FAILURES,
+    MAX_CONSECUTIVE_FAILED_EXECUTION_TURNS,
     MAX_AGENT_TURNS,
     WRITE_AND_RUN_JS_TOOL,
     EDIT_AND_RUN_JS_TOOL,
@@ -31,6 +32,8 @@ import {
 import {
     guardAgentProcessing,
     countAgentTurnsSinceLastUserTurn,
+    countConsecutiveFailedExecutionTurns,
+    getRunSegmentSinceLastTrueUserTurn,
 } from './guards.mjs';
 
 // ── Router ──────────────────────────────────────────────────
@@ -129,13 +132,27 @@ export const converseRouter = router({
                           .execute()
                     : [];
 
-            // 4. Count agent turns
-            const {agentTurnCount, turnsRemaining, isForceStop} =
-                countAgentTurnsSinceLastUserTurn(
-                    isTrueUserTurn,
-                    existingTurns,
-                    existingBlocks,
+            const runSegment = getRunSegmentSinceLastTrueUserTurn(
+                isTrueUserTurn,
+                existingTurns,
+                existingBlocks,
+            );
+
+            // 4. Count execution budgets
+            const agentTurnBudget = countAgentTurnsSinceLastUserTurn(
+                runSegment.turns,
+            );
+            const failedExecutionTurnBudget =
+                countConsecutiveFailedExecutionTurns(
+                    runSegment.turns,
+                    runSegment.blocks,
+                    input.blocks,
                 );
+            const forceStopReason = agentTurnBudget.isForceStop
+                ? ('max_agent_turns' as const)
+                : failedExecutionTurnBudget.isForceStop
+                  ? ('failed_execution_turns' as const)
+                  : null;
 
             // 5. Find last code block for editing
             const lastCodeBlock = [...existingBlocks]
@@ -151,8 +168,12 @@ export const converseRouter = router({
                 : null;
 
             // 6. Check consecutive edit failures
-            const editFailures = countConsecutiveEditFailures(existingBlocks);
+            const editFailures = countConsecutiveEditFailures(
+                runSegment.blocks,
+                input.blocks,
+            );
             const shouldDisableEdit =
+                forceStopReason === null &&
                 editFailures >= MAX_CONSECUTIVE_EDIT_FAILURES;
 
             // 7. Build messages
@@ -172,12 +193,12 @@ export const converseRouter = router({
             const currentUserMessage: MessageParam = {
                 role: 'user',
                 content:
-                    !isForceStop && agentTurnCount > 0
+                    forceStopReason === null && !isTrueUserTurn
                         ? [
                               ...currentUserContent,
                               {
                                   type: 'text' as const,
-                                  text: `[System: You have ${turnsRemaining} execution turn(s) remaining.]`,
+                                  text: `[System: You have ${failedExecutionTurnBudget.turnsRemaining} consecutive failed execution turn(s) remaining before you must stop if failures continue.]`,
                               },
                           ]
                         : currentUserContent,
@@ -212,20 +233,20 @@ export const converseRouter = router({
                 contextSection + systemPromptBase;
 
             const dynamicSystemPrompt =
-                `\n\n<turn_budget>\nYou have a maximum of ${MAX_AGENT_TURNS} execution turns to fulfill the user's request. Budget your turns carefully: explore and plan early, execute decisively, and verify before your turns run out.\n</turn_budget>` +
-                (shouldDisableEdit && !isForceStop
+                `\n\n<execution_limits>\nYou have a maximum of ${MAX_AGENT_TURNS} total execution turns to fulfill a single user request. This is a hard backstop.\nYou also have a maximum of ${MAX_CONSECUTIVE_FAILED_EXECUTION_TURNS} consecutive failed execution turns. A failed execution turn is a follow-up turn where every execution result is an error.\nAny successful execution result resets the consecutive failed execution turn counter to 0.\nBudget your attempts carefully. If you exhaust either limit, you must stop using tools and apologize to the user.\n</execution_limits>` +
+                (shouldDisableEdit && forceStopReason === null
                     ? `\n\n<important_notice>\nEditing has failed ${editFailures} times consecutively. The edit_and_run_js tool has been disabled. You MUST use write_and_run_js to write fresh code.\n</important_notice>`
                     : '');
 
             // 9. Build tools + apply force-stop + cache breakpoints
-            const tools: Tool[] = isForceStop
+            const tools: Tool[] = forceStopReason
                 ? []
                 : shouldDisableEdit
                   ? [WRITE_AND_RUN_JS_TOOL]
                   : [WRITE_AND_RUN_JS_TOOL, EDIT_AND_RUN_JS_TOOL];
 
-            if (isForceStop) {
-                applyForceStop(messages);
+            if (forceStopReason) {
+                applyForceStop(messages, forceStopReason);
             }
 
             const cachedMessages = markLastMessageForCaching(messages);

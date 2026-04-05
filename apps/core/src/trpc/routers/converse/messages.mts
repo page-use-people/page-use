@@ -5,7 +5,10 @@ import type {
 } from '@anthropic-ai/sdk/resources/messages';
 import type {TSelectableBlock, TSelectableTurn} from '#core/db/types.mjs';
 import type {TUserBlock} from './schemas.mjs';
-import {MAX_AGENT_TURNS} from './schemas.mjs';
+import {
+    MAX_AGENT_TURNS,
+    MAX_CONSECUTIVE_FAILED_EXECUTION_TURNS,
+} from './schemas.mjs';
 
 // ── User Content ────────────────────────────────────────────
 
@@ -184,30 +187,55 @@ export const markLastMessageForCaching = (
 
 // ── Force Stop ──────────────────────────────────────────────
 
-export const applyForceStop = (messages: MessageParam[]): void => {
-    const lastAssistantIdx = messages.findLastIndex(
-        (m) => m.role === 'assistant',
-    );
-    if (lastAssistantIdx !== -1) {
-        messages[lastAssistantIdx] = {
-            role: 'assistant',
-            content: [
-                {
-                    type: 'text',
-                    text: 'I have used all of my available execution turns.',
-                },
-            ],
-        };
+export type TForceStopReason =
+    | 'failed_execution_turns'
+    | 'max_agent_turns';
+
+const buildForceStopInstruction = (reason: TForceStopReason): string =>
+    reason === 'failed_execution_turns'
+        ? `You have reached the limit of ${MAX_CONSECUTIVE_FAILED_EXECUTION_TURNS} consecutive failed execution turns without a successful run. Respond with ONLY a text message apologizing to the user. Briefly summarize what you accomplished and explain that repeated execution failures prevented you from completing the request.`
+        : `You have used all ${MAX_AGENT_TURNS} of your total execution turns. Respond with ONLY a text message apologizing to the user. Briefly summarize what you accomplished and explain that you could not complete the request within the total turn limit.`;
+
+export const applyForceStop = (
+    messages: MessageParam[],
+    reason: TForceStopReason,
+): void => {
+    const lastUserIdx = messages.length - 1;
+    const instructionBlock = {
+        type: 'text' as const,
+        text: buildForceStopInstruction(reason),
+    };
+
+    const lastUserMessage = messages[lastUserIdx];
+    if (!lastUserMessage) {
+        messages.push({
+            role: 'user',
+            content: [instructionBlock],
+        });
+        return;
     }
 
-    const lastUserIdx = messages.length - 1;
+    if (typeof lastUserMessage.content === 'string') {
+        messages[lastUserIdx] = {
+            role: 'user',
+            content: [
+                {type: 'text' as const, text: lastUserMessage.content},
+                instructionBlock,
+            ],
+        };
+        return;
+    }
+
+    if (!Array.isArray(lastUserMessage.content)) {
+        messages[lastUserIdx] = {
+            role: 'user',
+            content: [instructionBlock],
+        };
+        return;
+    }
+
     messages[lastUserIdx] = {
         role: 'user',
-        content: [
-            {
-                type: 'text',
-                text: `You have used all ${MAX_AGENT_TURNS} of your execution turns. Respond with ONLY a text message apologizing to the user. Briefly summarize what you accomplished and explain that you could not complete the request within the turn limit.`,
-            },
-        ],
+        content: [...lastUserMessage.content, instructionBlock],
     };
 };

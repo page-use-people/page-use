@@ -2,9 +2,8 @@
 export default {
     preset: 'ts-jest/presets/default-esm',
     testEnvironment: 'node',
-    moduleNameMapper: {
-        '^(\\.{1,2}/.*)\\.mjs$': '$1.mts',
-    },
+    moduleFileExtensions: ['mts', 'ts', 'mjs', 'js', 'json'],
+    resolver: './jest-resolver.cjs',
     transform: {
         '^.+\\.mts$': [
             'ts-jest',
